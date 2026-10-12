@@ -29,6 +29,9 @@ func screen(m *menu, title string, o options, notice string) {
 }
 func dashboard(ctx context.Context, m *menu, o *options, configPath, system, home string) error {
 	if m.terminal {
+		return panelDashboard(ctx, m, o, configPath, system, home)
+	}
+	if m.terminal {
 		fmt.Fprint(m.out, "\033[?1049h")
 		defer fmt.Fprint(m.out, "\033[?25h\033[?1049l")
 	}

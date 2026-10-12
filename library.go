@@ -18,7 +18,7 @@ type libraryFile struct {
 	Modified   time.Time
 }
 
-var intermediateName = regexp.MustCompile(`\.f\d+\.[^.]+$`)
+var intermediateName = regexp.MustCompile(`\.(?:f\d+|temp)\.[^.]+$`)
 
 func listMedia(dir string) ([]libraryFile, error) {
 	entries, err := os.ReadDir(dir)

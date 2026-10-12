@@ -22,6 +22,7 @@ type mediaFormat struct {
 	DRM    bool   `json:"has_drm"`
 }
 type mediaInfo struct {
+	ID       string        `json:"id"`
 	Title    string        `json:"title"`
 	Duration float64       `json:"duration"`
 	Formats  []mediaFormat `json:"formats"`

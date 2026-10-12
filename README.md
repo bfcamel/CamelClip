@@ -10,7 +10,7 @@ It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other sup
 - Navigate interactive menus with **↑ / ↓ and Enter**. Numbered menus are used when terminal controls are unavailable.
 - Download one link or process a queue sequentially; a failed download does not stop subsequent links.
 - Keep a fixed output directory and save preferences from the Settings menu.
-- Stay in a persistent dashboard between downloads and browse files already on disk.
+- Work in independent file, job and event-log panels while downloads run in the background.
 - Update download progress on the same terminal line.
 - Show explanations for common access, network, format and disk errors.
 
@@ -86,24 +86,44 @@ The `dist/` directory contains:
 
 You can also double-click the repository's `Start.command` after building. The launcher finds a binary next to itself or inside `dist/`. Compiled binaries are excluded from Git.
 
-## Interactive dashboard
+## Multitasking terminal workspace
 
-Run `macdown` without URLs to open a persistent terminal dashboard. The screen shows your fixed output directory and the number and total size of media files in it. Use **Up/Down + Enter** to choose an action:
+Run `macdown` without URLs to open a full-screen workspace with three independent panels:
 
-- **Download video** — paste one or more URLs, choose a quality for each video, and download as MP4.
-- **Download audio** — use the audio format selected in Settings.
-- **My files** — browse the actual media files currently stored in your output directory. Files are sorted newest first and show size and modification date. Open a file in the default macOS app, reveal it in Finder, refresh the list, or navigate between pages.
-- **Settings** — change the output directory, language, preferred video quality and audio format. Changes are saved immediately, even if you do not download anything.
-- **Diagnostics** — check installed dependencies without leaving the program.
-- **Exit** — close the dashboard.
+- **My files** (left): actual media files in the configured folder, refreshed every second. Open the selected file or reveal it in Finder.
+- **Jobs** (right): queued, active, completed, failed and canceled jobs with status/progress. Up to **two workers** can fetch metadata or download media concurrently.
+- **Event log** (bottom): recent activity and error explanations, with independent scrolling.
 
-After a download queue finishes or fails, the dashboard opens again with a status message. You can download more files in the same session. The output directory is no longer requested before each download: change it in Settings. New folders are created and checked for write access before the setting is saved.
+Downloads continue while you browse files, scroll the log, add more URLs, or edit settings. New jobs capture a copy of their settings, so changing the output folder or audio format does not move or alter jobs already in the queue. The UI owns all screen rendering; child-process output is captured rather than printed over the panels.
 
-Press **q** in a submenu to go back; in the main menu it exits. Leave the URL input blank to go back without downloading. **Ctrl+C** stops the program and its active downloader. Terminal settings and the previous screen are restored on exit. When terminal controls are unavailable, numbered menus are used instead; `q` still goes back.
+### Keyboard controls
 
-The file browser scans the selected folder itself, not a download-history database, so it also sees supported media placed there manually. It lists regular video/audio files directly inside that directory; hidden files, subdirectories, symlinks, partial downloads and recognizable temporary format files are excluded. File actions never delete your downloads.
+| Key | Action |
+| --- | --- |
+| `Tab` / `Shift+Tab` | Switch panels |
+| `↑` / `↓`, `PageUp` / `PageDown` | Move selection or scroll the focused panel |
+| `v` | Add one or more video URLs |
+| `a` | Add one or more audio URLs |
+| `Enter` in Files | Open the selected file |
+| `Enter` in Jobs | Choose an available quality, or inspect job details |
+| `x` in Jobs | Cancel the selected queued or active job |
+| `r` in Jobs | Retry a failed or canceled job |
+| `r` elsewhere | Refresh the file list |
+| `o` in Files | Reveal the selected file in Finder |
+| `f` | Open the configured output folder |
+| `s` | Edit output folder, language, video quality or audio format |
+| `Esc` | Close a dialog |
+| `Ctrl+U` in a text field | Clear the input |
+| `q` | Exit; confirm first if any jobs are pending or active |
+| `Ctrl+C` | Stop the program and its active downloader processes |
 
-Explicit commands such as `macdown download URL` remain single-shot operations: they finish and return to your shell without opening a menu.
+For video downloads, metadata is fetched in the background. When a job says **Choose quality: Enter**, select it in Jobs, press Enter, and choose the resolution. It then starts when a worker is free. Audio jobs start automatically using the configured audio format. Progress is per stream; the percentage can restart when yt-dlp switches from video to audio.
+
+Text inputs accept multiple space-separated URLs and bracketed paste. Paste does not trigger keyboard shortcuts. Settings are saved immediately. The UI supports English and Russian and adapts to terminal resizing; a window of at least **73 columns × 20 rows** is required. Larger windows show more files and jobs. The cursor and previous terminal screen are restored on exit.
+
+The file browser scans the configured folder rather than a download-history database. It also sees media placed there manually. Hidden files, subdirectories, symlinks and recognizable temporary files are excluded. File actions never delete downloads. Completed job history and the event log are kept for the current session only; partial downloads may be resumed by yt-dlp when a job is retried.
+
+In non-interactive terminals, a sequential numbered-menu interface is used instead. `macdown doctor` remains available for dependency diagnostics. Explicit commands such as `macdown download URL` remain single-shot operations and return to your shell when finished.
 
 ## Command-line examples
 
@@ -230,7 +250,10 @@ Unknown failures retain the original yt-dlp diagnostic. Metadata retrieval has a
 | `cli.go` | Commands, argument parsing, help, version and diagnostics |
 | `options.go` | Validation and yt-dlp arguments |
 | `menu.go` | Scrollable arrow-key and numbered menus |
-| `dashboard.go` | Persistent home screen and settings editor |
+| `dashboard.go` | Sequential fallback and settings editor |
+| `panels.go` | Full-screen event loop, input and panel actions |
+| `panels_render.go` | Bounded screen layout and dialogs |
+| `jobs.go` | Background jobs, cancellation and captured progress |
 | `library.go` | Folder scanning, file list and Finder actions |
 | `media.go` | Metadata, available qualities, child processes and readable errors |
 | `progress.go` | In-place progress rendering and plain-text log output |

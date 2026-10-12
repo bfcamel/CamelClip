@@ -5,13 +5,17 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
 // Russian source strings are stable message keys; yt-dlp's own diagnostics stay unchanged.
 var currentLanguage = "ru"
+var languageMu sync.RWMutex
 
 func tr(message string) string {
+	languageMu.RLock()
+	defer languageMu.RUnlock()
 	if currentLanguage == "en" {
 		if translated, ok := english[message]; ok {
 			return translated
@@ -48,6 +52,8 @@ func systemLanguage() string {
 	return "en"
 }
 func useLanguage(preference, system string) {
+	languageMu.Lock()
+	defer languageMu.Unlock()
 	currentLanguage = preference
 	if preference == "auto" || preference == "" {
 		currentLanguage = system
@@ -174,7 +180,31 @@ var english = map[string]string{
 	"Новая загрузка":                   "New download",
 	"Пустая строка — вернуться в меню.":             "Leave the URL blank to return to the menu.",
 	"Готово! Файлы доступны в разделе «Мои файлы».": "Done! Your files are available in My files.",
-	"Качество":             "Quality",
-	"Выберите настройку":   "Select a setting",
-	"Настройки сохранены.": "Settings saved.",
+	"Качество":                       "Quality",
+	"Выберите настройку":             "Select a setting",
+	"Настройки сохранены.":           "Settings saved.",
+	"Этот ролик уже есть в очереди.": "This video is already in the queue.",
+	"Tab — переключение панелей. v — видео, a — аудио.": "Tab switches panels. v adds video; a adds audio.",
+	"В очереди":                            "Queued",
+	"Получение данных":                     "Fetching metadata",
+	"Выберите качество: Enter":             "Choose quality: Enter",
+	"Готов к загрузке":                     "Ready to download",
+	"Скачивание":                           "Downloading",
+	"Готово":                               "Done",
+	"Ошибка":                               "Failed",
+	"Отмена…":                              "Canceling…",
+	"Отменено":                             "Canceled",
+	"Повтор задания":                       "Retrying job",
+	"Остановить задания и выйти?":          "Stop all jobs and exit?",
+	"Продолжить работу":                    "Keep working",
+	"Остановить и выйти":                   "Stop and exit",
+	"Добавлено в очередь":                  "Added to queue",
+	"Активно":                              "Active",
+	"Увеличьте терминал: минимум 73 × 20.": "Resize the terminal to at least 73 × 20.",
+	"Задания":                              "Jobs",
+	"v — видео · a — аудио":                "v: add video · a: add audio",
+	"Журнал событий":                       "Event log",
+	"Tab: панель  ↑↓: выбор  Enter: открыть/качество  v/a: добавить  s: настройки": "Tab: focus  Up/Down: select  Enter: open/quality  v/a: add  s: settings",
+	"x: отменить  r: повтор/обновить  o: Finder  f: папка  q: выход  Esc: назад":   "x: cancel  r: retry/refresh  o: Finder  f: folder  q: quit  Esc: back",
+	"Enter: подтвердить · Esc: назад. Загрузки продолжаются.":                      "Enter: confirm · Esc: back. Downloads keep running.",
 }
