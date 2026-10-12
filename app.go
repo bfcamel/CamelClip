@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -41,23 +40,25 @@ func run() error {
 		fmt.Fprintln(os.Stderr, tr("Не удалось прочитать настройки; используются стандартные значения:"), err)
 	}
 	useLanguage(requestedLanguage(os.Args[1:], o.Lang), system)
-	var urls links
-	var listPath string
-	flag.StringVar(&o.Lang, "lang", o.Lang, tr("Язык: auto, ru, en"))
-	flag.Var(&urls, "url", tr("Ссылка; параметр можно повторять"))
-	flag.StringVar(&listPath, "list", "", tr("Текстовый файл: одна ссылка в строке"))
-	flag.StringVar(&o.Mode, "mode", o.Mode, tr("video — видео со звуком; audio — только звук"))
-	flag.StringVar(&o.Quality, "quality", o.Quality, tr("Максимальная высота кадра или best"))
-	flag.StringVar(&o.Audio, "audio-format", o.Audio, "mp3, m4a, opus, flac, wav, best")
-	flag.StringVar(&o.Out, "out", o.Out, tr("Папка сохранения"))
-	flag.StringVar(&o.Cookies, "cookies-browser", "", tr("safari, chrome, firefox, edge, brave (не запоминается)"))
-	flag.BoolVar(&o.Formats, "formats", false, tr("Показать доступные форматы без скачивания"))
-	flag.Parse()
-	if !contains([]string{"auto", "ru", "en"}, o.Lang) {
-		return errors.New(tr("язык должен быть auto, ru или en"))
+	request, err := parseCLI(os.Args[1:], &o)
+	if err != nil {
+		return err
 	}
 	useLanguage(o.Lang, system)
-	urls = append(urls, flag.Args()...)
+	if request.help {
+		printHelp(request.command)
+		return nil
+	}
+	switch request.command {
+	case "version":
+		fmt.Println("macdown " + version)
+		return nil
+	case "config":
+		return showConfig(configPath, o)
+	case "doctor":
+		return doctor(ctx)
+	}
+	urls, listPath := request.urls, request.list
 	if listPath != "" {
 		f, e := os.Open(expandHome(listPath, home))
 		if e != nil {

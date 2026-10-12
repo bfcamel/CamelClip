@@ -13,6 +13,10 @@ func main() {
 			os.Exit(130)
 		}
 		fmt.Fprintln(os.Stderr, tr("Ошибка:"), err)
+		var usage *usageError
+		if errors.As(err, &usage) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }

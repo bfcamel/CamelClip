@@ -15,6 +15,42 @@ It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other sup
 
 **English and Russian interfaces are available.** The first-run default is detected from `LC_ALL`, `LC_MESSAGES`, `LANG`, then macOS preferred languages. Other languages fall back to English. Choose a language in the first menu or pass `-lang en`, `-lang ru`, or `-lang auto`. Your preference is saved after a successful download. yt-dlp diagnostics and operating-system errors may remain in their original language. There is no graphical interface or background server.
 
+## CLI commands
+
+```sh
+macdown                                # Interactive menu
+macdown download 'VIDEO_URL'            # Video with audio, saved as MP4
+macdown download 'VIDEO_URL' --quality 1080
+macdown audio 'VIDEO_URL' --audio-format mp3
+macdown formats 'VIDEO_URL'             # List available formats
+macdown download --list links.txt       # Sequential queue
+macdown config                         # Effective settings and file path as JSON
+macdown doctor                         # Check dependency paths and versions
+macdown version                        # Program version
+macdown help                           # Help
+macdown help download                  # Command help
+```
+
+Both `--long` and the original `-long` flags are accepted. Download options can appear before or after URLs. Use `--` to stop option parsing. The `download` command always selects video, and `audio` always selects audio, regardless of saved mode. Commands with missing URLs fail immediately; the interactive menu is available when no command or URL is provided. Existing `macdown -url URL -mode audio` commands still work.
+
+## Install as a command
+
+After cloning the repository or extracting a compiled package, run:
+
+```sh
+sh install.sh --add-to-path
+```
+
+The installer builds from source when Go is available, otherwise uses the packaged binary for your Mac. It installs `macdown` into `~/.local/bin` and adds one PATH line to `~/.zprofile` for the default macOS zsh shell. **Open a new Terminal window**, then run `macdown doctor` from any directory. Dependencies still need to be installed separately:
+
+```sh
+brew install yt-dlp ffmpeg deno
+```
+
+For a custom location, use `sh install.sh --bin-dir /absolute/path/to/bin` and add that directory to your shell's PATH yourself. Without `--add-to-path`, shell configuration is not modified. Use `--force` to replace an existing installation when upgrading.
+
+To uninstall, remove `~/.local/bin/macdown` and, if no longer needed, the line marked `# MacDown CLI` from `~/.zprofile`. Downloaded files and saved settings are unaffected.
+
 ## Install and build
 
 Install [Homebrew](https://brew.sh/) if needed, then:
@@ -44,6 +80,7 @@ The `dist/` directory contains:
 | `macdown-macos-arm64` | Apple Silicon Macs |
 | `macdown-macos-amd64` | Intel Macs |
 | `Start.command` | Double-click in Finder to open the terminal interface |
+| `install.sh` | Install the `macdown` command |
 | `README.md` | This guide |
 
 You can also double-click the repository's `Start.command` after building. The launcher finds a binary next to itself or inside `dist/`. Compiled binaries are excluded from Git.
@@ -75,7 +112,7 @@ Press **q** in an arrow-key menu to cancel, or **Ctrl+C** at any point to stop t
 
 ## Command-line examples
 
-Provide all flags **before positional URLs**. Alternatively, repeat `-url`.
+Flags may appear before or after positional URLs. Alternatively, repeat `--url`.
 
 Video with audio, up to 1080 pixels in height:
 
@@ -166,7 +203,7 @@ For a separate settings profile, set `MACDOWN_CONFIG_DIR` to a directory of your
 - Existing completed files are not overwritten. yt-dlp attempts to resume partial downloads when you repeat the same request. The queue itself is not persisted across runs.
 - Browser authentication, regional restrictions and DRM are not bypassed.
 - yt-dlp configuration files are ignored to keep behavior predictable.
-- Exit status: `0` when all items succeed, `1` for errors, `130` when canceled.
+- Exit status: `0` on success/help/version/config, `1` for operational failures, `2` for command-line syntax errors, `130` when canceled. `doctor` returns `1` when a required dependency cannot be found or run; a missing optional Deno runtime is reported as a warning.
 
 ## Troubleshooting
 
@@ -194,7 +231,8 @@ Unknown failures retain the original yt-dlp diagnostic. Metadata retrieval has a
 | File | Responsibility |
 | --- | --- |
 | `main.go` | Entry point and exit status |
-| `app.go` | Flags, workflow and sequential queue |
+| `app.go` | Workflow and sequential queue |
+| `cli.go` | Commands, argument parsing, help, version and diagnostics |
 | `options.go` | Validation and yt-dlp arguments |
 | `menu.go` | Arrow-key and numbered menus |
 | `media.go` | Metadata, available qualities, child processes and readable errors |
