@@ -74,61 +74,20 @@ func run() error {
 			return errors.New(tr("файл списка не содержит ссылок"))
 		}
 	}
-	interactive := len(urls) == 0
-	m := newMenu()
-	m.ctx = ctx
-	if interactive {
-		o.Lang, err = m.selectItem(ctx, "Language / Язык", []choice{{tr("Системный") + " (" + system + ")", "auto"}, {"English", "en"}, {"Русский", "ru"}}, o.Lang)
-		if err != nil {
-			return err
-		}
-		useLanguage(o.Lang, system)
-		fmt.Println(tr("MacDown — видео и аудио. Настройки запоминаются автоматически."))
-		for {
-			s, e := m.line(tr("Вставьте одну или несколько ссылок через пробел"), "")
-			if e != nil {
-				return e
-			}
-			urls = strings.Fields(s)
-			if len(urls) == 0 {
-				continue
-			}
-			if e = validateLinks(urls, o); e != nil {
-				fmt.Println(e)
-				continue
-			}
-			break
-		}
-		if !o.Formats {
-			o.Mode, err = m.selectItem(ctx, tr("Что скачать?"), []choice{{tr("Видео со звуком"), "video"}, {tr("Только звук"), "audio"}}, o.Mode)
-			if err != nil {
-				return err
-			}
-			if o.Mode == "audio" {
-				items := []choice{}
-				for _, a := range []string{"mp3", "m4a", "opus", "flac", "wav", "best"} {
-					items = append(items, choice{a, a})
-				}
-				o.Audio, err = m.selectItem(ctx, tr("Формат аудио"), items, o.Audio)
-				if err != nil {
-					return err
-				}
-			}
-			for {
-				o.Out, err = m.line(tr("Папка сохранения"), o.Out)
-				if err != nil {
-					return err
-				}
-				if strings.TrimSpace(o.Out) != "" {
-					break
-				}
-			}
-		}
+	o.Out = expandHome(o.Out, home)
+	if len(urls) == 0 {
+		m := newMenu()
+		m.ctx = ctx
+		return dashboard(ctx, m, &o, configPath, system, home)
 	}
+	return runQueue(ctx, urls, o, configPath, nil)
+}
+
+func runQueue(ctx context.Context, urls []string, o options, configPath string, m *menu) error {
+	var err error
 	if err = validateLinks(urls, o); err != nil {
 		return err
 	}
-	o.Out = expandHome(o.Out, home)
 	ytdlp, err := exec.LookPath("yt-dlp")
 	if err != nil {
 		return errors.New(tr("не найден yt-dlp. Установка: brew install yt-dlp ffmpeg deno"))
@@ -145,6 +104,7 @@ func run() error {
 	}
 	failed := 0
 	done := 0
+	failures := []string{}
 	for i, link := range urls {
 		if ctx.Err() != nil {
 			return errCanceled
@@ -168,7 +128,7 @@ func run() error {
 				fmt.Println()
 				items := qualities(info)
 				if o.Mode == "video" {
-					if interactive {
+					if m != nil {
 						o.Quality, err = m.selectItem(ctx, tr("Качество (максимальная высота)"), items, o.Quality)
 					} else {
 						labels := []string{}
@@ -191,11 +151,14 @@ func run() error {
 		}
 		if err != nil {
 			failed++
+			if len(failures) < 3 {
+				failures = append(failures, fmt.Sprintf("%d. %s", i+1, err.Error()))
+			}
 			fmt.Fprintln(os.Stderr, tr("Не удалось:"), err)
 			continue
 		}
 		done++
-		if !o.Formats {
+		if !o.Formats && m != nil {
 			if e := saveSettings(configPath, o); e != nil {
 				fmt.Fprintln(os.Stderr, tr("Не удалось сохранить настройки:"), e)
 			}
@@ -203,7 +166,7 @@ func run() error {
 	}
 	fmt.Printf(tr("\nЗавершено: %d. Ошибок: %d.\n"), done, failed)
 	if failed > 0 {
-		return errors.New(tr("часть ссылок не обработана; причины указаны выше"))
+		return fmt.Errorf("%s\n%s", tr("часть ссылок не обработана; причины указаны выше"), strings.Join(failures, "\n"))
 	}
 	return nil
 }

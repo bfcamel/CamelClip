@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 type usageError struct{ message string }
 

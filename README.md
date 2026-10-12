@@ -9,11 +9,12 @@ It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other sup
 - Choose video with audio, or audio only.
 - Navigate interactive menus with **↑ / ↓ and Enter**. Numbered menus are used when terminal controls are unavailable.
 - Download one link or process a queue sequentially; a failed download does not stop subsequent links.
-- Remember the output directory, mode, quality limit and audio format after successful downloads.
+- Keep a fixed output directory and save preferences from the Settings menu.
+- Stay in a persistent dashboard between downloads and browse files already on disk.
 - Update download progress on the same terminal line.
 - Show explanations for common access, network, format and disk errors.
 
-**English and Russian interfaces are available.** The first-run default is detected from `LC_ALL`, `LC_MESSAGES`, `LANG`, then macOS preferred languages. Other languages fall back to English. Choose a language in the first menu or pass `-lang en`, `-lang ru`, or `-lang auto`. Your preference is saved after a successful download. yt-dlp diagnostics and operating-system errors may remain in their original language. There is no graphical interface or background server.
+**English and Russian interfaces are available.** The first-run default is detected from `LC_ALL`, `LC_MESSAGES`, `LANG`, then macOS preferred languages. Other languages fall back to English. Choose a language in the first menu or pass `-lang en`, `-lang ru`, or `-lang auto`. Changes in Settings are saved immediately. yt-dlp diagnostics and operating-system errors may remain in their original language. There is no graphical interface or background server.
 
 ## CLI commands
 
@@ -85,30 +86,24 @@ The `dist/` directory contains:
 
 You can also double-click the repository's `Start.command` after building. The launcher finds a binary next to itself or inside `dist/`. Compiled binaries are excluded from Git.
 
-## Interactive workflow
+## Interactive dashboard
 
-Run `./macdown` without URLs:
+Run `macdown` without URLs to open a persistent terminal dashboard. The screen shows your fixed output directory and the number and total size of media files in it. Use **Up/Down + Enter** to choose an action:
 
-1. Select a language, then paste one URL or several URLs separated by spaces on **one line**.
-2. Select video with audio or audio only using the arrow keys and Enter.
-3. For audio, choose the output format.
-4. Enter an output directory, or press Enter to keep the saved value.
-5. For each video, review its title and duration, then choose from the resolutions reported by the site.
-6. The program downloads each item and prints a final success/failure count.
+- **Download video** — paste one or more URLs, choose a quality for each video, and download as MP4.
+- **Download audio** — use the audio format selected in Settings.
+- **My files** — browse the actual media files currently stored in your output directory. Files are sorted newest first and show size and modification date. Open a file in the default macOS app, reveal it in Finder, refresh the list, or navigate between pages.
+- **Settings** — change the output directory, language, preferred video quality and audio format. Changes are saved immediately, even if you do not download anything.
+- **Diagnostics** — check installed dependencies without leaving the program.
+- **Exit** — close the dashboard.
 
-Russian menu labels (when Russian is selected):
+After a download queue finishes or fails, the dashboard opens again with a status message. You can download more files in the same session. The output directory is no longer requested before each download: change it in Settings. New folders are created and checked for write access before the setting is saved.
 
-| Russian | English |
-| --- | --- |
-| Видео со звуком | Video with audio |
-| Только звук | Audio only |
-| Лучшее доступное | Best available |
-| До 1080p | Up to 1080p |
-| Папка сохранения | Output directory |
-| Сохранено | Saved |
-| Ошибок | Errors |
+Press **q** in a submenu to go back; in the main menu it exits. Leave the URL input blank to go back without downloading. **Ctrl+C** stops the program and its active downloader. Terminal settings and the previous screen are restored on exit. When terminal controls are unavailable, numbered menus are used instead; `q` still goes back.
 
-Press **q** in an arrow-key menu to cancel, or **Ctrl+C** at any point to stop the queue. Terminal settings are restored when leaving a menu. Invalid numbered-menu input is prompted again.
+The file browser scans the selected folder itself, not a download-history database, so it also sees supported media placed there manually. It lists regular video/audio files directly inside that directory; hidden files, subdirectories, symlinks, partial downloads and recognizable temporary format files are excluded. File actions never delete your downloads.
+
+Explicit commands such as `macdown download URL` remain single-shot operations: they finish and return to your shell without opening a menu.
 
 ## Command-line examples
 
@@ -186,7 +181,7 @@ On macOS, settings are stored in:
 ~/Library/Application Support/MacDown/settings.json
 ```
 
-The last successful download's language, mode, maximum height, audio format and directory become the next run's defaults, including command-line runs. Explicit flags override those defaults. URL lists and browser choices are never saved.
+Changes made in the dashboard's Settings screen are saved immediately. Successful interactive downloads also remember the selected mode and video quality. These values become the next run's defaults, including command-line runs. Explicit CLI flags override them for that command only and do not change the saved output directory or other preferences. URL lists and browser choices are never saved.
 
 Rename or remove that file to reset the defaults. Missing settings use built-in defaults; malformed settings produce a warning and are ignored. Settings are written atomically with owner-only file permissions.
 
@@ -234,7 +229,9 @@ Unknown failures retain the original yt-dlp diagnostic. Metadata retrieval has a
 | `app.go` | Workflow and sequential queue |
 | `cli.go` | Commands, argument parsing, help, version and diagnostics |
 | `options.go` | Validation and yt-dlp arguments |
-| `menu.go` | Arrow-key and numbered menus |
+| `menu.go` | Scrollable arrow-key and numbered menus |
+| `dashboard.go` | Persistent home screen and settings editor |
+| `library.go` | Folder scanning, file list and Finder actions |
 | `media.go` | Metadata, available qualities, child processes and readable errors |
 | `progress.go` | In-place progress rendering and plain-text log output |
 | `settings.go` | Loading and atomically saving preferences |

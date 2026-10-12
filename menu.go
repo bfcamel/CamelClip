@@ -78,6 +78,9 @@ func (m *menu) selectItem(ctx context.Context, label string, items []choice, pre
 			if err != nil {
 				return "", err
 			}
+			if s == "q" {
+				return "", errCanceled
+			}
 			n, err := strconv.Atoi(s)
 			if err == nil && n >= 1 && n <= len(items) {
 				return items[n-1].Value, nil
@@ -97,14 +100,29 @@ func (m *menu) selectItem(ctx context.Context, label string, items []choice, pre
 	}
 	defer set(strings.TrimSpace(string(saved)))
 	fmt.Fprintln(m.out, label+tr(" — ↑/↓, Enter; q — отмена"))
+	visible := len(items)
+	if visible > 8 {
+		visible = 8
+	}
+	fmt.Fprint(m.out, "\033[?25l")
+	defer fmt.Fprint(m.out, "\033[?25h")
 	draw := func() {
-		for i, v := range items {
+		start := selected - visible + 1
+		if start < 0 {
+			start = 0
+		}
+		if start+visible > len(items) {
+			start = len(items) - visible
+		}
+		for i := start; i < start+visible; i++ {
+			v := items[i]
 			mark := "  "
 			if i == selected {
 				mark = "› "
 			}
 			fmt.Fprintf(m.out, "\r\033[2K%s%s\n", mark, v.Label)
 		}
+		fmt.Fprintf(m.out, "\r\033[2K  %d / %d\n", selected+1, len(items))
 	}
 	draw()
 	escape := 0
@@ -143,7 +161,7 @@ func (m *menu) selectItem(ctx context.Context, label string, items []choice, pre
 			return "", errCanceled
 		}
 		escape = 0
-		fmt.Fprintf(m.out, "\033[%dA", len(items))
+		fmt.Fprintf(m.out, "\033[%dA", visible+1)
 		draw()
 	}
 }
