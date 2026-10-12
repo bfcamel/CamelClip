@@ -1,0 +1,5 @@
+/macdown
+/macdown-macos-*
+/dist/
+*.part
+.DS_Store
