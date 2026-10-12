@@ -1,0 +1,149 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+)
+
+var errCanceled = errors.New(tr("операция отменена"))
+
+type choice struct{ Label, Value string }
+type menu struct {
+	in       *bufio.Reader
+	out      io.Writer
+	terminal bool
+	ctx      context.Context
+}
+
+func newMenu() *menu {
+	c := exec.Command("stty", "-g")
+	c.Stdin = os.Stdin
+	_, err := c.Output()
+	out, e := os.Stdout.Stat()
+	return &menu{in: bufio.NewReader(os.Stdin), out: os.Stdout, terminal: err == nil && e == nil && out.Mode()&os.ModeCharDevice != 0 && os.Getenv("TERM") != "dumb"}
+}
+func (m *menu) line(label, fallback string) (string, error) {
+	fmt.Fprintf(m.out, "%s [%s]: ", label, fallback)
+	type result struct {
+		s   string
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() { s, e := m.in.ReadString('\n'); ch <- result{s, e} }()
+	ctx := m.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var s string
+	var err error
+	select {
+	case r := <-ch:
+		s, err = r.s, r.err
+	case <-ctx.Done():
+		return "", errCanceled
+	}
+	if err != nil && (err != io.EOF || s == "") {
+		return "", io.EOF
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		s = fallback
+	}
+	return s, nil
+}
+func (m *menu) selectItem(ctx context.Context, label string, items []choice, preferred string) (string, error) {
+	if len(items) == 0 {
+		return "", errors.New(tr("нет доступных вариантов"))
+	}
+	selected := 0
+	for i, v := range items {
+		if v.Value == preferred {
+			selected = i
+		}
+	}
+	if !m.terminal {
+		for {
+			fmt.Fprintln(m.out, label)
+			for i, v := range items {
+				fmt.Fprintf(m.out, "  %d. %s\n", i+1, v.Label)
+			}
+			s, err := m.line(tr("Номер"), strconv.Itoa(selected+1))
+			if err != nil {
+				return "", err
+			}
+			n, err := strconv.Atoi(s)
+			if err == nil && n >= 1 && n <= len(items) {
+				return items[n-1].Value, nil
+			}
+			fmt.Fprintln(m.out, tr("Введите номер из списка."))
+		}
+	}
+	state := exec.Command("stty", "-g")
+	state.Stdin = os.Stdin
+	saved, err := state.Output()
+	if err != nil {
+		return "", err
+	}
+	set := func(args ...string) error { c := exec.Command("stty", args...); c.Stdin = os.Stdin; return c.Run() }
+	if err = set("-icanon", "-echo", "min", "0", "time", "1"); err != nil {
+		return "", err
+	}
+	defer set(strings.TrimSpace(string(saved)))
+	fmt.Fprintln(m.out, label+tr(" — ↑/↓, Enter; q — отмена"))
+	draw := func() {
+		for i, v := range items {
+			mark := "  "
+			if i == selected {
+				mark = "› "
+			}
+			fmt.Fprintf(m.out, "\r\033[2K%s%s\n", mark, v.Label)
+		}
+	}
+	draw()
+	escape := 0
+	var b [1]byte
+	for {
+		if ctx.Err() != nil {
+			return "", errCanceled
+		}
+		n, e := os.Stdin.Read(b[:])
+		if n == 0 {
+			if e != nil && e != io.EOF {
+				return "", e
+			}
+			continue
+		}
+		switch b[0] {
+		case 27:
+			escape = 1
+			continue
+		case '[':
+			if escape == 1 {
+				escape = 2
+				continue
+			}
+		case 'A':
+			if escape == 2 {
+				selected = (selected + len(items) - 1) % len(items)
+			}
+		case 'B':
+			if escape == 2 {
+				selected = (selected + 1) % len(items)
+			}
+		case '\n', '\r':
+			return items[selected].Value, nil
+		case 'q', 3:
+			return "", errCanceled
+		}
+		escape = 0
+		fmt.Fprintf(m.out, "\033[%dA", len(items))
+		draw()
+	}
+}

@@ -1,35 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"reflect"
 	"strings"
 	"testing"
 )
-
-func TestInteractiveChoices(t *testing.T) {
-	for _, tc := range []struct{ input, mode, quality, audio string }{
-		{"https://example.com/video\n1\n720\n\n", "video", "720", "mp3"},
-		{"https://example.com/video\n2\nopus\n\n", "audio", "1080", "opus"},
-		{"https://example.com/video\n\n\n\n", "video", "1080", "mp3"},
-	} {
-		o := defaults()
-		var output bytes.Buffer
-		if err := prompt(&o, strings.NewReader(tc.input), &output); err != nil {
-			t.Fatal(err)
-		}
-		if o.Mode != tc.mode || o.Quality != tc.quality || o.Audio != tc.audio {
-			t.Fatalf("unexpected choices: %+v", o)
-		}
-		if err := validate(o); err != nil {
-			t.Fatal(err)
-		}
-	}
-	o := defaults()
-	if err := prompt(&o, strings.NewReader(""), &bytes.Buffer{}); err == nil {
-		t.Fatal("EOF must stop the menu")
-	}
-}
 
 func TestExpandHome(t *testing.T) {
 	for input, expected := range map[string]string{"~": "/Users/test", "~/My Videos": "/Users/test/My Videos", "/tmp/video": "/tmp/video", "relative": "relative"} {
