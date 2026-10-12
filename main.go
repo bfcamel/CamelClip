@@ -116,7 +116,9 @@ func contains(values []string, value string) bool {
 }
 
 func arguments(o options) []string {
-	a := []string{"--ignore-config", "--no-playlist", "--no-overwrites", "--newline"}
+	// Let yt-dlp redraw progress in place when attached to a terminal.
+	// --print implies quiet mode, so explicitly keep status and progress visible.
+	a := []string{"--ignore-config", "--no-playlist", "--no-overwrites", "--no-quiet", "--progress"}
 	if o.Cookies != "" {
 		a = append(a, "--cookies-from-browser", o.Cookies)
 	}
