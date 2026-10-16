@@ -247,4 +247,5 @@ var english = map[string]string{
 	"Повторить проверку":   "Retry checks",
 	"Выйти без сохранения": "Exit without saving",
 	"Начать работу?":       "Get started?",
+	"s: Настройки f:папка o:показать x:отмена r:повтор d:убрать q:выход": "s: Settings f:folder o:reveal x:cancel r:retry d:remove q:quit",
 }

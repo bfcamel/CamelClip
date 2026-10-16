@@ -202,7 +202,7 @@ func (u *panelUI) render() {
 		c.text(2, logY+1+i-first, w-4, u.logs[i], normal)
 	}
 	c.text(1, h-2, w-2, tr("Tab: панель  ↑↓: выбор  Enter: открыть/качество  v/a: добавить  s: настройки"), cyan)
-	c.text(1, h-1, w-2, "s: "+tr("Настройки")+"  "+"x: "+tr("Отменить")+"  r: "+tr("Повтор")+"  d: "+tr("Убрать")+"  q: "+tr("Выход"), dim)
+	c.text(1, h-1, w-2, tr("s: Настройки f:папка o:показать x:отмена r:повтор d:убрать q:выход"), dim)
 	if u.modal != "" {
 		u.drawModal(c)
 	}
