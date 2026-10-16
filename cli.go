@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const version = "0.6.0"
+const version = "0.7.0"
 
 type usageError struct{ message string }
 
@@ -32,7 +32,7 @@ var commandNames = []string{"download", "audio", "formats", "config", "doctor", 
 func parseCLI(args []string, o *options) (cliRequest, error) {
 	r := cliRequest{}
 	// Locate the command after any leading global flags without confusing flag values with commands.
-	valueFlags := map[string]bool{"lang": true, "url": true, "list": true, "mode": true, "quality": true, "audio-format": true, "out": true, "cookies-browser": true}
+	valueFlags := map[string]bool{"lang": true, "url": true, "list": true, "mode": true, "quality": true, "audio-format": true, "out": true, "cookies-browser": true, "video-codec": true, "video-format": true}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if a == "--" {
@@ -76,6 +76,8 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		fs.StringVar(&o.Audio, "audio-format", o.Audio, "")
 		fs.StringVar(&o.Out, "out", o.Out, "")
 		fs.StringVar(&o.Cookies, "cookies-browser", o.Cookies, "")
+		fs.StringVar(&o.Codec, "video-codec", videoCodec(*o), "")
+		fs.StringVar(&o.Container, "video-format", videoContainer(*o), "")
 		// Legacy flags remain available only without a subcommand, so explicit commands always mean what they say.
 		if r.command == "" {
 			fs.StringVar(&o.Mode, "mode", o.Mode, "")
@@ -147,7 +149,7 @@ func printHelp(command string) {
 	}
 	fmt.Println(tr(`Использование:
   macdown                         Интерактивное меню
-  macdown download URL...         Видео со звуком в MP4
+  macdown download URL...         Видео со звуком в выбранном формате
   macdown audio URL...            Только звук
   macdown formats URL...          Доступные форматы
   macdown config                  Настройки и путь к файлу (JSON)
@@ -157,6 +159,8 @@ func printHelp(command string) {
 
 Параметры загрузки (до или после URL):
   --quality HEIGHT|best          Максимальная высота видео
+  --video-codec h264|hevc|vp9|av1 Кодек видео (по умолчанию h264)
+  --video-format mp4|mkv|webm     Контейнер видео (по умолчанию mp4)
   --audio-format mp3|m4a|opus|flac|wav|best
   --out DIR                      Папка сохранения
   --url URL                      Добавить ссылку (можно повторять)
@@ -182,7 +186,7 @@ func showConfig(path string, o options) error {
 		Path     string   `json:"path"`
 		Settings settings `json:"settings"`
 		Language string   `json:"effective_language"`
-	}{path, settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies}, currentLanguage})
+	}{path, settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o)}, currentLanguage})
 }
 func doctor(ctx context.Context) error {
 	fmt.Printf("MacDown %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)

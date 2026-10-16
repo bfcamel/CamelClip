@@ -10,6 +10,7 @@ import (
 
 type options struct {
 	URL, Mode, Quality, Audio, Out, Cookies, Lang string
+	Codec, Container                              string
 	Formats                                       bool
 	duration                                      float64
 }
@@ -36,6 +37,9 @@ func validate(o options) error {
 	}
 	if o.Cookies != "" && !validBrowser(o.Cookies) {
 		return errors.New(tr("неподдерживаемый браузер"))
+	}
+	if err := validateVideoProfile(o); err != nil {
+		return err
 	}
 	if strings.TrimSpace(o.Out) == "" {
 		return errors.New(tr("папка сохранения не может быть пустой"))
@@ -72,7 +76,7 @@ func arguments(o options) []string {
 		}
 		// Every fallback respects the height limit and includes audio.
 		selector := "bestvideo" + filter + "+bestaudio/best" + filter
-		a = append(a, "--format", selector, "--merge-output-format", "mp4", "--remux-video", "mp4")
+		a = append(a, "--format", selector, "--merge-output-format", "mkv", "--remux-video", "mkv")
 	}
 	return append(a, "--", o.URL)
 }
@@ -96,5 +100,5 @@ func outputVariant(o options) string {
 	if o.Mode == "audio" {
 		return "audio-" + o.Audio
 	}
-	return "video-" + o.Quality
+	return "video-" + o.Quality + "-" + videoCodec(o) + "-" + videoContainer(o)
 }

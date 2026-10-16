@@ -27,6 +27,7 @@ type jobPool struct {
 	wg             sync.WaitGroup
 	active, nextID int
 	executable     string
+	store          *queueStore
 }
 
 func newJobPool(ctx context.Context, path string) *jobPool {
@@ -34,7 +35,7 @@ func newJobPool(ctx context.Context, path string) *jobPool {
 }
 func (p *jobPool) add(o options) bool {
 	for _, j := range p.jobs {
-		if j.options.URL == o.URL && j.options.Out == o.Out && j.options.Mode == o.Mode && j.state != "failed" && j.state != "canceled" && outputVariant(j.options) == outputVariant(o) {
+		if j.options.URL == o.URL && j.options.Out == o.Out && j.options.Mode == o.Mode && j.state != "done" && j.state != "failed" && j.state != "canceled" && outputVariant(j.options) == outputVariant(o) {
 			return false
 		}
 	}
@@ -93,7 +94,13 @@ func (p *jobPool) download(ctx context.Context, id int, o options) error {
 		}
 	}}
 	defer w.flush()
-	return verifiedDownload(ctx, p.executable, o, w)
+	return verifiedDownloadWithObserver(ctx, p.executable, o, w, func(stage, detail string) {
+		if detail == "" {
+			p.send(ctx, jobEvent{id: id, kind: "stage", text: stage})
+		} else {
+			p.send(ctx, jobEvent{id: id, kind: "progress", text: detail})
+		}
+	})
 }
 func (p *jobPool) apply(e jobEvent) *job {
 	var j *job
@@ -106,8 +113,18 @@ func (p *jobPool) apply(e jobEvent) *job {
 	if j == nil {
 		return nil
 	}
+	if e.kind == "stage" {
+		if j.state == e.text {
+			return nil
+		}
+		if j.state != "canceling" && contains([]string{"downloading", "processing", "verifying"}, e.text) {
+			j.state = e.text
+			j.detail = ""
+		}
+		return j
+	}
 	if e.kind == "progress" {
-		if j.state == "downloading" {
+		if contains([]string{"downloading", "processing", "verifying"}, j.state) {
 			j.detail = e.text
 		}
 		return j
@@ -134,7 +151,7 @@ func (p *jobPool) apply(e jobEvent) *job {
 		// Prevent two aliases of the same video writing the same output concurrently.
 		if j.info.ID != "" {
 			for _, other := range p.jobs {
-				if other.id != j.id && other.info.ID == j.info.ID && other.info.Extractor == j.info.Extractor && (j.info.Extractor != "" || sameSite(other.options.URL, j.options.URL)) && other.options.Out == j.options.Out && other.options.Mode == j.options.Mode && other.state != "failed" && other.state != "canceled" && outputVariant(other.options) == outputVariant(j.options) {
+				if other.id != j.id && other.info.ID == j.info.ID && other.info.Extractor == j.info.Extractor && (j.info.Extractor != "" || sameSite(other.options.URL, j.options.URL)) && other.options.Out == j.options.Out && other.options.Mode == j.options.Mode && other.state != "done" && other.state != "failed" && other.state != "canceled" && outputVariant(other.options) == outputVariant(j.options) {
 					j.state = "canceled"
 					j.detail = tr("Этот ролик уже есть в очереди.")
 					return j

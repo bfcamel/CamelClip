@@ -1,7 +1,10 @@
 package main
 
 import (
+	"io"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -56,5 +59,30 @@ func TestCLIHelpVersionAndList(t *testing.T) {
 	r, e = parseCLI([]string{"download", "--list", "a file.txt"}, &o)
 	if e != nil || r.list != "a file.txt" {
 		t.Fatal(r, e)
+	}
+}
+
+func TestEnglishHelpIncludesVideoProfileFlags(t *testing.T) {
+	old := currentLanguage
+	useLanguage("en", "en")
+	defer useLanguage(old, "ru")
+	previous := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	defer func() { os.Stdout = previous }()
+	os.Stdout = w
+	printHelp("download")
+	w.Close()
+	os.Stdout = previous
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "Usage:") || strings.Contains(text, "Использование:") || !strings.Contains(text, "--video-codec") || !strings.Contains(text, "--video-format") {
+		t.Fatal(text)
 	}
 }

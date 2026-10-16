@@ -52,7 +52,7 @@ func dashboard(ctx context.Context, m *menu, o *options, configPath, system, hom
 		} else {
 			fmt.Fprintln(m.out, e)
 		}
-		action, err := m.selectItem(ctx, tr("Что сделать?"), []choice{{tr("↓ Скачать видео"), "video"}, {tr("♫ Скачать аудио"), "audio"}, {tr("Мои файлы"), "files"}, {tr("Настройки"), "settings"}, {tr("Диагностика"), "doctor"}, {tr("Выход"), "exit"}}, "video")
+		action, err := m.selectItem(ctx, tr("Что сделать?"), []choice{{tr("↓ Скачать видео"), "video"}, {tr("♫ Скачать аудио"), "audio"}, {tr("Мои файлы"), "files"}, {tr("Сохранённая очередь"), "queue"}, {tr("Настройки"), "settings"}, {tr("Диагностика"), "doctor"}, {tr("Выход"), "exit"}}, "video")
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -67,6 +67,8 @@ func dashboard(ctx context.Context, m *menu, o *options, configPath, system, hom
 			return nil
 		case "settings":
 			err = editSettings(ctx, m, o, configPath, system, home)
+		case "queue":
+			err = storedQueueMenu(ctx, m, configPath)
 		case "files":
 			err = library(ctx, m, *o)
 		case "doctor":
@@ -144,7 +146,7 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 	for {
 		screen(m, tr("Настройки"), *o, notice)
 		notice = ""
-		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("Браузер cookies") + ": " + o.Cookies, "browser"}, {tr("← Главное меню"), "back"}}
+		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*o)), "video-format"}, {tr("Браузер cookies") + ": " + o.Cookies, "browser"}, {tr("← Главное меню"), "back"}}
 		action, err := m.selectItem(ctx, tr("Выберите настройку"), items, "")
 		if err != nil {
 			return err
@@ -154,6 +156,13 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 		}
 		candidate := *o
 		switch action {
+		case "video-codec":
+			candidate.Codec, err = m.selectItem(ctx, tr("Кодек видео"), videoCodecChoices(), videoCodec(*o))
+			if err == nil && validateVideoProfile(candidate) != nil {
+				candidate.Container = "mkv"
+			}
+		case "video-format":
+			candidate.Container, err = m.selectItem(ctx, tr("Формат видео"), videoContainerChoices(videoCodec(*o)), videoContainer(*o))
 		case "browser":
 			candidate.Cookies, err = m.line(tr("Браузер cookies: firefox[:профиль], пусто — отключить"), "")
 			if err == nil && candidate.Cookies != "" && !validBrowser(candidate.Cookies) {

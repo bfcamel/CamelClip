@@ -103,12 +103,12 @@ func TestLanguages(t *testing.T) {
 	}
 }
 
-func TestMP4AndAudioArguments(t *testing.T) {
+func TestIntermediateContainerAndAudioArguments(t *testing.T) {
 	o := defaults()
 	a := arguments(o)
 	for i, v := range a {
 		if v == "--merge-output-format" || v == "--remux-video" {
-			if a[i+1] != "mp4" {
+			if a[i+1] != "mkv" {
 				t.Fatal(a)
 			}
 		}

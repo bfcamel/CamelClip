@@ -20,7 +20,7 @@ It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other sup
 
 ```sh
 macdown                                # Interactive menu
-macdown download 'VIDEO_URL'            # Video with audio, saved as MP4
+macdown download 'VIDEO_URL'            # Video with audio, using the saved video profile
 macdown download 'VIDEO_URL' --quality 1080
 macdown audio 'VIDEO_URL' --audio-format mp3
 macdown formats 'VIDEO_URL'             # List available formats
@@ -109,6 +109,7 @@ Downloads continue while you browse files, scroll the log, add more URLs, or edi
 | `x` in Jobs | Cancel the selected queued or active job |
 | `r` in Jobs | Retry a failed or canceled job |
 | `r` elsewhere | Refresh the file list |
+| `d` in Jobs | Remove a finished, failed or canceled entry; keep downloaded files |
 | `o` in Files | Reveal the selected file in Finder |
 | `f` | Open the configured output folder |
 | `s` | Edit output folder, language, video quality or audio format |
@@ -121,7 +122,7 @@ For video downloads, metadata is fetched in the background. When a job says **Ch
 
 Text inputs accept multiple space-separated URLs and bracketed paste. Paste does not trigger keyboard shortcuts. Settings are saved immediately. The UI supports English and Russian and adapts to terminal resizing; a window of at least **73 columns × 20 rows** is required. Larger windows show more files and jobs. The cursor and previous terminal screen are restored on exit.
 
-The file browser scans the configured folder rather than a download-history database. It also sees media placed there manually. Hidden files, subdirectories, symlinks and recognizable temporary files are excluded. File actions never delete downloads. Completed job history and the event log are kept for the current session only; partial downloads may be resumed by yt-dlp when a job is retried.
+The file browser scans the configured folder rather than a download-history database. It also sees media placed there manually. Hidden files, subdirectories, symlinks and recognizable temporary files are excluded. File actions never delete downloads. Jobs and their settings are saved in `queue.json` beside `settings.json`. Unfinished jobs resume on the next dashboard launch; a pending quality selection remains pending. Failed and canceled jobs wait for `r`. Completed history remains available; `d` removes a finished queue entry without deleting files. The event log is session-only. Partial downloads can be resumed by yt-dlp.
 
 In non-interactive terminals, a sequential numbered-menu interface is used instead. `macdown doctor` remains available for dependency diagnostics. Explicit commands such as `macdown download URL` remain single-shot operations and return to your shell when finished.
 
@@ -210,12 +211,12 @@ For a separate settings profile, set `MACDOWN_CONFIG_DIR` to a directory of your
 ## Output and limitations
 
 - Default output directory: `~/Downloads/MacDown`.
-- Video is saved as a compatible **H.264 / AAC MP4** with `yuv420p` pixels and fast-start metadata. Compatible streams are copied; other codecs are converted, which takes extra time and can reduce quality.
+- Default video profile: **H.264 / AAC in MP4**, with `yuv420p` pixels and fast-start metadata. Settings let you choose H.264, H.265/HEVC, VP9 or AV1, and MP4, MKV or WebM. WebM requires VP9/AV1 and uses Opus audio; MP4/MKV use AAC. Matching streams are copied; other codecs are converted, which takes extra time and can reduce quality. A chosen encoder must be available in your FFmpeg build; errors are reported without silently changing the profile.
 - Quality is a **maximum source frame height**, not an exact resolution or an upscaling target. This also applies to portrait videos. If no suitable format with audio is available, the item fails.
 - Audio formats: `mp3`, `m4a`, `opus`, `flac`, `wav`, `best`. Converting lossy audio to FLAC/WAV does not improve its original quality.
 - File sizes are not estimated. Available resolutions are based on site metadata and may change before the download starts.
 - Single-video URLs only: playlists, multi-video pages and ongoing livestreams are not processed by the download queue.
-- Downloads use hidden, request-specific staging folders and a filesystem lock. Missing fragments abort the download. Before publication, FFprobe checks audio/video streams and duration, and FFmpeg decodes the entire result. Only verified files appear in the library. Existing files are never overwritten; an invalid existing file produces an error. Failed downloads retain staged data for retry. Small lock folders remain hidden after success. Different quality/audio choices have separate filenames. The queue itself is not persisted across runs.
+- Downloads use hidden, request-specific staging folders and a filesystem lock. Missing fragments abort the download. Before publication, FFprobe checks audio/video streams and duration, and FFmpeg decodes the entire result. Only verified files appear in the library. Existing files are never overwritten; an invalid existing file produces an error. Failed downloads retain staged data for retry. Small lock folders remain hidden after success. Different quality/audio choices have separate filenames. The queue and completed history persist across runs.
 - Browser authentication, regional restrictions and DRM are not bypassed.
 - yt-dlp configuration files are ignored to keep behavior predictable.
 - Exit status: `0` on success/help/version/config, `1` for operational failures, `2` for command-line syntax errors, `130` when canceled. `doctor` returns `1` when a required dependency cannot be found or run; a missing optional Deno runtime is reported as a warning.
@@ -281,3 +282,23 @@ yt-dlp --ignore-config --verbose --cookies-from-browser firefox --skip-download 
 ```
 
 The output pipeline now avoids concurrent writes to shared audio intermediates, rejects missing fragments and validates completed media before reporting success. Existing AV1/VP9/Opus files are left unchanged; an MP4 filename alone does not ensure player compatibility.
+
+## 0.7.0: stages, video profiles and persistent queue
+
+Video settings apply to newly added jobs. Existing jobs keep the profile captured when added. Choose **Video codec** and **Video container** in Settings in either interface. Incompatible WebM combinations are hidden; selecting H.264/HEVC while WebM is selected switches the container to MKV. Existing settings automatically default to H.264/MP4.
+
+CLI overrides do not change saved preferences:
+
+```sh
+macdown download --video-codec hevc --video-format mp4 'VIDEO_URL'
+macdown download --video-codec vp9 --video-format webm 'VIDEO_URL'
+macdown download --video-codec av1 --video-format mkv 'VIDEO_URL'
+```
+
+Jobs show separate **Downloading → Processing → Verifying → Done** stages. Percentages refer to the current stage; downloading reaching 100% does not mean conversion or verification has finished. Processing and verification percentages use FFmpeg timestamps when a duration is known. The final filename includes quality, codec and container so different profiles do not overwrite one another.
+
+The persistent queue is stored in `~/Library/Application Support/MacDown/queue.json`, or under `MACDOWN_CONFIG_DIR` when set. It includes URLs, per-job settings, metadata, status and error details, but never browser cookie values. Queue files use owner-only permissions, atomic replacement and disk synchronization. One MacDown session owns the queue at a time; another session gets a clear error rather than overwriting it.
+
+CLI download lists are saved before starting the first download. Interrupted CLI jobs can be resumed by opening the dashboard; the numbered interface has a **Saved queue** menu. Restored downloads, conversions and checks resume using staged files; conversion/checking may restart from the beginning. Manually canceled jobs stay canceled. Invalid queue files are retained unchanged and reported; automatic replacement with an empty queue is forbidden. `d` removes selected finished history in the panel interface, while **Clear finished history** does the same in the numbered menu. Neither action deletes downloaded files.
+
+Subprocesses inherit the staging lock so that, even after an abrupt parent exit, a restarted job waits for an orphan downloader/converter to release its files. Normal cancellation still terminates the entire subprocess group.

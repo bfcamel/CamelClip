@@ -34,6 +34,9 @@ type mediaInfo struct {
 func command(ctx context.Context, path string, args ...string) *exec.Cmd {
 	c := exec.CommandContext(ctx, path, args...)
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if lock, ok := ctx.Value(stageLockContextKey{}).(*os.File); ok {
+		c.ExtraFiles = []*os.File{lock}
+	}
 	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGKILL) }
 	c.WaitDelay = 2 * time.Second
 	return c

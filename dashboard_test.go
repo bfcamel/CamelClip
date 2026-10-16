@@ -49,7 +49,7 @@ func TestDashboardReturnsFromLibraryAndPersistsSettings(t *testing.T) {
 	o.Lang = "en"
 	config := filepath.Join(root, "config", "settings.json")
 	// Library -> back -> settings -> change audio -> back -> exit.
-	input := "3\n4\n4\n4\n3\n5\n6\n"
+	input := "3\n4\n5\n4\n3\n8\n7\n"
 	var output bytes.Buffer
 	m := &menu{in: bufio.NewReader(strings.NewReader(input)), out: &output}
 	if err := dashboard(context.Background(), m, &o, config, "en", root); err != nil {

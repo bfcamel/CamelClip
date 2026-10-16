@@ -8,16 +8,18 @@ import (
 )
 
 type settings struct {
-	Language string `json:"language"`
-	Mode     string `json:"mode"`
-	Quality  string `json:"quality"`
-	Audio    string `json:"audio_format"`
-	Out      string `json:"output_directory"`
-	Browser  string `json:"cookies_browser,omitempty"`
+	Language  string `json:"language"`
+	Mode      string `json:"mode"`
+	Quality   string `json:"quality"`
+	Audio     string `json:"audio_format"`
+	Out       string `json:"output_directory"`
+	Browser   string `json:"cookies_browser,omitempty"`
+	Codec     string `json:"video_codec"`
+	Container string `json:"video_container"`
 }
 
 func defaultOptions(home string) options {
-	return options{Lang: "auto", Mode: "video", Quality: "best", Audio: "mp3", Out: filepath.Join(home, "Downloads", "MacDown")}
+	return options{Lang: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: filepath.Join(home, "Downloads", "MacDown")}
 }
 func loadSettings(path string, o *options) error {
 	data, err := os.ReadFile(path)
@@ -41,6 +43,10 @@ func loadSettings(path string, o *options) error {
 	candidate.Audio = s.Audio
 	candidate.Out = s.Out
 	candidate.Cookies = s.Browser
+	candidate.Codec = s.Codec
+	candidate.Container = s.Container
+	candidate.Codec = videoCodec(candidate)
+	candidate.Container = videoContainer(candidate)
 	candidate.URL = "https://example.com/video"
 	if err = validate(candidate); err != nil {
 		return fmt.Errorf(tr("некорректные настройки: %w"), err)
@@ -50,7 +56,7 @@ func loadSettings(path string, o *options) error {
 	return nil
 }
 func saveSettings(path string, o options) error {
-	data, err := json.MarshalIndent(settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies}, "", "  ")
+	data, err := json.MarshalIndent(settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o)}, "", "  ")
 	if err != nil {
 		return err
 	}

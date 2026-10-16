@@ -183,7 +183,7 @@ func (u *panelUI) render() {
 		c.fill(rightX+1, row, rightW-2, style)
 		c.text(rightX+2, row, rightW-4, fmt.Sprintf("%s#%d %s", prefix, j.id, j.title), style)
 		detail := jobState(j.state)
-		if j.state == "downloading" {
+		if contains([]string{"downloading", "processing", "verifying"}, j.state) {
 			detail += " " + j.detail
 		}
 		c.text(rightX+3, row+1, rightW-5, detail, dim)
@@ -196,7 +196,7 @@ func (u *panelUI) render() {
 		c.text(2, logY+1+i-first, w-4, u.logs[i], normal)
 	}
 	c.text(1, h-2, w-2, tr("Tab: панель  ↑↓: выбор  Enter: открыть/качество  v/a: добавить  s: настройки"), cyan)
-	c.text(1, h-1, w-2, tr("x: отменить  r: повтор/обновить  o: Finder  f: папка  q: выход  Esc: назад"), dim)
+	c.text(1, h-1, w-2, tr("x: отменить  r: повтор  d: убрать запись  o: Finder  f: папка  q: выход"), dim)
 	if u.modal != "" {
 		u.drawModal(c)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -12,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type probeResult struct {
@@ -22,6 +24,7 @@ type probeResult struct {
 	} `json:"streams"`
 	Format struct {
 		Duration string `json:"duration"`
+		Name     string `json:"format_name"`
 	} `json:"format"`
 }
 
@@ -50,49 +53,52 @@ func probeMedia(ctx context.Context, path string, video bool, expected float64) 
 	return info, nil
 }
 func verifyMedia(ctx context.Context, path string, video bool, expected float64) error {
-	if _, err := probeMedia(ctx, path, video, expected); err != nil {
+	return verifyMediaWithObserver(ctx, path, video, expected, nil)
+}
+func verifyMediaWithObserver(ctx context.Context, path string, video bool, expected float64, observer pipelineObserver) error {
+	info, err := probeMedia(ctx, path, video, expected)
+	if err != nil {
 		return err
 	}
-	a := []string{"-v", "error", "-xerror", "-nostdin", "-i", path, "-map", "0:a:0"}
+	if expected <= 0 {
+		expected, _ = strconv.ParseFloat(info.Format.Duration, 64)
+	}
+	a := []string{"-v", "error", "-xerror", "-nostdin", "-progress", "pipe:1", "-nostats", "-i", path, "-map", "0:a:0"}
 	if video {
 		a = append(a, "-map", "0:v:0")
 	}
 	c := command(ctx, "ffmpeg", append(a, "-f", "null", "-")...)
 	var tail tailBuffer
 	c.Stderr = &tail
+	c.Stdout = &ffmpegProgress{duration: expected, stage: "verifying", observer: observer}
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("media validation failed: %w: %s", err, tail.String())
 	}
 	return nil
 }
 func compatibleMP4(ctx context.Context, path, dir string, expected float64) (string, error) {
-	info, err := probeMedia(ctx, path, true, expected)
+	o := options{duration: expected}
+	return convertVideo(ctx, path, dir, o, nil)
+}
+func convertVideo(ctx context.Context, path, dir string, o options, observer pipelineObserver) (string, error) {
+	info, err := probeMedia(ctx, path, true, o.duration)
 	if err != nil {
 		return "", err
 	}
-	v, a := "copy", "copy"
-	for _, s := range info.Streams {
-		if s.Type == "video" && (s.Codec != "h264" || s.Pixel != "yuv420p") {
-			v = "libx264"
-		}
-		if s.Type == "audio" && s.Codec != "aac" {
-			a = "aac"
-		}
+	args, err := conversionArguments(path, filepath.Join(dir, "converted."+videoContainer(o)), info, o)
+	if err != nil {
+		return "", err
 	}
-	target := filepath.Join(dir, "compatible.mp4")
-	args := []string{"-v", "error", "-xerror", "-nostdin", "-y", "-i", path, "-map", "0:v:0", "-map", "0:a:0", "-c:v", v, "-c:a", a}
-	if v != "copy" {
-		args = append(args, "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p")
+	if o.duration <= 0 {
+		o.duration, _ = strconv.ParseFloat(info.Format.Duration, 64)
 	}
-	if a != "copy" {
-		args = append(args, "-b:a", "192k")
-	}
-	args = append(args, "-movflags", "+faststart", target)
+	target := args[len(args)-1]
 	c := command(ctx, "ffmpeg", args...)
 	var tail tailBuffer
 	c.Stderr = &tail
+	c.Stdout = &ffmpegProgress{duration: o.duration, stage: "processing", observer: observer}
 	if err = c.Run(); err != nil {
-		return "", fmt.Errorf("MP4 conversion failed: %w: %s", err, tail.String())
+		return "", fmt.Errorf("video conversion failed: %w: %s", err, tail.String())
 	}
 	return target, nil
 }
@@ -100,6 +106,13 @@ func compatibleMP4(ctx context.Context, path, dir string, expected float64) (str
 // Each request has a private staging area. Only fully validated files enter the library.
 // A filesystem lock protects partial files even across independent MacDown processes.
 func verifiedDownload(ctx context.Context, executable string, o options, output io.Writer) error {
+	return verifiedDownloadWithObserver(ctx, executable, o, output, nil)
+}
+func verifiedDownloadWithObserver(ctx context.Context, executable string, o options, output io.Writer, observer pipelineObserver) error {
+	if err := validateVideoProfile(o); err != nil {
+		return err
+	}
+	notifyStage(observer, output, "downloading")
 	absoluteOut, err := filepath.Abs(o.Out)
 	if err != nil {
 		return err
@@ -118,9 +131,10 @@ func verifiedDownload(ctx context.Context, executable string, o options, output 
 		return err
 	}
 	defer lock.Close()
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fmt.Errorf("this download is already running")
+	if err = lockDownload(ctx, lock); err != nil {
+		return err
 	}
+	ctx = context.WithValue(ctx, stageLockContextKey{}, lock)
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
 	// Keep the lock inode and directory: removing them could allow another process to bypass the lock.
 	manifest := filepath.Join(stage, "result.jsonl")
@@ -133,7 +147,7 @@ func verifiedDownload(ctx context.Context, executable string, o options, output 
 	args = append(args[:len(args)-2], "--print-to-file", "after_move:%(filepath)j", manifest, "--", o.URL)
 	c := command(ctx, executable, args...)
 	var tail tailBuffer
-	w := io.MultiWriter(output, &tail)
+	w := &downloaderOutput{out: io.MultiWriter(output, &tail), observer: observer}
 	c.Stdout = w
 	c.Stderr = w
 	if err = c.Run(); err != nil {
@@ -174,23 +188,32 @@ func verifiedDownload(ctx context.Context, executable string, o options, output 
 	}
 	result := source
 	if o.Mode == "video" {
-		fmt.Fprintln(output, tr("Проверка и подготовка совместимого MP4…"))
-		result, err = compatibleMP4(ctx, source, stageAbs, o.duration)
+		notifyStage(observer, output, "processing")
+		result, err = convertVideo(ctx, source, stageAbs, o, observer)
 		if err != nil {
 			return err
 		}
 	}
-	fmt.Fprintln(output, tr("Проверка целостности файла…"))
-	if err = verifyMedia(ctx, result, o.Mode == "video", o.duration); err != nil {
+	notifyStage(observer, output, "verifying")
+	if err = verifyMediaWithObserver(ctx, result, o.Mode == "video", o.duration, observer); err != nil {
 		if ctx.Err() != nil {
 			return errCanceled
 		}
 		return err
 	}
+	if o.Mode == "video" {
+		if err = verifyVideoProfile(ctx, result, o); err != nil {
+			return err
+		}
+	}
 	if ctx.Err() != nil {
 		return errCanceled
 	}
-	target := filepath.Join(o.Out, filepath.Base(source))
+	name := filepath.Base(source)
+	if o.Mode == "video" {
+		name = strings.TrimSuffix(name, filepath.Ext(name)) + "." + videoContainer(o)
+	}
+	target := filepath.Join(o.Out, name)
 	// link publishes atomically without overwriting a file created by another job/process.
 	if err = os.Link(result, target); err != nil {
 		if !os.IsExist(err) {
@@ -198,6 +221,11 @@ func verifiedDownload(ctx context.Context, executable string, o options, output 
 		}
 		if err = verifyMedia(ctx, target, o.Mode == "video", o.duration); err != nil {
 			return fmt.Errorf("existing file is invalid; kept unchanged: %s: %w", target, err)
+		}
+	}
+	if o.Mode == "video" {
+		if err = verifyVideoProfile(ctx, target, o); err != nil {
+			return err
 		}
 	}
 	entries, _ := os.ReadDir(stage)
@@ -208,4 +236,27 @@ func verifiedDownload(ctx context.Context, executable string, o options, output 
 	}
 	fmt.Fprintln(output, tr("Сохранено:"), target)
 	return nil
+}
+
+// Keep the staging lock in subprocesses too: after an abrupt parent exit an orphan
+// downloader/converter must finish before a restarted instance touches its files.
+type stageLockContextKey struct{}
+
+func lockDownload(ctx context.Context, lock *os.File) error {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, syscall.EWOULDBLOCK) && !errors.Is(err, syscall.EAGAIN) {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return errCanceled
+		case <-ticker.C:
+		}
+	}
 }

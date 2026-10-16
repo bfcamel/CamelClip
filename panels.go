@@ -46,7 +46,12 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 	fmt.Fprint(m.out, "\033[?1049h\033[?25l\033[?2004h")
 	defer fmt.Fprint(m.out, "\033[?2004l\033[?25h\033[?1049l")
 	path, _ := exec.LookPath("yt-dlp")
-	u := &panelUI{ctx: ctx, out: m.out, o: o, config: config, system: system, home: home, pool: newJobPool(ctx, path), width: 100, height: 30, dirty: true}
+	pool, err := openPersistentPool(ctx, path, config)
+	if err != nil {
+		return err
+	}
+	defer pool.store.close()
+	u := &panelUI{ctx: ctx, out: m.out, o: o, config: config, system: system, home: home, pool: pool, width: 100, height: 30, dirty: true}
 	defer func() { cancel(); u.pool.wait() }()
 	u.refresh()
 	u.log(tr("Tab — переключение панелей. v — видео, a — аудио."))
@@ -78,7 +83,13 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 				pending = false
 			}
 		}
+		if err = u.pool.saveQueue(); err != nil {
+			return err
+		}
 		u.pool.schedule()
+		if err = u.pool.saveQueue(); err != nil {
+			return err
+		}
 		if u.dirty {
 			u.render()
 			u.dirty = false
@@ -92,6 +103,9 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 			u.key(key)
 			u.dirty = true
 		}
+	}
+	if err = u.pool.saveQueue(); err != nil {
+		return err
 	}
 	if parent.Err() != nil {
 		return errCanceled
@@ -155,7 +169,7 @@ func (u *panelUI) event(e jobEvent) {
 	}
 }
 func jobState(s string) string {
-	labels := map[string]string{"queued": "В очереди", "inspecting": "Получение данных", "choose": "Выберите качество: Enter", "ready": "Готов к загрузке", "downloading": "Скачивание", "done": "Готово", "failed": "Ошибка", "canceling": "Отмена…", "canceled": "Отменено"}
+	labels := map[string]string{"queued": "В очереди", "inspecting": "Получение данных", "choose": "Выберите качество: Enter", "ready": "Готов к загрузке", "downloading": "Загрузка", "processing": "Обработка", "verifying": "Проверка", "done": "Готово", "failed": "Ошибка", "canceling": "Отмена…", "canceled": "Отменено"}
 	return tr(labels[s])
 }
 func (u *panelUI) selectedJob() *job {
@@ -238,6 +252,19 @@ func (u *panelUI) key(key string) {
 				u.input = jobState(j.state) + " | " + j.detail + " | " + j.options.Out
 			}
 		}
+	case "d":
+		if u.focus == 1 {
+			if j := u.selectedJob(); j != nil && contains([]string{"done", "failed", "canceled"}, j.state) {
+				for i, item := range u.pool.jobs {
+					if item.id == j.id {
+						u.pool.jobs = append(u.pool.jobs[:i], u.pool.jobs[i+1:]...)
+						break
+					}
+				}
+				u.jobIndex = maxInt(0, minInt(u.jobIndex, len(u.pool.jobs)-1))
+				u.log(tr("Запись удалена из очереди. Файлы сохранены."))
+			}
+		}
 	case "x":
 		if u.focus == 1 {
 			if j := u.selectedJob(); j != nil {
@@ -284,7 +311,7 @@ func (u *panelUI) open(path string, reveal bool) {
 	}
 }
 func (u *panelUI) settings() {
-	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}}, "")
+	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}}, "")
 }
 func (u *panelUI) save(candidate options) {
 	if err := saveSettings(u.config, candidate); err != nil {
@@ -406,6 +433,10 @@ func (u *panelUI) modalKey(key string) {
 			}
 		case "settings":
 			switch value {
+			case "video-codec":
+				u.showChoices("video-codec", tr("Кодек видео"), videoCodecChoices(), videoCodec(*u.o))
+			case "video-format":
+				u.showChoices("video-format", tr("Формат видео"), videoContainerChoices(videoCodec(*u.o)), videoContainer(*u.o))
 			case "browser":
 				u.modal = "browser"
 				u.title = tr("Браузер cookies: firefox[:профиль], пусто — отключить")
@@ -429,9 +460,16 @@ func (u *panelUI) modalKey(key string) {
 				}
 				u.showChoices("audio", tr("Формат аудио"), list, u.o.Audio)
 			}
-		case "language", "default-quality", "audio":
+		case "language", "default-quality", "audio", "video-codec", "video-format":
 			candidate := *u.o
 			switch kind {
+			case "video-codec":
+				candidate.Codec = value
+				if validateVideoProfile(candidate) != nil {
+					candidate.Container = "mkv"
+				}
+			case "video-format":
+				candidate.Container = value
 			case "language":
 				candidate.Lang = value
 			case "default-quality":
