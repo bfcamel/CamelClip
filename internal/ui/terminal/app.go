@@ -69,7 +69,7 @@ func run(deps Dependencies) error {
 		fmt.Println(tr("Очередь хранится в SQLite."))
 		return nil
 	case "doctor":
-		return doctor(ctx)
+		return doctor(ctx, configPath, o, request.json)
 	}
 	urls, listPath := request.urls, request.list
 	if listPath != "" {

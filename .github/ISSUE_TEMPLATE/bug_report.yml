@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible problem without private data.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Application version
+      description: Output of macdown version.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      placeholder: Ubuntu 24.04 arm64 or macOS 15 Apple Silicon
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected result and actual result
+      description: Remove private URLs, tokens, account details and local paths.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Offline diagnostic report
+      description: Paste macdown doctor --json output. Never attach cookies or the queue database.
+      render: json

@@ -57,11 +57,11 @@ func explainSummary(raw string) string {
 	case strings.Contains(s, "permission denied"):
 		return tr("Нет доступа к файлу или папке. Проверьте права и выбранную папку.")
 	case strings.Contains(s, "cookies") && (strings.Contains(s, "failed") || strings.Contains(s, "could not")):
-		return tr("Не удалось прочитать cookies браузера. Проверьте профиль и разрешения macOS или выберите другой браузер.")
+		return tr("Не удалось прочитать cookies браузера. Проверьте профиль и разрешения доступа или выберите другой браузер.")
 	case strings.Contains(s, "not a bot"):
 		return tr("YouTube просит подтвердить, что вы не бот. Проверьте cookies выбранного профиля Firefox и доступ через ту же сеть.")
 	case strings.Contains(s, "sign in") || strings.Contains(s, "login") || strings.Contains(s, "private video") || strings.Contains(s, "age-restricted"):
-		return tr("Ролик требует входа. Войдите в браузере и повторите с -cookies-browser firefox (или chrome/safari).")
+		return tr("Ролик требует входа. Войдите в браузере и повторите с -cookies-browser firefox (или chrome).")
 	case strings.Contains(s, "429"):
 		return tr("Сайт временно ограничил запросы. Подождите и повторите загрузку.")
 	case strings.Contains(s, "403"):
@@ -81,8 +81,8 @@ func explainSummary(raw string) string {
 	}
 	for _, line := range strings.Split(strings.ReplaceAll(raw, "\r", "\n"), "\n") {
 		if strings.Contains(line, "ERROR:") {
-			return strings.TrimSpace(line) + tr("\nПопробуйте обновить yt-dlp: brew upgrade yt-dlp")
+			return strings.TrimSpace(line) + tr("\nОбновите yt-dlp вашим менеджером пакетов.")
 		}
 	}
-	return tr("Загрузка не завершена. Проверьте сообщения выше; обновление: brew upgrade yt-dlp.")
+	return tr("Загрузка не завершена. Проверьте сообщения выше и обновите yt-dlp вашим менеджером пакетов.")
 }

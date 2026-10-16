@@ -76,7 +76,7 @@ func dashboard(ctx context.Context, m *menu, o *options, configPath, system, hom
 			err = library(ctx, m, *o)
 		case "doctor":
 			screen(m, tr("Диагностика"), *o, "")
-			err = doctor(ctx)
+			err = doctor(ctx, configPath, *o, false)
 			if err != nil {
 				fmt.Fprintln(m.out, err)
 			}

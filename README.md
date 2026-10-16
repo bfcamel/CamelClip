@@ -1,6 +1,6 @@
 # MacDown
 
-A small, terminal-only video and audio downloader for macOS, written in Go.
+A small, terminal-only video and audio downloader for macOS and Linux, written in Go.
 It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other supported sites, and FFmpeg to merge or convert media. Site support depends on your yt-dlp version and access to the particular video.
 
 ## Features
@@ -14,7 +14,7 @@ It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other sup
 - Update download progress on the same terminal line.
 - Show explanations for common access, network, format and disk errors while preserving the original ERROR line; distinguish YouTube bot checks from account restrictions.
 
-**English and Russian interfaces are available.** The first-run default is detected from `LC_ALL`, `LC_MESSAGES`, `LANG`, then macOS preferred languages. Other languages fall back to English. Choose a language in the first menu or pass `-lang en`, `-lang ru`, or `-lang auto`. Changes in Settings are saved immediately. yt-dlp diagnostics and operating-system errors may remain in their original language. There is no graphical interface or background server.
+**English and Russian interfaces are available.** The first-run default is detected from `LC_ALL`, `LC_MESSAGES`, `LANG`, then macOS preferred languages on macOS (English fallback on Linux). Other languages fall back to English. Choose a language in the first menu or pass `-lang en`, `-lang ru`, or `-lang auto`. Changes in Settings are saved immediately. yt-dlp diagnostics and operating-system errors may remain in their original language. There is no graphical interface or background server.
 
 ## CLI commands
 
@@ -26,7 +26,8 @@ macdown audio 'VIDEO_URL' --audio-format mp3
 macdown formats 'VIDEO_URL'             # List available formats
 macdown download --list links.txt       # Sequential queue
 macdown config                         # Effective settings and file path as JSON
-macdown doctor                         # Check dependency paths and versions
+macdown doctor                         # Check dependencies, encoders and storage
+macdown doctor --json                  # Shareable diagnostic report
 macdown version                        # Program version
 macdown help                           # Help
 macdown help download                  # Command help
@@ -42,7 +43,7 @@ After cloning the repository or extracting a compiled package, run:
 sh install.sh --add-to-path
 ```
 
-The installer builds from source when Go is available, otherwise uses the packaged binary for your Mac. It installs `macdown` into `~/.local/bin` and adds one PATH line to `~/.zprofile` for the default macOS zsh shell. **Open a new Terminal window**, then run `macdown doctor` from any directory. Dependencies still need to be installed separately:
+The installer builds from source when Go is available, otherwise uses the packaged binary for your OS and architecture. It installs `macdown` into `~/.local/bin`. With `--add-to-path`, it adds one PATH line to `~/.zprofile` on macOS or for Linux zsh, `~/.bashrc` for Linux bash, and `~/.profile` for Linux sh. Other shells require manual PATH setup. **Open a new Terminal window**, then run `macdown doctor` from any directory. Dependencies still need to be installed separately:
 
 ```sh
 brew install yt-dlp ffmpeg deno
@@ -50,11 +51,11 @@ brew install yt-dlp ffmpeg deno
 
 For a custom location, use `sh install.sh --bin-dir /absolute/path/to/bin` and add that directory to your shell's PATH yourself. Without `--add-to-path`, shell configuration is not modified. Use `--force` to replace an existing installation when upgrading.
 
-To uninstall, remove `~/.local/bin/macdown` and, if no longer needed, the line marked `# MacDown CLI` from `~/.zprofile`. Downloaded files and saved settings are unaffected.
+To uninstall, remove `~/.local/bin/macdown` and, if no longer needed, the line marked `# MacDown CLI` from the startup file above. Downloaded files and saved settings are unaffected.
 
 ## Install and build
 
-Install [Homebrew](https://brew.sh/) if needed, then:
+On macOS, install [Homebrew](https://brew.sh/) if needed, then:
 
 ```sh
 brew install go yt-dlp ffmpeg deno
@@ -68,7 +69,7 @@ Go 1.26 or newer is required to build. SQLite uses a pure-Go driver; CGO is not 
 
 For full YouTube support, yt-dlp also needs its EJS components. If your installation reports missing JavaScript components, follow the [official EJS setup instructions](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
 
-Build and check both Mac architectures:
+Build and check macOS and Linux for both arm64 and amd64:
 
 ```sh
 sh build.sh
@@ -80,6 +81,8 @@ The `dist/` directory contains:
 | --- | --- |
 | `macdown-macos-arm64` | Apple Silicon Macs |
 | `macdown-macos-amd64` | Intel Macs |
+| `macdown-linux-arm64` | Linux arm64 |
+| `macdown-linux-amd64` | Linux amd64 |
 | `Start.command` | Double-click in Finder to open the terminal interface |
 | `install.sh` | Install the `macdown` command |
 | `README.md` | This guide |
@@ -90,7 +93,7 @@ You can also double-click the repository's `Start.command` after building. The l
 
 Run `macdown` without URLs to open a full-screen workspace with three independent panels:
 
-- **My files** (left): actual media files in the configured folder, refreshed every second. Open the selected file or reveal it in Finder.
+- **My files** (left): actual media files in the configured folder, refreshed every second. Open the selected file or open its containing folder (Finder on macOS).
 - **Jobs** (right): queued, active, completed, failed and canceled jobs with status/progress. Up to **two workers** can fetch metadata or download media concurrently.
 - **Event log** (bottom): recent activity and error explanations, with independent scrolling.
 
@@ -110,7 +113,7 @@ Downloads continue while you browse files, scroll the log, add more URLs, or edi
 | `r` in Jobs | Retry a failed or canceled job |
 | `r` elsewhere | Refresh the file list |
 | `d` in Jobs | Remove a finished, failed or canceled entry; keep downloaded files |
-| `o` in Files | Reveal the selected file in Finder |
+| `o` in Files | Show the selected file in Finder on macOS; open its containing folder on Linux |
 | `f` | Open the configured output folder |
 | `s` | Edit output folder, language, video quality or audio format |
 | `Esc` | Close a dialog |
@@ -202,6 +205,8 @@ On macOS, settings are stored in:
 ~/Library/Application Support/MacDown/settings.json
 ```
 
+On Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/MacDown/settings.json`. `MACDOWN_CONFIG_DIR` overrides the directory on either OS.
+
 Changes made in the dashboard's Settings screen are saved immediately. Successful interactive downloads also remember the selected mode and video quality. These values become the next run's defaults, including command-line runs. Explicit CLI flags override them for that command only and do not change the saved output directory or other preferences. URL lists are never saved. Browser choices made in Settings are saved; CLI flags override the current run.
 
 Rename or remove that file to reset the defaults. Missing settings use built-in defaults; malformed settings produce a warning and are ignored. Settings are written atomically with owner-only file permissions.
@@ -210,7 +215,7 @@ For a separate settings profile, set `MACDOWN_CONFIG_DIR` to a directory of your
 
 ## Output and limitations
 
-- Default output directory: `~/Downloads/MacDown`.
+- Default output directory: `~/Downloads/MacDown`; Linux respects `XDG_DOWNLOAD_DIR` from `user-dirs.dirs`, including localized download folders.
 - Default video profile: **H.264 / AAC in MP4**, with `yuv420p` pixels and fast-start metadata. Settings let you choose H.264, H.265/HEVC, VP9 or AV1, and MP4, MKV or WebM. WebM requires VP9/AV1 and uses Opus audio; MP4/MKV use AAC. Matching streams are copied; other codecs are converted, which takes extra time and can reduce quality. A chosen encoder must be available in your FFmpeg build; errors are reported without silently changing the profile.
 - Quality is a **maximum source frame height**, not an exact resolution or an upscaling target. This also applies to portrait videos. If no suitable format with audio is available, the item fails.
 - Audio formats: `mp3`, `m4a`, `opus`, `flac`, `wav`, `best`. Converting lossy audio to FLAC/WAV does not improve its original quality.
@@ -294,7 +299,7 @@ macdown download --video-codec av1 --video-format mkv 'VIDEO_URL'
 
 Jobs show separate **Downloading → Processing → Verifying → Done** stages. Percentages refer to the current stage; downloading reaching 100% does not mean conversion or verification has finished. Processing and verification percentages use FFmpeg timestamps when a duration is known. The final filename includes quality, codec and container so different profiles do not overwrite one another.
 
-The persistent queue is stored in `~/Library/Application Support/MacDown/queue.sqlite3`, or under `MACDOWN_CONFIG_DIR` when set. It includes URLs, per-job settings, metadata, status and error details, but never browser cookie values. Queue files use owner-only permissions, atomic replacement and disk synchronization. One MacDown session owns the queue at a time; another session gets a clear error rather than overwriting it.
+The persistent queue is stored beside settings: `~/Library/Application Support/MacDown/queue.sqlite3` on macOS and `${XDG_CONFIG_HOME:-$HOME/.config}/MacDown/queue.sqlite3` on Linux, or under `MACDOWN_CONFIG_DIR` when set. It includes URLs, per-job settings, metadata, status and error details, but never browser cookie values. Queue files use owner-only permissions, SQLite transactions and full disk synchronization. One MacDown session owns the queue at a time; another session gets a clear error rather than overwriting it.
 
 CLI download lists are saved before starting the first download. Interrupted CLI jobs can be resumed by opening the dashboard; the numbered interface has a **Saved queue** menu. Restored downloads, conversions and checks resume using staged files; conversion/checking may restart from the beginning. Manually canceled jobs stay canceled. Invalid queue files are retained unchanged and reported; automatic replacement with an empty queue is forbidden. `d` removes selected finished history in the panel interface, while **Clear finished history** does the same in the numbered menu. Neither action deletes downloaded files.
 
@@ -313,3 +318,33 @@ On first use, a valid legacy `queue.json` is imported exactly once in a transact
 Settings menus now retain their parent screen. **Esc**, **←**, **Backspace**, or the visible **Back** item returns one level; choosing a setting also returns to Settings. The numbered interface supports **0** or **b** for back. The bottom status line begins with **s: Settings**, including at the minimum terminal width.
 
 Source builds require **Go 1.26+**. Compiled arm64 and amd64 distributions remain self-contained Go executables; SQLite does not require an external server or SQLite installation.
+
+
+## Linux
+
+Linux amd64 and arm64 are supported; automated native checks target Ubuntu 24.04. For other distributions, use the standalone binary or build with Go 1.26+. Required tools must be in PATH:
+
+- yt-dlp, with its EJS components for full YouTube support;
+- FFmpeg/ffprobe with the selected video/audio encoders;
+- Deno (recommended for YouTube);
+- `stty` for the interactive terminal panels;
+- xdg-utils for opening files in a graphical desktop (optional on headless servers).
+
+Install FFmpeg and xdg-utils from your distribution, for example `sudo apt install ffmpeg xdg-utils` on Ubuntu/Debian. Install a current yt-dlp and Deno using their official instructions: [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) and [Deno](https://docs.deno.com/runtime/getting_started/installation/). Distribution yt-dlp packages may lag behind site changes.
+
+Extract your Linux archive, run `sh install.sh --add-to-path`, open a new terminal and run `macdown doctor`. With source and Go available, the same installer builds locally. No graphical desktop is needed for downloads, SQLite queues or numbered menus. Opening media needs an associated player; `o` opens the containing directory through `xdg-open`.
+
+Firefox/Chrome browser cookies are optional. Flatpak/Snap installations may need an explicit profile path and suitable permissions. Safari is macOS-only. Windows is not supported yet.
+
+## Releases, diagnostics and participation
+
+[GitHub Releases](https://github.com/bfcamel/video-downloader/releases) contain versioned archives and SHA256SUMS. Each archive includes an installer, licenses and source-commit metadata. Verify checksums before installation; builds are currently unsigned, and macOS binaries are not notarized.
+
+`macdown doctor` checks dependencies, selected encoders, directory access, free disk space, saved settings and SQLite integrity. `macdown doctor --json > doctor.json` produces a shareable report without cookies, profile selectors, URLs, local paths or raw dependency output. It performs offline checks and cannot guarantee authentication or site access. See [troubleshooting](docs/troubleshooting.md).
+
+- [Supported environments and compatibility](docs/support.md)
+- [Architecture and adding a GUI](docs/architecture.md)
+- [Failure tests](docs/testing.md)
+- [Release process](docs/releases.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [Community conduct](CODE_OF_CONDUCT.md)

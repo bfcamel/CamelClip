@@ -89,3 +89,14 @@ func TestEnglishHelpIncludesVideoProfileFlags(t *testing.T) {
 		t.Fatal(text)
 	}
 }
+
+func TestDoctorJSONFlagIsScopedToDiagnostics(t *testing.T) {
+	o := defaultOptions(t.TempDir())
+	request, err := parseCLI([]string{"doctor", "--json"}, &o)
+	if err != nil || request.command != "doctor" || !request.json {
+		t.Fatal(request, err)
+	}
+	if _, err = parseCLI([]string{"download", "--json", "https://example.com/video"}, &o); err == nil {
+		t.Fatal("diagnostic flag accepted for download")
+	}
+}

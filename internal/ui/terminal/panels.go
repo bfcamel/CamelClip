@@ -295,8 +295,8 @@ func (u *panelUI) key(key string) {
 	}
 }
 func (u *panelUI) open(path string, reveal bool) {
-	// The open command only dispatches to Launch Services; its output never touches the screen.
-	if err := openInFinder(u.ctx, path, reveal); err != nil {
+	// The platform opener never writes child-process output over the dashboard.
+	if err := openMedia(u.ctx, path, reveal); err != nil {
 		u.log(err.Error())
 	}
 }

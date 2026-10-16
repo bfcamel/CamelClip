@@ -11,13 +11,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
-	"time"
+
+	"github.com/bfcamel/video-downloader/internal/diagnostics"
 )
 
-const version = "0.8.0"
+const version = "0.9.0"
+
+var buildCommit = "development"
 
 type usageError struct{ message string }
 
@@ -28,6 +29,7 @@ type cliRequest struct {
 	urls    links
 	list    string
 	help    bool
+	json    bool
 }
 
 var commandNames = []string{"download", "audio", "formats", "config", "migrate", "doctor", "version", "help"}
@@ -69,6 +71,9 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 	fs.StringVar(&o.Lang, "lang", o.Lang, "auto, ru, en")
 	fs.BoolVar(&r.help, "help", r.help, "")
 	fs.BoolVar(&r.help, "h", r.help, "")
+	if r.command == "doctor" {
+		fs.BoolVar(&r.json, "json", false, "")
+	}
 	var showVersion bool
 	fs.BoolVar(&showVersion, "version", false, "")
 	transfer := r.command == "" || r.command == "download" || r.command == "audio" || r.command == "formats"
@@ -157,7 +162,7 @@ func printHelp(command string) {
   macdown formats URL...          Доступные форматы
   macdown config                  Настройки и путь к файлу (JSON)
   macdown migrate                 Перенести очередь в SQLite
-  macdown doctor                  Проверка зависимостей
+  macdown doctor [--json]         Проверка зависимостей и хранилища
   macdown version                 Версия программы
   macdown help [COMMAND]          Справка
 
@@ -192,45 +197,30 @@ func showConfig(path string, o options) error {
 		Language string   `json:"effective_language"`
 	}{path, settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o)}, currentLanguage})
 }
-func doctor(ctx context.Context) error {
-	fmt.Printf("MacDown %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
-	missing := false
-	for _, name := range []string{"yt-dlp", "ffmpeg", "ffprobe", "deno"} {
-		path, err := exec.LookPath(name)
-		optional := name == "deno"
-		if err != nil {
-			if optional {
-				fmt.Printf("WARN %s: %s\n", name, tr("рекомендуется для YouTube"))
-			} else {
-				missing = true
-				fmt.Printf("FAIL %s: %s\n", name, tr("не найден"))
+func doctor(ctx context.Context, path string, o options, asJSON bool) error {
+	report := diagnostics.Collect(ctx, version, buildCommit, path, settingsFor(o))
+	if asJSON {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(report); err != nil {
+			return err
+		}
+	} else {
+		fmt.Printf("MacDown %s (%s/%s)\n", report.Version, report.OS, report.Arch)
+		for _, check := range report.Checks {
+			fmt.Printf("%-4s %s: %s\n", check.Status, check.ID, diagnosticText(check.Message))
+			if check.Hint != "" {
+				fmt.Printf("     %s\n", diagnosticText(check.Hint))
 			}
-			continue
 		}
-		args := []string{"--version"}
-		if name == "ffmpeg" || name == "ffprobe" {
-			args = []string{"-version"}
-		}
-		check, cancel := context.WithTimeout(ctx, 5*time.Second)
-		out, err := exec.CommandContext(check, path, args...).CombinedOutput()
-		cancel()
-		if ctx.Err() != nil {
-			return errCanceled
-		}
-		if err != nil {
-			if !optional {
-				missing = true
-			}
-			fmt.Printf("FAIL %s: %s\n", name, tr("не удалось проверить версию"))
-			continue
-		}
-		first := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
-		fmt.Printf("OK   %s: %s\n     %s\n", name, safeText(first), path)
+		fmt.Println(dependencyHint())
+		fmt.Println(tr("Отчёт для обращения об ошибке: macdown doctor --json"))
 	}
-	fmt.Println(tr("Зависимости: brew install yt-dlp ffmpeg deno"))
-	fmt.Println(tr("Проверка версий не гарантирует доступ к сайтам; EJS: https://github.com/yt-dlp/yt-dlp/wiki/EJS"))
-	if missing {
-		return errors.New(tr("отсутствуют или не работают обязательные зависимости"))
+	if ctx.Err() != nil {
+		return errCanceled
+	}
+	if report.Failed() {
+		return errors.New(tr("Проверка выявила проблемы. См. подсказки в отчёте."))
 	}
 	return nil
 }

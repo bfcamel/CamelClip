@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -71,14 +70,6 @@ func shortName(s string, max int) string {
 	}
 	return string(r[:max-1]) + "…"
 }
-func openInFinder(ctx context.Context, path string, reveal bool) error {
-	args := []string{}
-	if reveal {
-		args = append(args, "-R")
-	}
-	args = append(args, "--", path)
-	return exec.CommandContext(ctx, "open", args...).Run()
-}
 func library(ctx context.Context, m *menu, o options) error {
 	page := 0
 	notice := ""
@@ -111,7 +102,7 @@ func library(ctx context.Context, m *menu, o options) error {
 		if page > 0 {
 			items = append(items, choice{tr("← Предыдущая страница"), "prev"})
 		}
-		items = append(items, choice{tr("Открыть папку в Finder"), "folder"}, choice{tr("Обновить список"), "refresh"}, choice{tr("← Главное меню"), "back"})
+		items = append(items, choice{tr("Открыть папку"), "folder"}, choice{tr("Обновить список"), "refresh"}, choice{tr("← Главное меню"), "back"})
 		selected, e := m.selectItem(ctx, tr("Выберите файл или действие"), items, "")
 		if e != nil {
 			return e
@@ -126,7 +117,7 @@ func library(ctx context.Context, m *menu, o options) error {
 		case "refresh":
 		case "folder":
 			if e = os.MkdirAll(o.Out, 0755); e == nil {
-				e = openInFinder(ctx, o.Out, false)
+				e = openMedia(ctx, o.Out, false)
 			}
 			if e != nil {
 				notice = e.Error()
@@ -139,7 +130,7 @@ func library(ctx context.Context, m *menu, o options) error {
 					fmt.Fprintf(m.out, "%s · %s\n\n", fileSize(f.Size), f.Modified.Format("2006-01-02 15:04"))
 				}
 			}
-			action, e := m.selectItem(ctx, tr("Действие"), []choice{{tr("Открыть файл"), "open"}, {tr("Показать в Finder"), "reveal"}, {tr("← К списку файлов"), "back"}}, "open")
+			action, e := m.selectItem(ctx, tr("Действие"), []choice{{tr("Открыть файл"), "open"}, {tr("Открыть папку файла"), "reveal"}, {tr("← К списку файлов"), "back"}}, "open")
 			if e != nil {
 				if ctx.Err() != nil {
 					return e
@@ -147,7 +138,7 @@ func library(ctx context.Context, m *menu, o options) error {
 				continue
 			}
 			if action != "back" {
-				if e = openInFinder(ctx, selected, action == "reveal"); e != nil {
+				if e = openMedia(ctx, selected, action == "reveal"); e != nil {
 					notice = e.Error()
 				}
 			}

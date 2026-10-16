@@ -3,3 +3,6 @@
 /dist/
 *.part
 .DS_Store
+
+__pycache__/
+/macdown-linux-*

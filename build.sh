@@ -2,10 +2,14 @@
 set -eu
 cd "$(dirname "$0")"
 mkdir -p dist
+commit=$(git rev-parse --short=12 HEAD 2>/dev/null || printf development)
 go test ./...
 go vet ./...
-for arch in arm64 amd64; do
-  CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "dist/macdown-macos-$arch" ./cmd/macdown
+for target in darwin linux; do
+  case "$target" in darwin) platform=macos ;; linux) platform=linux ;; esac
+  for arch in arm64 amd64; do
+    CGO_ENABLED=0 GOOS="$target" GOARCH="$arch" go build -trimpath -ldflags="-s -w -X github.com/bfcamel/video-downloader/internal/ui/terminal.buildCommit=$commit" -o "dist/macdown-$platform-$arch" ./cmd/macdown
+  done
 done
 cp Start.command install.sh README.md LICENSE NOTICE THIRD_PARTY_LICENSES.txt dist/
-printf 'Done: Apple Silicon and Intel builds are in dist/\n'
+printf 'Done: macOS and Linux builds (arm64, amd64) are in dist/\n'
