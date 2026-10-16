@@ -16,7 +16,7 @@ elif [ -x "./dist/$binary" ]; then
 elif [ -x ./macdown ]; then
   ./macdown || result=$?
 else
-  printf 'Build first / Сначала соберите программу: go build -o macdown .\n'
+  printf 'Build first / Сначала соберите программу: go build -o macdown ./cmd/macdown\n'
   result=1
 fi
 printf '\nPress Enter to close / Нажмите Enter, чтобы закрыть.\n'

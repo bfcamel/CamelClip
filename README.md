@@ -60,11 +60,11 @@ Install [Homebrew](https://brew.sh/) if needed, then:
 brew install go yt-dlp ffmpeg deno
 git clone https://github.com/bfcamel/video-downloader.git
 cd video-downloader
-go build -o macdown .
+go build -o macdown ./cmd/macdown
 ./macdown
 ```
 
-Go 1.22 or newer is required to build. The Go program uses only the standard library. yt-dlp, FFmpeg/ffprobe and Deno must be available in your `PATH`; Go is not required to run a compiled binary.
+Go 1.26 or newer is required to build. SQLite uses a pure-Go driver; CGO is not required. yt-dlp, FFmpeg/ffprobe and Deno must be available in your `PATH`; Go is not required to run a compiled binary.
 
 For full YouTube support, yt-dlp also needs its EJS components. If your installation reports missing JavaScript components, follow the [official EJS setup instructions](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
 
@@ -122,7 +122,7 @@ For video downloads, metadata is fetched in the background. When a job says **Ch
 
 Text inputs accept multiple space-separated URLs and bracketed paste. Paste does not trigger keyboard shortcuts. Settings are saved immediately. The UI supports English and Russian and adapts to terminal resizing; a window of at least **73 columns × 20 rows** is required. Larger windows show more files and jobs. The cursor and previous terminal screen are restored on exit.
 
-The file browser scans the configured folder rather than a download-history database. It also sees media placed there manually. Hidden files, subdirectories, symlinks and recognizable temporary files are excluded. File actions never delete downloads. Jobs and their settings are saved in `queue.json` beside `settings.json`. Unfinished jobs resume on the next dashboard launch; a pending quality selection remains pending. Failed and canceled jobs wait for `r`. Completed history remains available; `d` removes a finished queue entry without deleting files. The event log is session-only. Partial downloads can be resumed by yt-dlp.
+The file browser scans the configured folder rather than a download-history database. It also sees media placed there manually. Hidden files, subdirectories, symlinks and recognizable temporary files are excluded. File actions never delete downloads. Jobs and their settings are saved in `queue.sqlite3` beside `settings.json`. Unfinished jobs resume on the next dashboard launch; a pending quality selection remains pending. Failed and canceled jobs wait for `r`. Completed history remains available; `d` removes a finished queue entry without deleting files. The event log is session-only. Partial downloads can be resumed by yt-dlp.
 
 In non-interactive terminals, a sequential numbered-menu interface is used instead. `macdown doctor` remains available for dependency diagnostics. Explicit commands such as `macdown download URL` remain single-shot operations and return to your shell when finished.
 
@@ -244,23 +244,20 @@ Unknown failures retain the original yt-dlp diagnostic. Metadata retrieval has a
 
 ## Source layout
 
-| File | Responsibility |
-| --- | --- |
-| `main.go` | Entry point and exit status |
-| `app.go` | Workflow and sequential queue |
-| `cli.go` | Commands, argument parsing, help, version and diagnostics |
-| `options.go` | Validation and yt-dlp arguments |
-| `menu.go` | Scrollable arrow-key and numbered menus |
-| `dashboard.go` | Sequential fallback and settings editor |
-| `panels.go` | Full-screen event loop, input and panel actions |
-| `panels_render.go` | Bounded screen layout and dialogs |
-| `jobs.go` | Background jobs, cancellation and captured progress |
-| `library.go` | Folder scanning, file list and Finder actions |
-| `media.go` | Metadata, available qualities, child processes and readable errors |
-| `progress.go` | In-place progress rendering and plain-text log output |
-| `settings.go` | Loading and atomically saving preferences |
-| `i18n.go` | Language detection and English/Russian messages |
-| `*_test.go` | Unit tests |
+```text
+cmd/macdown/                 Composition root for the console executable
+internal/core/               UI-independent requests, events and Downloader interface
+internal/downloader/ytdlp/   Isolated yt-dlp/FFmpeg backend
+internal/application/        Queue interface and job lifecycle service
+internal/config/             Configuration types and Repository interface
+internal/storage/sqlite/     Transactional queue/history repository and migration
+internal/storage/jsonconfig/ Atomic JSON settings repository
+internal/bootstrap/          Adapter construction and dependency injection
+internal/ui/terminal/        Terminal frontend, menus and presentation
+internal/architecture/       Dependency boundary regression tests
+```
+
+See [docs/architecture.md](docs/architecture.md) for interface contracts and how to add a GUI. Core packages do not import terminal UI, SQLite, localization, or configuration adapters. The terminal frontend cannot import concrete downloader/storage implementations; an architecture test enforces this direction.
 
 Run checks:
 
@@ -297,8 +294,22 @@ macdown download --video-codec av1 --video-format mkv 'VIDEO_URL'
 
 Jobs show separate **Downloading → Processing → Verifying → Done** stages. Percentages refer to the current stage; downloading reaching 100% does not mean conversion or verification has finished. Processing and verification percentages use FFmpeg timestamps when a duration is known. The final filename includes quality, codec and container so different profiles do not overwrite one another.
 
-The persistent queue is stored in `~/Library/Application Support/MacDown/queue.json`, or under `MACDOWN_CONFIG_DIR` when set. It includes URLs, per-job settings, metadata, status and error details, but never browser cookie values. Queue files use owner-only permissions, atomic replacement and disk synchronization. One MacDown session owns the queue at a time; another session gets a clear error rather than overwriting it.
+The persistent queue is stored in `~/Library/Application Support/MacDown/queue.sqlite3`, or under `MACDOWN_CONFIG_DIR` when set. It includes URLs, per-job settings, metadata, status and error details, but never browser cookie values. Queue files use owner-only permissions, atomic replacement and disk synchronization. One MacDown session owns the queue at a time; another session gets a clear error rather than overwriting it.
 
 CLI download lists are saved before starting the first download. Interrupted CLI jobs can be resumed by opening the dashboard; the numbered interface has a **Saved queue** menu. Restored downloads, conversions and checks resume using staged files; conversion/checking may restart from the beginning. Manually canceled jobs stay canceled. Invalid queue files are retained unchanged and reported; automatic replacement with an empty queue is forbidden. `d` removes selected finished history in the panel interface, while **Clear finished history** does the same in the numbered menu. Neither action deletes downloaded files.
 
 Subprocesses inherit the staging lock so that, even after an abrupt parent exit, a restarted job waits for an orphan downloader/converter to release its files. Normal cancellation still terminates the entire subprocess group.
+
+## License
+
+MacDown project source is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party runtime dependencies retain their own licenses, reproduced in [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt). External yt-dlp/FFmpeg distributions are installed separately and keep their respective license obligations.
+
+## 0.8.0: isolated engine, SQLite and menu navigation
+
+Queue/history data now live in **queue.sqlite3**, with WAL journaling, full synchronization and transactional updates. Application configuration remains a separate **settings.json** file. Per-job parameters and metadata live in database rows; preferences are not written into a second global configuration store.
+
+On first use, a valid legacy `queue.json` is imported exactly once in a transaction, including saved IDs, states, metadata and video profiles. The original file remains unchanged as a backup. Failed imports do not overwrite the legacy file or mark the migration as complete. Run `macdown migrate` to migrate without starting any downloads. All MacDown instances use the same queue lock, including older JSON-based versions.
+
+Settings menus now retain their parent screen. **Esc**, **←**, **Backspace**, or the visible **Back** item returns one level; choosing a setting also returns to Settings. The numbered interface supports **0** or **b** for back. The bottom status line begins with **s: Settings**, including at the minimum terminal width.
+
+Source builds require **Go 1.26+**. Compiled arm64 and amd64 distributions remain self-contained Go executables; SQLite does not require an external server or SQLite installation.

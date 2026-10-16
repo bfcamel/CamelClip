@@ -25,7 +25,7 @@ fi
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/macdown-install.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT HUP INT TERM
 if [ -f go.mod ] && command -v go >/dev/null 2>&1; then
-  go build -trimpath -ldflags='-s -w' -o "$scratch/macdown" .
+  go build -trimpath -ldflags='-s -w' -o "$scratch/macdown" ./cmd/macdown
 else
   case "$(uname -m)" in arm64) arch=arm64 ;; x86_64) arch=amd64 ;; *) printf 'Unsupported architecture\n' >&2; exit 1 ;; esac
   binary="macdown-macos-$arch"
