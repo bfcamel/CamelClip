@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory(prefix='clipnaro-workspace-') as directory:
             for flag, value in secrets:
                 read, write = os.pipe(); os.write(write, value); os.close(write); descriptors.append(read); expanded.extend([flag, str(read)])
             result=subprocess.run([binary]+expanded, env=env, pass_fds=descriptors, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-            if success: assert result.returncode==0, (args, result.stdout.decode(), result.stderr.decode())
+            if success: assert result.returncode==0, (args, result.returncode, result.stdout.decode(), result.stderr.decode())
             return result
         finally:
             for fd in descriptors: os.close(fd)
