@@ -1,0 +1,32 @@
+// Copyright 2026 bfcamel and contributors.
+// SPDX-License-Identifier: Apache-2.0
+package application
+
+import (
+	"sync"
+)
+
+type Workspace struct {
+	Queue   Queue
+	Library *LibraryService
+	Cloud   *CloudService
+	Monitor *SystemMonitor
+	once    sync.Once
+	err     error
+}
+
+func (w *Workspace) Close() error {
+	w.once.Do(func() {
+		if w.Cloud != nil {
+			w.Cloud.Close()
+		}
+		if w.Library != nil {
+			w.Library.Close()
+		}
+		if w.Monitor != nil {
+			w.Monitor.Close()
+		}
+		w.err = w.Queue.Close()
+	})
+	return w.err
+}

@@ -49,6 +49,7 @@ func (s *Service) resourcePhase(id int, stage core.Stage, waiting bool) {
 	}
 	old := j.State
 	j.State = state
+	s.syncOrderLocked()
 	j.Detail = ""
 	j.Monitoring.UpdatedAt = time.Now()
 	if stage != core.Downloading && old == Downloading {
@@ -115,7 +116,7 @@ func (s *Service) Statistics() Statistics {
 	speed := 0.0
 	known := false
 	for _, j := range s.jobs {
-		if j.State == WaitingDownload {
+		if j.State == WaitingDownload || j.State == WaitingDisk {
 			r.WaitingDownloads++
 		}
 		if j.State == WaitingProcessing || j.State == WaitingVerification {

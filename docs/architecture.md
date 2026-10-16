@@ -70,3 +70,11 @@ A configured global rate budget is divided by maximum download concurrency and p
 Numerical yt-dlp and FFmpeg progress feeds per-stage in-memory metrics. Unknown totals, speed and ETA remain absent; speed uses a bounded three-second window and expires after three seconds without updates. High-frequency samples do not write SQLite. State transitions persist monitoring timestamps and diagnostics. Schema 2 migrates schema 1 transactionally without deleting history.
 
 The dashboard refreshes authoritative snapshots at four hertz, retains selection by job ID and clips every cell to terminal width. macOS and Linux share the same scheduler and canvas; platform adapters continue to own terminal handling, process cancellation and desktop opening.
+
+## Workspace services
+
+`application.Workspace` composes Queue, LibraryService, CloudService and SystemMonitor over small typed repository and engine ports. Bootstrap shares one locked SQLite repository; shutdown stops cloud, scans and metrics before the queue closes storage. The downloader still imports only core and never imports S3, a UI or the database.
+
+Queue controls are stored separately from transient metrics. Resource permits carry stable job IDs and are ordered before worker goroutines start. Priority and position changes also reorder existing waiters. Disk capacity blocks already waiting download permits; processing/verification and S3 retain independent limits.
+
+Published files, durable source snapshots, publication outbox entries and any enabled automatic S3 jobs are written in the queue transaction. Assets survive history removal. Library queries paginate in SQLite and normalize Unicode search text. S3 profiles/sealed secrets and multipart cleanup IDs remain in SQLite. Security uses a CredentialVault port; S3 uses a Uploader port with numerical progress and no shell invocation.

@@ -18,7 +18,7 @@ import (
 	"github.com/bfcamel/video-downloader/internal/diagnostics"
 )
 
-const version = "0.11.0"
+const version = "0.12.0"
 
 var buildCommit = "development"
 
@@ -34,7 +34,7 @@ type cliRequest struct {
 	json    bool
 }
 
-var commandNames = []string{"download", "audio", "formats", "setup", "config", "doctor", "version", "help"}
+var commandNames = []string{"download", "audio", "formats", "setup", "config", "doctor", "version", "help", "queue", "library", "storage"}
 
 func parseCLI(args []string, o *options) (cliRequest, error) {
 	r := cliRequest{}
@@ -219,6 +219,7 @@ func printHelp(command string) {
   clipnaro download 'URL' --quality 1080
   clipnaro audio 'URL' --audio-format mp3
   clipnaro download --list links.txt`))
+	printWorkspaceHelp()
 }
 func showConfig(path string, o options) error {
 	e := json.NewEncoder(os.Stdout)

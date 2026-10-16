@@ -106,3 +106,7 @@ python3 scripts/test_packages.py
 - [Changelog](CHANGELOG.md), [License](LICENSE), [Notices](NOTICE), [Third-party licenses](THIRD_PARTY_LICENSES.txt)
 
 Windows and a GUI are not currently supported. Site access depends on yt-dlp, the current site behavior and your account/network. No hosted automation is required for local checks or release packaging.
+
+## Queue, library and S3 workspace
+
+Use `1`–`4` for jobs/library/uploads/profiles and `c` for every logical CPU and system RAM. Queue ordering, pending pause, group actions, a persistent media index and locally encrypted S3 destinations are available in TUI and CLI. S3 is optional, uses separate slots and never changes a successful local download into a failure. [Controls, commands, secret handling and transfer guarantees](docs/s3.md).

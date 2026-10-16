@@ -27,3 +27,9 @@ Scheduler tests exercise twenty jobs with five network and two processing permit
 With yt-dlp installed, the local HTTP integration test downloads and verifies video and audio with the real tool. Restricted environments that cannot bind a loopback socket skip that test explicitly. FFmpeg fixture tests check every audio profile and the merge of separate video/audio streams.
 
 `python3 scripts/test_rate_limit.py` measures two and five real yt-dlp downloads on loopback after a five-second warmup. Each ten-second window must remain below 110% of the configured budget. The fixed-share policy intentionally underuses bandwidth with fewer than the configured maximum transfers. This does not assert an instantaneous hard cap or live redistribution.
+
+## Workspace, credentials and S3
+
+`python3 scripts/test_workspace.py ./clipnaro` starts a temporary loopback-only S3 API server and a real FFmpeg fixture. It exercises CLI library import/exclusion/reimport, private descriptor password/credential input, read-only and conditional-write tests, upload verification and deduplication. It checks database/WAL bytes for test secrets and confirms index removal keeps the file. No real keys/accounts are used.
+
+Go tests cover priority and disk-pressure permit ordering, 10,000 paginated assets with Unicode search, published-asset/source retention, publication/automatic-upload idempotency, AEAD record binding/tampering, wrong-password unlock, atomic password rotation, per-session locking, independent two-object S3 concurrency, failed-profile isolation and recovery of acknowledged remote objects. S3 adapter tests stream both single and multipart files and reject endpoints that ignore conditional writes. Metrics tests cover initial unknown CPU, delta/reset counters and every core in a scrollable resource panel. Secret entry fields are checked against rendered output.

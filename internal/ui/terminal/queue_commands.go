@@ -40,7 +40,7 @@ func runQueue(ctx context.Context, urls []string, o options, config string, m *m
 	if err != nil {
 		return err
 	}
-	defer pool.service.Close()
+	defer pool.wait()
 	ids := []int{}
 	seen := map[int]bool{}
 	for _, url := range urls {
@@ -142,7 +142,7 @@ func storedQueueMenu(ctx context.Context, m *menu, o options, config string) err
 	if err != nil {
 		return err
 	}
-	defer p.service.Close()
+	defer p.wait()
 	jobs := p.service.Jobs()
 	if len(jobs) == 0 {
 		fmt.Fprintln(m.out, tr("Очередь пуста."))

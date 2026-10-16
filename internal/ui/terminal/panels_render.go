@@ -126,23 +126,26 @@ func (c *panelCanvas) String() string {
 func (u *panelUI) drawModal(c *panelCanvas) {
 	width := minInt(86, c.w-8)
 	height := 7
-	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "browser" && u.modal != "details" && u.modal != "search" && !strings.HasPrefix(u.modal, "resource:") {
+	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "browser" && u.modal != "details" && u.modal != "search" && !strings.HasPrefix(u.modal, "resource:") && !u.workspaceInput() {
 		height = minInt(c.h-4, len(u.choices)+5)
 	}
-	if u.modal == "details" || u.modal == "help" || u.modal == "logs" {
+	if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" {
 		height = minInt(c.h-4, 20)
 	}
 	x, y := (c.w-width)/2, (c.h-height)/2
 	c.box(x, y, width, height, u.title, true)
-	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || strings.HasPrefix(u.modal, "resource:") {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || u.workspaceInput() || strings.HasPrefix(u.modal, "resource:") {
 		value := []rune(u.input)
+		if u.secretInput() {
+			value = []rune(strings.Repeat("•", len(value)))
+		}
 		if len(value) > width-8 {
 			value = value[len(value)-(width-8):]
 		}
 		c.fill(x+2, y+2, width-4, selected)
 		c.text(x+2, y+2, width-4, "> "+string(value)+"▏", selected)
 		c.text(x+2, y+height-2, width-4, tr("Enter: подтвердить · Esc: назад. Загрузки продолжаются."), dim)
-	} else if u.modal == "details" || u.modal == "help" || u.modal == "logs" {
+	} else if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" {
 		lines := wrapLines(u.input, width-4)
 		start := min(u.detailOffset, max(0, len(lines)-(height-3)))
 		for row := 0; row < height-3 && row+start < len(lines); row++ {
@@ -160,6 +163,9 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 				prefix = "› "
 			}
 			c.fill(x+1, y+2+i-start, width-2, style)
+			if u.modal == "upload-targets" && u.profileTargets[u.choices[i].Value] {
+				prefix = "✓ "
+			}
 			c.text(x+2, y+2+i-start, width-4, prefix+u.choices[i].Label, style)
 		}
 		c.text(x+2, y+height-2, width-4, tr("↑/↓: выбор  Enter: подтвердить  Esc/←: назад"), dim)

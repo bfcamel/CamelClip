@@ -226,7 +226,7 @@ func checkQueue(ctx context.Context, r *Report, path string) {
 		if err == nil {
 			var schema int
 			err = db.QueryRowContext(check, "PRAGMA user_version").Scan(&schema)
-			if err == nil && (schema < 1 || schema > 2) {
+			if err == nil && (schema < 1 || schema > 3) {
 				err = fmt.Errorf("unsupported schema")
 			}
 		}

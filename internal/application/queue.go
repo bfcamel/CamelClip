@@ -31,12 +31,13 @@ const (
 	Failed              State = "failed"
 	Canceling           State = "canceling"
 	Canceled            State = "canceled"
+	WaitingDisk         State = "waiting_disk_capacity"
 )
 
 func (s State) Terminal() bool { return s == Done || s == Failed || s == Canceled }
 func (s State) Valid() bool {
 	switch s {
-	case Queued, Inspecting, Choosing, Ready, WaitingDownload, WaitingProcessing, WaitingVerification, Downloading, Processing, Verifying, Done, Failed, Canceling, Canceled:
+	case WaitingDisk, Queued, Inspecting, Choosing, Ready, WaitingDownload, WaitingProcessing, WaitingVerification, Downloading, Processing, Verifying, Done, Failed, Canceling, Canceled:
 		return true
 	}
 	return false
@@ -52,6 +53,8 @@ type Job struct {
 	OutputPath   string
 	NeedsQuality bool
 	Monitoring   Monitoring
+	Control      JobControl
+	History      []JobEvent
 }
 type Monitoring struct {
 	CreatedAt  time.Time
@@ -93,6 +96,11 @@ type Queue interface {
 	Remove(int) error
 	SetLimits(core.Limits) error
 	Statistics() Statistics
+	SetPolicy(QueuePolicy) error
+	SetPriority(int, int) error
+	Reorder(int, string) error
+	PausePending(int, bool) error
+	BulkAction([]int, string) []ActionResult
 	Start()
 	StartOnly([]int)
 	Events() <-chan Event
@@ -122,6 +130,8 @@ type Service struct {
 	wg                      sync.WaitGroup
 	closeOnce               sync.Once
 	closeErr                error
+	policy                  QueuePolicy
+	staged                  map[string]int64
 }
 
 var _ Queue = (*Service)(nil)
@@ -138,7 +148,7 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		return nil, err
 	}
 	c, cancel := context.WithCancel(ctx)
-	s := &Service{ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, resources: newResources(), samples: map[int][]rateSample{}, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
+	s := &Service{ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, resources: newResources(), staged: map[string]int64{}, samples: map[int][]rateSample{}, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
 	seen := map[int]bool{}
 	for _, j := range snapshot.Jobs {
 		if j.ID <= 0 || seen[j.ID] || !j.State.Valid() {
@@ -153,7 +163,7 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		switch j.State {
 		case Inspecting:
 			j.State = Queued
-		case WaitingDownload, WaitingProcessing, WaitingVerification, Downloading, Processing, Verifying:
+		case WaitingDisk, WaitingDownload, WaitingProcessing, WaitingVerification, Downloading, Processing, Verifying:
 			j.State = Ready
 		case Canceling:
 			j.State = Canceled
@@ -164,14 +174,21 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		if !j.State.Terminal() {
 			j.Detail = ""
 		}
+		if j.Control.Position == 0 {
+			j.Control.Position = int64(j.ID)
+		}
 		s.jobs = append(s.jobs, clone(j))
 		if j.ID > s.nextID {
 			s.nextID = j.ID
 		}
 	}
+	s.syncOrderLocked()
+	s.wg.Add(1)
+	go s.maintain()
 	return s, nil
 }
 func clone(j Job) Job {
+	j.History = append([]JobEvent(nil), j.History...)
 	j.Info.Formats = append([]core.MediaFormat(nil), j.Info.Formats...)
 	j.Monitoring.Download = core.CloneMetrics(j.Monitoring.Download)
 	j.Monitoring.Process = core.CloneMetrics(j.Monitoring.Process)
@@ -180,8 +197,19 @@ func clone(j Job) Job {
 }
 func (s *Service) snapshotLocked() Snapshot {
 	v := Snapshot{NextID: s.nextID, Jobs: make([]Job, len(s.jobs))}
-	for i, j := range s.jobs {
-		v.Jobs[i] = clone(j)
+	for i := range s.jobs {
+		j := &s.jobs[i]
+		message := ""
+		if j.State == Failed {
+			message = j.Detail
+		}
+		if len(j.History) == 0 || j.History[len(j.History)-1].State != j.State {
+			j.History = append(j.History, JobEvent{At: time.Now(), State: j.State, Message: message})
+			if len(j.History) > 100 {
+				j.History = j.History[len(j.History)-100:]
+			}
+		}
+		v.Jobs[i] = clone(*j)
 		if !j.State.Terminal() {
 			v.Jobs[i].Detail = ""
 		}
@@ -239,8 +267,9 @@ func (s *Service) Submit(r core.Request, choose bool) (Job, error) {
 		}
 	}
 	s.nextID++
-	j := Job{ID: s.nextID, Request: r, Title: r.URL, State: Queued, NeedsQuality: choose, Monitoring: Monitoring{CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	j := Job{ID: s.nextID, Request: r, Title: r.URL, State: Queued, NeedsQuality: choose, Control: JobControl{Position: time.Now().UnixNano()}, Monitoring: Monitoring{CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	s.jobs = append(s.jobs, j)
+	s.syncOrderLocked()
 	if err := s.saveLocked(); err != nil {
 		return Job{}, err
 	}
@@ -277,7 +306,6 @@ func (s *Service) Choose(id int, quality string) error {
 	}
 	s.jobs[i].Request = candidate
 	s.jobs[i].State = Ready
-	s.jobs[i].Monitoring.UpdatedAt = time.Now()
 	s.jobs[i].Monitoring.UpdatedAt = time.Now()
 	if s.jobs[i].State.Terminal() {
 		s.jobs[i].Monitoring.FinishedAt = time.Now()
@@ -337,6 +365,7 @@ func (s *Service) Retry(id int, browser string) error {
 	s.jobs[i].State = Queued
 	s.jobs[i].Detail = ""
 	s.jobs[i].Info = core.MediaInfo{}
+	s.jobs[i].Control.NextAttempt = time.Time{}
 	s.jobs[i].Monitoring.Attempts++
 	s.jobs[i].Monitoring.Download = core.Metrics{}
 	s.jobs[i].Monitoring.Process = core.Metrics{}
@@ -344,7 +373,9 @@ func (s *Service) Retry(id int, browser string) error {
 	s.jobs[i].Monitoring.StartedAt = time.Time{}
 	s.jobs[i].Monitoring.FinishedAt = time.Time{}
 	delete(s.samples, id)
-	s.jobs[i].Request.Cookies = browser
+	if browser != "" {
+		s.jobs[i].Request.Cookies = browser
+	}
 	if err = s.saveLocked(); err != nil {
 		return err
 	}
@@ -387,16 +418,28 @@ func (s *Service) scheduleLocked() {
 	if !s.started || s.closing || s.failure != nil || s.ctx.Err() != nil {
 		return
 	}
-	for i := range s.jobs {
-
+	for _, i := range s.orderedLocked() {
 		j := &s.jobs[i]
+		if j.Control.Paused || time.Now().Before(j.Control.NextAttempt) {
+			continue
+		}
 		if s.allowed != nil && !s.allowed[j.ID] {
 			continue
 		}
-		if j.State != Queued && j.State != Ready {
+		if j.State != Queued && j.State != Ready && j.State != WaitingDisk {
 			continue
 		}
 		inspecting := j.State == Queued
+		if !inspecting && s.diskBlockedLocked(j.Request.Out) {
+			if j.State != WaitingDisk {
+				j.State = WaitingDisk
+				j.Detail = "Waiting for disk/staging capacity"
+				if s.saveLocked() != nil {
+					return
+				}
+			}
+			continue
+		}
 		if inspecting && s.metadataActive >= s.workers {
 			continue
 		}
@@ -424,17 +467,21 @@ func (s *Service) scheduleLocked() {
 		id := j.ID
 		s.emitLocked(*j, core.StageChanged, "")
 		s.wg.Add(1)
-		go s.execute(ctx, id, request, inspecting)
+		var prepared *permit
+		if !inspecting {
+			prepared = s.resources.prepare("downloading", id)
+		}
+		go s.execute(ctx, id, request, inspecting, prepared)
 	}
 }
-func (s *Service) execute(ctx context.Context, id int, r core.Request, inspecting bool) {
+func (s *Service) execute(ctx context.Context, id int, r core.Request, inspecting bool, prepared *permit) {
 	defer s.wg.Done()
 	var info core.MediaInfo
 	var result core.Result
 	var err error
 	var resource *lease
 	if !inspecting {
-		resource = &lease{manager: s.resources, phase: func(stage core.Stage, waiting bool) { s.resourcePhase(id, stage, waiting) }}
+		resource = &lease{initial: prepared, id: id, manager: s.resources, phase: func(stage core.Stage, waiting bool) { s.resourcePhase(id, stage, waiting) }}
 		ctx = core.WithResources(ctx, resource)
 		err = resource.Enter(ctx, core.Downloading)
 	}
@@ -488,6 +535,12 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		j.Detail = err.Error()
 		j.Monitoring.LastError = err.Error()
 		j.Monitoring.ErrorCode = "backend"
+		if retryable(err) && j.Monitoring.Attempts < s.policy.RetryAttempts {
+			j.Monitoring.Attempts++
+			j.Control.NextAttempt = time.Now().Add(retryDelay(j.Monitoring.Attempts))
+			j.State = Queued
+			j.Detail = "Retry scheduled"
+		}
 	} else if inspecting {
 		j.Info = info
 		j.Title = info.Title
@@ -523,6 +576,7 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 	if s.saveLocked() != nil {
 		return
 	}
+
 	s.emitLocked(*j, core.StageChanged, "")
 	s.scheduleLocked()
 }
@@ -560,6 +614,9 @@ func (s *Service) observe(id int, e core.Event) {
 		s.measureLocked(j, e)
 	case core.Published:
 		j.OutputPath = e.Path
+		if s.saveLocked() != nil {
+			return
+		}
 	}
 	s.emitLocked(*j, e.Kind, e.Detail)
 }

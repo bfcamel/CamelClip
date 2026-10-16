@@ -14,7 +14,8 @@ import (
 // Dependencies is supplied only by the composition root. This frontend knows no
 // concrete downloader or database implementation and can be replaced by a GUI.
 type Dependencies struct {
-	OpenConfig func(string, config.Settings) config.Repository
-	Downloader core.Downloader
-	OpenQueue  func(context.Context, string, int) (application.Queue, error)
+	OpenConfig    func(string, config.Settings) config.Repository
+	Downloader    core.Downloader
+	OpenWorkspace func(context.Context, string) (*application.Workspace, error)
+	OpenQueue     func(context.Context, string, int) (application.Queue, error)
 }

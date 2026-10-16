@@ -20,26 +20,55 @@ type job struct {
 	record               application.Job
 }
 type jobPool struct {
-	service application.Queue
-	jobs    []*job
-	active  int
-	lastErr error
-	events  <-chan application.Event
+	workspace *application.Workspace
+	service   application.Queue
+	jobs      []*job
+	active    int
+	lastErr   error
+	events    <-chan application.Event
 }
 
 func openPersistentPool(ctx context.Context, o options, config string, workers int) (*jobPool, error) {
-	if o.runtime == nil || o.runtime.OpenQueue == nil {
+	if o.runtime == nil || o.runtime.OpenQueue == nil && o.runtime.OpenWorkspace == nil {
 		return nil, errors.New("queue dependency is not configured")
 	}
-	q, err := o.runtime.OpenQueue(ctx, config, workers)
+	var w *application.Workspace
+	var q application.Queue
+	var err error
+	if o.runtime.OpenWorkspace != nil {
+		w, err = o.runtime.OpenWorkspace(ctx, config)
+		if err == nil {
+			q = w.Queue
+		}
+	} else {
+		q, err = o.runtime.OpenQueue(ctx, config, workers)
+	}
 	if err != nil {
 		return nil, err
 	}
 	if err = q.SetLimits(settingsFor(o).Limits()); err != nil {
-		q.Close()
+		if w != nil {
+			w.Close()
+		} else {
+			q.Close()
+		}
 		return nil, err
 	}
-	p := &jobPool{service: q, events: q.Events()}
+	if err = q.SetPolicy(queuePolicy(o)); err != nil {
+		if w != nil {
+			w.Close()
+		} else {
+			q.Close()
+		}
+		return nil, err
+	}
+	if w != nil {
+		if err = w.Cloud.SetOptions(uploadOptions(o)); err != nil {
+			w.Close()
+			return nil, err
+		}
+	}
+	p := &jobPool{workspace: w, service: q, events: q.Events()}
 	p.refresh()
 	return p, nil
 }
@@ -103,4 +132,10 @@ func (p *jobPool) busy() bool {
 	}
 	return false
 }
-func (p *jobPool) wait() { p.lastErr = p.service.Close() }
+func (p *jobPool) wait() {
+	if p.workspace != nil {
+		p.lastErr = p.workspace.Close()
+	} else {
+		p.lastErr = p.service.Close()
+	}
+}

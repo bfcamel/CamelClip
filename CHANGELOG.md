@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+- Priority/order controls, pending pause/resume, confirmed bulk actions, bounded retries and staging/disk backpressure.
+- Persistent paginated media library independent of download history, safe scans, metadata refresh and separate file deletion.
+- Local encrypted S3 profiles, per-session master-password unlock and atomic password rotation.
+- Independent S3 uploads with multipart, conditional publication, explicit capability tests, cleanup and recovery checkpoints.
+- Local asynchronous per-CPU and RAM monitoring, four workspace screens and CLI management commands.
+- Transactional upgrades from queue schema 1/2 to schema 3; preserved source metadata and automatic-upload publication outbox.
+
 ## 0.11.0
 
 - Adaptive jobs dashboard with status tabs, stable selection, search, details and help.

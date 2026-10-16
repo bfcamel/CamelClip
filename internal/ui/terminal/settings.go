@@ -20,10 +20,10 @@ func settingsFor(o options) settings {
 	if o.Lang == "" {
 		o.Lang = "auto"
 	}
-	return settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o), MaxDownloads: o.MaxDownloads, MaxProcessing: o.MaxProcessing, RateLimitBPS: o.RateLimitBPS, JobRateLimitBPS: o.JobRateLimitBPS}
+	return settings{MaxUploads: o.MaxUploads, UploadParts: o.UploadParts, RetryAttempts: o.RetryAttempts, StagingFiles: o.StagingFiles, StagingBytes: o.StagingBytes, MinFreeBytes: o.MinFreeBytes, UploadRateBPS: o.UploadRateBPS, Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o), MaxDownloads: o.MaxDownloads, MaxProcessing: o.MaxProcessing, RateLimitBPS: o.RateLimitBPS, JobRateLimitBPS: o.JobRateLimitBPS}
 }
 func defaultOptions(home string) options {
-	return options{MaxDownloads: 5, Lang: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: filepath.Join(downloadsDirectory(home), "Clipnaro")}
+	return options{MaxUploads: 2, UploadParts: 2, StagingFiles: 64, StagingBytes: 20 << 30, MinFreeBytes: 512 << 20, MaxDownloads: 5, Lang: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: filepath.Join(downloadsDirectory(home), "Clipnaro")}
 }
 func loadSettings(path string, o *options) error {
 	if o.runtime == nil || o.runtime.OpenConfig == nil {
@@ -34,6 +34,13 @@ func loadSettings(path string, o *options) error {
 	if err != nil {
 		return err
 	}
+	o.MaxUploads = s.MaxUploads
+	o.UploadParts = s.UploadParts
+	o.RetryAttempts = s.RetryAttempts
+	o.StagingFiles = s.StagingFiles
+	o.StagingBytes = s.StagingBytes
+	o.MinFreeBytes = s.MinFreeBytes
+	o.UploadRateBPS = s.UploadRateBPS
 	o.Lang = s.Language
 	o.Mode = s.Mode
 	o.Quality = s.Quality

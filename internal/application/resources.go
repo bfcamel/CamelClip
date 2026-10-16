@@ -5,10 +5,12 @@ package application
 import (
 	"context"
 	"github.com/bfcamel/video-downloader/internal/core"
+	"sort"
 	"sync"
 )
 
 type permit struct {
+	id      int
 	pool    string
 	ready   chan struct{}
 	rate    int64
@@ -20,10 +22,12 @@ type resources struct {
 	active   map[string]int
 	reserved int64
 	waiting  []*permit
+	ranks    map[int]JobControl
+	owners   map[*permit]bool
 }
 
 func newResources() *resources {
-	return &resources{limits: core.Limits{Downloads: 5}, active: map[string]int{}}
+	return &resources{limits: core.Limits{Downloads: 5}, active: map[string]int{}, ranks: map[int]JobControl{}, owners: map[*permit]bool{}}
 }
 func (r *resources) update(l core.Limits) {
 	r.mu.Lock()
@@ -33,6 +37,13 @@ func (r *resources) update(l core.Limits) {
 }
 func (r *resources) dispatch() {
 	limits := r.limits.Effective()
+	sort.SliceStable(r.waiting, func(i, j int) bool {
+		a, b := r.ranks[r.waiting[i].id], r.ranks[r.waiting[j].id]
+		if a.Priority != b.Priority {
+			return a.Priority > b.Priority
+		}
+		return a.Position < b.Position
+	})
 	rest := r.waiting[:0]
 	blocked := map[string]bool{}
 	for _, p := range r.waiting {
@@ -40,7 +51,7 @@ func (r *resources) dispatch() {
 		if p.pool == "processing" {
 			maximum = limits.Processing
 		}
-		if r.active[p.pool] >= maximum || blocked[p.pool] {
+		if r.ranks[p.id].Paused || p.pool == "downloading" && r.ranks[p.id].DiskBlocked || r.active[p.pool] >= maximum || blocked[p.pool] {
 			rest = append(rest, p)
 			continue
 		}
@@ -59,6 +70,7 @@ func (r *resources) dispatch() {
 		}
 		p.rate = rate
 		p.granted = true
+		r.owners[p] = true
 		r.active[p.pool]++
 		if p.pool == "downloading" {
 			r.reserved += p.rate
@@ -68,11 +80,20 @@ func (r *resources) dispatch() {
 	r.waiting = rest
 }
 func (r *resources) acquire(ctx context.Context, pool string) (*permit, error) {
-	p := &permit{pool: pool, ready: make(chan struct{})}
+	return r.acquireFor(ctx, pool, 0)
+}
+func (r *resources) prepare(pool string, id int) *permit {
+	p := &permit{id: id, pool: pool, ready: make(chan struct{})}
 	r.mu.Lock()
 	r.waiting = append(r.waiting, p)
 	r.dispatch()
 	r.mu.Unlock()
+	return p
+}
+func (r *resources) acquireFor(ctx context.Context, pool string, id int) (*permit, error) {
+	return r.wait(ctx, r.prepare(pool, id))
+}
+func (r *resources) wait(ctx context.Context, p *permit) (*permit, error) {
 	select {
 	case <-p.ready:
 		if ctx.Err() != nil {
@@ -83,6 +104,7 @@ func (r *resources) acquire(ctx context.Context, pool string) (*permit, error) {
 	case <-ctx.Done():
 		r.mu.Lock()
 		if p.granted {
+			delete(r.owners, p)
 			r.active[p.pool]--
 			if p.pool == "downloading" {
 				r.reserved -= p.rate
@@ -106,6 +128,7 @@ func (r *resources) release(p *permit) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	delete(r.owners, p)
 	r.active[p.pool]--
 	if p.pool == "downloading" {
 		r.reserved -= p.rate
@@ -114,8 +137,10 @@ func (r *resources) release(p *permit) {
 }
 
 type lease struct {
+	id      int
 	manager *resources
 	permit  *permit
+	initial *permit
 	phase   func(core.Stage, bool)
 	mu      sync.Mutex
 }
@@ -134,7 +159,14 @@ func (l *lease) Enter(ctx context.Context, stage core.Stage) error {
 	l.manager.release(l.permit)
 	l.permit = nil
 	l.phase(stage, true)
-	p, err := l.manager.acquire(ctx, pool)
+	var p *permit
+	var err error
+	if l.initial != nil {
+		p, err = l.manager.wait(ctx, l.initial)
+		l.initial = nil
+	} else {
+		p, err = l.manager.acquireFor(ctx, pool, l.id)
+	}
 	if err != nil {
 		return err
 	}
@@ -155,4 +187,21 @@ func (l *lease) close() {
 	defer l.mu.Unlock()
 	l.manager.release(l.permit)
 	l.permit = nil
+}
+
+func (r *resources) reorder(order map[int]JobControl) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ranks = order
+	r.dispatch()
+}
+func (r *resources) running(id int) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for p := range r.owners {
+		if p.id == id {
+			return true
+		}
+	}
+	return false
 }

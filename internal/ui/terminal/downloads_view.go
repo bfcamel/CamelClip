@@ -17,7 +17,7 @@ func tabMatches(tab int, state string) bool {
 	case 1:
 		return state == "downloading"
 	case 2:
-		return contains([]string{"queued", "inspecting", "choose", "ready", "waiting_download", "waiting_processing", "waiting_verification"}, state)
+		return contains([]string{"queued", "inspecting", "choose", "ready", "waiting_download", "waiting_processing", "waiting_verification", "waiting_disk_capacity"}, state)
 	case 3:
 		return state == "processing" || state == "verifying"
 	case 4:
@@ -34,7 +34,7 @@ func (u *panelUI) visibleJobs() []*job {
 	result := make([]*job, 0, len(u.pool.jobs))
 	query := strings.ToLower(u.search)
 	for _, j := range u.pool.jobs {
-		if tabMatches(u.tab, j.state) && (query == "" || strings.Contains(strings.ToLower(j.title+" "+j.options.URL), query)) {
+		if tabMatches(u.tab, j.state) && (query == "" || strings.Contains(strings.ToLower(fmt.Sprint(j.id)+" "+j.title+" "+j.options.URL), query)) {
 			result = append(result, j)
 		}
 	}
@@ -177,10 +177,14 @@ func detailsText(j *job) string {
 		tr("Затрачено") + ": " + duration + fmt.Sprintf(" · %s: %d", tr("Повторы"), m.Attempts),
 		tr("Файл") + ": " + output,
 		tr("Последняя ошибка") + ": " + j.record.Monitoring.LastError,
+		fmt.Sprintf("Priority: %d · Position: %d · Paused: %t", j.record.Control.Priority, j.record.Control.Position, j.record.Control.Paused),
+		jobHistoryText(j.record.History),
 	}, "\n")
 }
 func helpText() string {
 	return strings.Join([]string{
+		tr("1–4:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"),
+		"Space/A: select · p: pause/resume · [/]: priority · </>: order · {/}: first/last",
 		tr("↑/↓ или j/k — выбрать задание"), tr("Tab / Shift+Tab — следующая / предыдущая вкладка"),
 		tr("Enter — сведения или выбор качества"), tr("a — добавить видео или аудио; v — быстро добавить видео"),
 		tr("/ — поиск по названию и URL; Esc — снять поиск"), tr("x — отменить; r — повторить; d — удалить только историю"),
@@ -211,12 +215,16 @@ func wrapLines(text string, width int) []string {
 	return result
 }
 func (u *panelUI) render() {
+	if u.section != 0 && u.pool.workspace != nil {
+		u.renderWorkspace()
+		return
+	}
 	w, h := min(u.width-1, 240), min(u.height-1, 80)
 	if w < 1 || h < 1 {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CLIPNARO "+version, cyan)
+	c.text(1, 0, w-2, "CLIPNARO "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+"  c: CPU/RAM", cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), normal)
@@ -237,8 +245,22 @@ func (u *panelUI) render() {
 	if limits.GlobalBPS > 0 {
 		budget = rateText(float64(limits.GlobalBPS)) + " (" + tr("доли") + ")"
 	}
-	c.text(1, 1, w-2, fmt.Sprintf("↓ %s · %s · DL %d/%d · CPU %d/%d", network, budget, st.Downloads, limits.Downloads, st.Processing, limits.Processing), normal)
-	c.text(1, 2, w-2, fmt.Sprintf("%s: ↓ %d / CPU %d · %s: %s", tr("Ожидают"), st.WaitingDownloads, st.WaitingProcessing, tr("Сессия"), fileSize(st.SessionBytes)), dim)
+	topHeader := fmt.Sprintf("↓ %s · DL %d/%d · CPU %d/%d", network, st.Downloads, limits.Downloads, st.Processing, limits.Processing)
+	if u.pool.workspace != nil {
+		active, rate, _ := u.pool.workspace.Cloud.Stats()
+		speed := "—"
+		if rate != nil {
+			speed = rateText(*rate)
+		}
+		topHeader += fmt.Sprintf(" · ↑ S3 %s %d/%d", speed, active, u.pool.workspace.Cloud.Options().Objects)
+	}
+	topHeader += " · " + budget
+	c.text(1, 1, w-2, topHeader, normal)
+	summary := fmt.Sprintf("%s: ↓ %d / CPU %d · %s: %s", tr("Ожидают"), st.WaitingDownloads, st.WaitingProcessing, tr("Сессия"), fileSize(st.SessionBytes))
+	if u.pool.workspace != nil {
+		summary += " · " + u.resourceLine()
+	}
+	c.text(1, 2, w-2, summary, dim)
 	if w >= 79 {
 		x := 1
 		labels := []string{"Все", "↓", "Ожидают", "CPU", "Готово", "Ошибки"}
@@ -307,10 +329,10 @@ func (u *panelUI) render() {
 		}
 		if w < 79 {
 			nameW := max(8, w-28)
-			c.text(2, y, nameW, prefix+j.title, style)
+			c.text(2, y, nameW, prefix+u.jobLabel(j), style)
 			c.text(nameW+3, y, w-nameW-5, jobState(j.state)+" "+percent(stageMetrics(j)), style)
 		} else {
-			c.text(2, y, progressX-4, prefix+j.title, style)
+			c.text(2, y, progressX-4, prefix+u.jobLabel(j), style)
 			bars := 8
 			if w < 120 {
 				bars = 4

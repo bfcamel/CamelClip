@@ -10,5 +10,5 @@ import (
 
 func main() {
 	backend := bootstrap.Downloader()
-	terminal.Main(terminal.Dependencies{OpenConfig: bootstrap.OpenConfig, Downloader: backend, OpenQueue: bootstrap.OpenQueue(backend)})
+	terminal.Main(terminal.Dependencies{OpenConfig: bootstrap.OpenConfig, Downloader: backend, OpenQueue: bootstrap.OpenQueue(backend), OpenWorkspace: bootstrap.OpenWorkspace(backend)})
 }

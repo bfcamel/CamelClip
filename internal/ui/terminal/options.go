@@ -14,6 +14,14 @@ import (
 )
 
 type options struct {
+	MaxUploads    int
+	UploadParts   int
+	RetryAttempts int
+	StagingFiles  int
+	StagingBytes  int64
+	MinFreeBytes  int64
+	UploadRateBPS int64
+
 	URL, Mode, Quality, Audio, Out, Cookies, Lang string
 	Codec, Container                              string
 	Formats                                       bool

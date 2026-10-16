@@ -39,6 +39,9 @@ func run(deps Dependencies) error {
 		fmt.Fprintln(os.Stderr, tr("Не удалось прочитать настройки; используются стандартные значения:"), err)
 	}
 	useLanguage(requestedLanguage(os.Args[1:], o.Lang), system)
+	if workspaceCommand(os.Args[1:]) {
+		return runWorkspaceCLI(ctx, o, configPath, os.Args[1:])
+	}
 	request, err := parseCLI(os.Args[1:], &o)
 	if err != nil {
 		return err

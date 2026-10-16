@@ -18,24 +18,46 @@ import (
 )
 
 type panelUI struct {
-	ctx                                   context.Context
-	out                                   io.Writer
-	o                                     *options
-	config, system, home                  string
-	pool                                  *jobPool
-	files                                 []libraryFile
-	logs                                  []string
-	focus, fileIndex, jobIndex, logOffset int
-	width, height                         int
-	modal, title, input, mode             string
-	choices                               []choice
-	choiceIndex, target                   int
-	quit, dirty                           bool
-	parents                               []modalFrame
-	tab, selectedID, detailOffset         int
-	search                                string
-	showLog                               bool
-	lastFrame                             string
+	ctx                                               context.Context
+	out                                               io.Writer
+	o                                                 *options
+	config, system, home                              string
+	pool                                              *jobPool
+	files                                             []libraryFile
+	logs                                              []string
+	focus, fileIndex, jobIndex, logOffset             int
+	width, height                                     int
+	modal, title, input, mode                         string
+	choices                                           []choice
+	choiceIndex, target                               int
+	quit, dirty                                       bool
+	parents                                           []modalFrame
+	tab, selectedID, detailOffset                     int
+	search                                            string
+	showLog                                           bool
+	lastFrame                                         string
+	section, page, assetIndex, assetTotal             int
+	assets                                            []core.Asset
+	profiles                                          []core.S3Profile
+	uploads                                           []core.UploadJob
+	marked                                            map[string]bool
+	assetKind, assetStatus, assetContainer, assetSort string
+	assetCopies                                       *bool
+	assetMinHeight                                    int
+	assetSince, assetUntil                            time.Time
+	action                                            string
+	actionIDs                                         []string
+	profileTargets                                    map[string]bool
+	actions                                           chan string
+	profileForm                                       core.S3Profile
+	credentialForm                                    core.Credentials
+	formStep                                          int
+	formCredentials                                   bool
+	secretMode                                        string
+	secretFirst                                       string
+	rotationPassword                                  string
+	bulkAction                                        string
+	bulkIDs                                           []int
 }
 
 func panelDashboard(parent context.Context, m *menu, o *options, config, system, home string) error {
@@ -88,6 +110,21 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 				}
 			}
 			u.pool.refresh()
+			u.workspaceRefresh()
+			if u.modal == "resources-panel" {
+				u.input = u.resourcesText()
+			}
+			if u.actions != nil {
+				for {
+					select {
+					case message := <-u.actions:
+						u.log(message)
+					default:
+						goto drained
+					}
+				}
+			drained:
+			}
 			u.reconcile()
 
 			u.refresh()
@@ -196,7 +233,7 @@ func (u *panelUI) event(e application.Event) {
 	}
 }
 func jobState(s string) string {
-	labels := map[string]string{"queued": "В очереди", "inspecting": "Получение данных", "choose": "Выберите качество: Enter", "ready": "Готов к загрузке", "waiting_download": "Ожидание скачивания", "waiting_processing": "Ожидание обработки", "waiting_verification": "Ожидание проверки", "downloading": "Загрузка", "processing": "Обработка", "verifying": "Проверка", "done": "Готово", "failed": "Ошибка", "canceling": "Отмена…", "canceled": "Отменено"}
+	labels := map[string]string{"queued": "В очереди", "inspecting": "Получение данных", "choose": "Выберите качество: Enter", "ready": "Готов к загрузке", "waiting_download": "Ожидание скачивания", "waiting_processing": "Ожидание обработки", "waiting_verification": "Ожидание проверки", "waiting_disk_capacity": "Ожидание места на диске", "downloading": "Загрузка", "processing": "Обработка", "verifying": "Проверка", "done": "Готово", "failed": "Ошибка", "canceling": "Отмена…", "canceled": "Отменено"}
 	return tr(labels[s])
 }
 func (u *panelUI) selectedJob() *job {
@@ -225,6 +262,12 @@ func (u *panelUI) key(key string) {
 	}
 	if u.modal != "" {
 		u.modalKey(key)
+		return
+	}
+	if u.workspaceKey(key) {
+		return
+	}
+	if u.queueControlKey(key) {
 		return
 	}
 	switch key {
@@ -314,7 +357,7 @@ func (u *panelUI) key(key string) {
 		u.input = strings.Join(u.logs, "\n")
 		u.detailOffset = max(0, len(u.logs)-max(1, u.height-10))
 	case "q":
-		if u.pool.busy() {
+		if u.hasActiveWork() {
 			u.showChoices("quit", tr("Остановить работу и выйти? Очередь восстановится."), []choice{{tr("Продолжить работу"), "no"}, {tr("Остановить и выйти"), "yes"}}, "no")
 		} else {
 			u.quit = true
@@ -328,7 +371,11 @@ func (u *panelUI) open(path string, reveal bool) {
 	}
 }
 func (u *panelUI) settings() {
-	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}, {resourceTitle("downloads") + ": " + resourceValue(*u.o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*u.o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*u.o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*u.o, "job-rate"), "job-rate"}}, "")
+	items := []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}, {resourceTitle("downloads") + ": " + resourceValue(*u.o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*u.o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*u.o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*u.o, "job-rate"), "job-rate"}}
+	for _, key := range extraResourceKeys {
+		items = append(items, choice{resourceTitle(key) + ": " + resourceValue(*u.o, key), key})
+	}
+	u.showChoices("settings", tr("Настройки"), items, "")
 }
 func (u *panelUI) save(candidate options) bool {
 	if err := saveSettings(u.config, candidate); err != nil {
@@ -336,6 +383,10 @@ func (u *panelUI) save(candidate options) bool {
 		return false
 	}
 	if u.pool != nil && u.pool.service != nil {
+		_ = u.pool.service.SetPolicy(queuePolicy(candidate))
+		if u.pool.workspace != nil {
+			_ = u.pool.workspace.Cloud.SetOptions(uploadOptions(candidate))
+		}
 		if err := u.pool.service.SetLimits(settingsFor(candidate).Limits()); err != nil {
 			u.log(err.Error())
 			return false
@@ -348,11 +399,35 @@ func (u *panelUI) save(candidate options) bool {
 	return true
 }
 func (u *panelUI) modalKey(key string) {
+	if u.modal == "bulk-confirm" && key == "enter" {
+		yes := u.choices[u.choiceIndex].Value == "yes"
+		u.modal = ""
+		if yes {
+			ids := append([]int(nil), u.bulkIDs...)
+			action := u.bulkAction
+			u.background(func() error {
+				failed := []string{}
+				for _, r := range u.pool.service.BulkAction(ids, action) {
+					if r.Error != "" {
+						failed = append(failed, fmt.Sprintf("#%d: %s", r.ID, r.Error))
+					}
+				}
+				if len(failed) > 0 {
+					return fmt.Errorf("%s", strings.Join(failed, "; "))
+				}
+				return nil
+			})
+		}
+		return
+	}
+	if u.workspaceModalKey(key) {
+		return
+	}
 	if key == "escape" {
 		u.back()
 		return
 	}
-	if u.modal == "details" || u.modal == "help" || u.modal == "logs" {
+	if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" {
 		if key == "up" || key == "k" {
 			u.detailOffset = max(0, u.detailOffset-1)
 		}
@@ -364,7 +439,7 @@ func (u *panelUI) modalKey(key string) {
 		}
 		return
 	}
-	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || strings.HasPrefix(u.modal, "resource:") {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || u.workspaceInput() || strings.HasPrefix(u.modal, "resource:") {
 		if strings.HasPrefix(key, "paste:") {
 			value := strings.TrimPrefix(key, "paste:")
 			value = strings.ReplaceAll(strings.ReplaceAll(value, "\r", " "), "\n", " ")
@@ -387,6 +462,8 @@ func (u *panelUI) modalKey(key string) {
 				u.search = strings.TrimSpace(u.input)
 				u.modal = ""
 				u.reconcile()
+				u.page = 0
+				u.workspaceRefresh()
 				return
 			}
 			if strings.HasPrefix(u.modal, "resource:") {
@@ -512,7 +589,7 @@ func (u *panelUI) modalKey(key string) {
 			}
 		case "settings":
 			switch value {
-			case "downloads", "processing-limit", "global-rate", "job-rate":
+			case "downloads", "processing-limit", "global-rate", "job-rate", "uploads", "upload-parts", "retry-attempts", "staging-files", "staging-bytes", "min-free", "upload-rate":
 				u.modal = "resource:" + value
 				u.title = resourceTitle(value)
 				u.input = resourceValue(*u.o, value)

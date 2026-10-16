@@ -150,6 +150,9 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 		screen(m, tr("Настройки"), *o, notice)
 		notice = ""
 		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*o)), "video-format"}, {tr("Браузер cookies") + ": " + o.Cookies, "browser"}, {resourceTitle("downloads") + ": " + resourceValue(*o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*o, "job-rate"), "job-rate"}, {tr("← Главное меню"), "back"}}
+		for _, key := range extraResourceKeys {
+			items = append(items[:len(items)-1], append([]choice{{resourceTitle(key) + ": " + resourceValue(*o, key), key}}, items[len(items)-1:]...)...)
+		}
 		action, err := m.selectItem(ctx, tr("Выберите настройку"), items, "")
 		if err != nil {
 			return err
@@ -159,7 +162,7 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 		}
 		candidate := *o
 		switch action {
-		case "downloads", "processing-limit", "global-rate", "job-rate":
+		case "downloads", "processing-limit", "global-rate", "job-rate", "uploads", "upload-parts", "retry-attempts", "staging-files", "staging-bytes", "min-free", "upload-rate":
 			var value string
 			value, err = m.line(resourceTitle(action), resourceValue(candidate, action))
 			if err == nil {
