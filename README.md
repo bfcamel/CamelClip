@@ -61,7 +61,7 @@ Download and processing limits are independent: five network transfers and `max(
 
 ### Limit download speed / Ограничение скорости скачивания
 
-In the terminal interface, press `s` to open Settings. Set **Rate budget: fixed shares, new downloads** (Russian: **Бюджет скорости: фиксированные доли, новые загрузки**) for the total download budget, or **Per job: new downloads** (**Предел на задание: новые загрузки**) for each download. Enter a value such as `2MiB/s` or `512KiB/s` and confirm with Enter. These settings are saved for subsequent launches. Enter `0` to disable the corresponding limit.
+In the terminal interface, press `s` to open Settings. Set **Rate budget: fixed shares, new downloads** (Russian: **Бюджет скорости: фиксированные доли, новые загрузки**) for the total download budget, or **Per-job rate: new downloads** (**Предел на задание: новые загрузки**) for each download. Enter a value such as `2MiB/s` or `512KiB/s` and confirm with Enter. These settings are saved for subsequent launches. Enter `0` to disable the corresponding limit.
 
 В терминальном интерфейсе нажмите `s` → выберите **«Бюджет скорости: фиксированные доли, новые загрузки»** для общего бюджета или **«Предел на задание: новые загрузки»** для ограничения каждого файла → введите, например, `2MiB/s` или `512KiB/s` → нажмите Enter. Значение сохраняется в настройках. `0` отключает соответствующее ограничение.
 
