@@ -12,7 +12,7 @@ It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube, VK and other sup
 - Keep a fixed output directory and save preferences from the Settings menu.
 - Work in independent file, job and event-log panels while downloads run in the background.
 - Update download progress on the same terminal line.
-- Show explanations for common access, network, format and disk errors.
+- Show explanations for common access, network, format and disk errors while preserving the original ERROR line; distinguish YouTube bot checks from account restrictions.
 
 **English and Russian interfaces are available.** The first-run default is detected from `LC_ALL`, `LC_MESSAGES`, `LANG`, then macOS preferred languages. Other languages fall back to English. Choose a language in the first menu or pass `-lang en`, `-lang ru`, or `-lang auto`. Changes in Settings are saved immediately. yt-dlp diagnostics and operating-system errors may remain in their original language. There is no graphical interface or background server.
 
@@ -189,7 +189,7 @@ Use an existing browser login for a video that requires authentication:
 ./macdown -cookies-browser firefox -url 'VIDEO_URL'
 ```
 
-Supported browser names: `safari`, `chrome`, `firefox`, `edge`, `brave`. Browser access is opt-in for each run and is **not saved**. macOS may ask for permission to read browser data. Cookies do not grant access to content your account cannot view.
+Supported browser names: `safari`, `chrome`, `firefox`, `edge`, `brave`. Browser access is opt-in. Choose **Browser cookies** in Settings to remember a browser and profile, or pass `--cookies-browser` for a command. Clear the setting to disable browser access. Firefox profile paths and containers use yt-dlp syntax, for example `firefox:default-release` or `firefox:/path/to/profile::Personal`. macOS may ask for permission to read browser data. Cookies do not grant access to content your account cannot view.
 
 Show flags: `./macdown -h`.
 
@@ -201,7 +201,7 @@ On macOS, settings are stored in:
 ~/Library/Application Support/MacDown/settings.json
 ```
 
-Changes made in the dashboard's Settings screen are saved immediately. Successful interactive downloads also remember the selected mode and video quality. These values become the next run's defaults, including command-line runs. Explicit CLI flags override them for that command only and do not change the saved output directory or other preferences. URL lists and browser choices are never saved.
+Changes made in the dashboard's Settings screen are saved immediately. Successful interactive downloads also remember the selected mode and video quality. These values become the next run's defaults, including command-line runs. Explicit CLI flags override them for that command only and do not change the saved output directory or other preferences. URL lists are never saved. Browser choices made in Settings are saved; CLI flags override the current run.
 
 Rename or remove that file to reset the defaults. Missing settings use built-in defaults; malformed settings produce a warning and are ignored. Settings are written atomically with owner-only file permissions.
 
@@ -210,12 +210,12 @@ For a separate settings profile, set `MACDOWN_CONFIG_DIR` to a directory of your
 ## Output and limitations
 
 - Default output directory: `~/Downloads/MacDown`.
-- Video is saved with audio in **MP4**, without forced re-encoding. The original codecs are retained: playback support (including QuickTime) depends on those codecs. If a source codec cannot be remuxed into MP4, the download reports an error rather than silently re-encoding.
+- Video is saved as a compatible **H.264 / AAC MP4** with `yuv420p` pixels and fast-start metadata. Compatible streams are copied; other codecs are converted, which takes extra time and can reduce quality.
 - Quality is a **maximum source frame height**, not an exact resolution or an upscaling target. This also applies to portrait videos. If no suitable format with audio is available, the item fails.
 - Audio formats: `mp3`, `m4a`, `opus`, `flac`, `wav`, `best`. Converting lossy audio to FLAC/WAV does not improve its original quality.
 - File sizes are not estimated. Available resolutions are based on site metadata and may change before the download starts.
 - Single-video URLs only: playlists, multi-video pages and ongoing livestreams are not processed by the download queue.
-- Existing completed files are not overwritten. yt-dlp attempts to resume partial downloads when you repeat the same request. The queue itself is not persisted across runs.
+- Downloads use hidden, request-specific staging folders and a filesystem lock. Missing fragments abort the download. Before publication, FFprobe checks audio/video streams and duration, and FFmpeg decodes the entire result. Only verified files appear in the library. Existing files are never overwritten; an invalid existing file produces an error. Failed downloads retain staged data for retry. Small lock folders remain hidden after success. Different quality/audio choices have separate filenames. The queue itself is not persisted across runs.
 - Browser authentication, regional restrictions and DRM are not bypassed.
 - yt-dlp configuration files are ignored to keep behavior predictable.
 - Exit status: `0` on success/help/version/config, `1` for operational failures, `2` for command-line syntax errors, `130` when canceled. `doctor` returns `1` when a required dependency cannot be found or run; a missing optional Deno runtime is reported as a warning.
@@ -269,3 +269,15 @@ go vet ./...
 ```
 
 URLs are passed as individual process arguments, without a shell. On cancellation, the downloader's process group is stopped so its FFmpeg children do not continue working in the background.
+
+## 0.6.0 reliability update
+
+Browser cookies can be selected in both Settings interfaces, including Firefox profiles and containers. This stores only the browser selector, never cookie values. Jobs already queued keep their previous settings. Retrying a failed job picks up the current browser selection.
+
+A successful dependency check does not test browser authentication or EJS. To inspect the original YouTube response without downloading, run:
+
+```sh
+yt-dlp --ignore-config --verbose --cookies-from-browser firefox --skip-download --no-playlist 'VIDEO_URL'
+```
+
+The output pipeline now avoids concurrent writes to shared audio intermediates, rejects missing fragments and validates completed media before reporting success. Existing AV1/VP9/Opus files are left unchanged; an MP4 filename alone does not ensure player compatibility.

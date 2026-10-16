@@ -13,6 +13,7 @@ type settings struct {
 	Quality  string `json:"quality"`
 	Audio    string `json:"audio_format"`
 	Out      string `json:"output_directory"`
+	Browser  string `json:"cookies_browser,omitempty"`
 }
 
 func defaultOptions(home string) options {
@@ -39,6 +40,7 @@ func loadSettings(path string, o *options) error {
 	candidate.Quality = s.Quality
 	candidate.Audio = s.Audio
 	candidate.Out = s.Out
+	candidate.Cookies = s.Browser
 	candidate.URL = "https://example.com/video"
 	if err = validate(candidate); err != nil {
 		return fmt.Errorf(tr("некорректные настройки: %w"), err)
@@ -48,7 +50,7 @@ func loadSettings(path string, o *options) error {
 	return nil
 }
 func saveSettings(path string, o options) error {
-	data, err := json.MarshalIndent(settings{o.Lang, o.Mode, o.Quality, o.Audio, o.Out}, "", "  ")
+	data, err := json.MarshalIndent(settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies}, "", "  ")
 	if err != nil {
 		return err
 	}

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const version = "0.5.0"
+const version = "0.6.0"
 
 type usageError struct{ message string }
 
@@ -75,7 +75,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		fs.StringVar(&o.Quality, "quality", o.Quality, "")
 		fs.StringVar(&o.Audio, "audio-format", o.Audio, "")
 		fs.StringVar(&o.Out, "out", o.Out, "")
-		fs.StringVar(&o.Cookies, "cookies-browser", "", "")
+		fs.StringVar(&o.Cookies, "cookies-browser", o.Cookies, "")
 		// Legacy flags remain available only without a subcommand, so explicit commands always mean what they say.
 		if r.command == "" {
 			fs.StringVar(&o.Mode, "mode", o.Mode, "")
@@ -182,7 +182,7 @@ func showConfig(path string, o options) error {
 		Path     string   `json:"path"`
 		Settings settings `json:"settings"`
 		Language string   `json:"effective_language"`
-	}{path, settings{o.Lang, o.Mode, o.Quality, o.Audio, o.Out}, currentLanguage})
+	}{path, settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies}, currentLanguage})
 }
 func doctor(ctx context.Context) error {
 	fmt.Printf("MacDown %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)

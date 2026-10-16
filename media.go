@@ -22,12 +22,13 @@ type mediaFormat struct {
 	DRM    bool   `json:"has_drm"`
 }
 type mediaInfo struct {
-	ID       string        `json:"id"`
-	Title    string        `json:"title"`
-	Duration float64       `json:"duration"`
-	Formats  []mediaFormat `json:"formats"`
-	Type     string        `json:"_type"`
-	Live     bool          `json:"is_live"`
+	ID        string        `json:"id"`
+	Extractor string        `json:"extractor_key"`
+	Title     string        `json:"title"`
+	Duration  float64       `json:"duration"`
+	Formats   []mediaFormat `json:"formats"`
+	Type      string        `json:"_type"`
+	Live      bool          `json:"is_live"`
 }
 
 func command(ctx context.Context, path string, args ...string) *exec.Cmd {
@@ -40,7 +41,7 @@ func command(ctx context.Context, path string, args ...string) *exec.Cmd {
 func inspect(ctx context.Context, path string, o options) (mediaInfo, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	a := []string{"--ignore-config", "--no-playlist", "--skip-download", "--dump-single-json", "--no-warnings", "--socket-timeout", "20"}
+	a := []string{"--ignore-config", "--no-playlist", "--skip-download", "--dump-single-json", "--socket-timeout", "20"}
 	if o.Cookies != "" {
 		a = append(a, "--cookies-from-browser", o.Cookies)
 	}
@@ -110,18 +111,18 @@ func download(ctx context.Context, path string, o options) error {
 	stat, _ := os.Stderr.Stat()
 	renderer := &progressWriter{out: os.Stderr, tail: &tail, terminal: stat != nil && stat.Mode()&os.ModeCharDevice != 0}
 	defer renderer.finish()
-	c := command(ctx, path, arguments(o)...)
-	c.Stdout = renderer
-	c.Stderr = renderer
-	if err := c.Run(); err != nil {
-		if ctx.Err() != nil {
-			return errCanceled
-		}
-		return fmt.Errorf("%s", explain(tail.String()))
-	}
-	return nil
+	return verifiedDownload(ctx, path, o, renderer)
 }
 func explain(raw string) string {
+	summary := explainSummary(raw)
+	for _, line := range strings.Split(strings.ReplaceAll(raw, "\r", "\n"), "\n") {
+		if strings.Contains(line, "ERROR:") && !strings.Contains(summary, strings.TrimSpace(line)) {
+			return summary + "\n" + safeText(strings.TrimSpace(line))
+		}
+	}
+	return summary
+}
+func explainSummary(raw string) string {
 	s := strings.ToLower(raw)
 	switch {
 	case strings.Contains(s, "no space left"):
@@ -130,6 +131,8 @@ func explain(raw string) string {
 		return tr("Нет доступа к файлу или папке. Проверьте права и выбранную папку.")
 	case strings.Contains(s, "cookies") && (strings.Contains(s, "failed") || strings.Contains(s, "could not")):
 		return tr("Не удалось прочитать cookies браузера. Проверьте профиль и разрешения macOS или выберите другой браузер.")
+	case strings.Contains(s, "not a bot"):
+		return tr("YouTube просит подтвердить, что вы не бот. Проверьте cookies выбранного профиля Firefox и доступ через ту же сеть.")
 	case strings.Contains(s, "sign in") || strings.Contains(s, "login") || strings.Contains(s, "private video") || strings.Contains(s, "age-restricted"):
 		return tr("Ролик требует входа. Войдите в браузере и повторите с -cookies-browser firefox (или chrome/safari).")
 	case strings.Contains(s, "429"):

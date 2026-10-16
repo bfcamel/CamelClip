@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"net/url"
 	"strings"
 	"sync"
 )
@@ -35,7 +34,7 @@ func newJobPool(ctx context.Context, path string) *jobPool {
 }
 func (p *jobPool) add(o options) bool {
 	for _, j := range p.jobs {
-		if j.options.URL == o.URL && j.options.Out == o.Out && j.options.Mode == o.Mode && j.state != "failed" && j.state != "canceled" {
+		if j.options.URL == o.URL && j.options.Out == o.Out && j.options.Mode == o.Mode && j.state != "failed" && j.state != "canceled" && outputVariant(j.options) == outputVariant(o) {
 			return false
 		}
 	}
@@ -87,27 +86,14 @@ func (p *jobPool) schedule() {
 	}
 }
 func (p *jobPool) download(ctx context.Context, id int, o options) error {
-	if err := os.MkdirAll(o.Out, 0755); err != nil {
-		return err
-	}
 	w := &jobOutput{emit: func(s string) {
 		select {
 		case p.events <- jobEvent{id: id, kind: "progress", text: s}:
 		default:
 		}
 	}}
-	c := command(ctx, p.executable, arguments(o)...)
-	c.Stdout = w
-	c.Stderr = w
-	err := c.Run()
-	w.flush()
-	if ctx.Err() != nil {
-		return errCanceled
-	}
-	if err != nil {
-		return fmt.Errorf("%s", explain(w.tail.String()))
-	}
-	return nil
+	defer w.flush()
+	return verifiedDownload(ctx, p.executable, o, w)
 }
 func (p *jobPool) apply(e jobEvent) *job {
 	var j *job
@@ -143,11 +129,12 @@ func (p *jobPool) apply(e jobEvent) *job {
 	}
 	if e.kind == "inspected" {
 		j.info = e.info
+		j.options.duration = e.info.Duration
 		j.title = e.info.Title
 		// Prevent two aliases of the same video writing the same output concurrently.
 		if j.info.ID != "" {
 			for _, other := range p.jobs {
-				if other.id != j.id && other.info.ID == j.info.ID && other.options.Out == j.options.Out && other.options.Mode == j.options.Mode && other.state != "failed" && other.state != "canceled" {
+				if other.id != j.id && other.info.ID == j.info.ID && other.info.Extractor == j.info.Extractor && (j.info.Extractor != "" || sameSite(other.options.URL, j.options.URL)) && other.options.Out == j.options.Out && other.options.Mode == j.options.Mode && other.state != "failed" && other.state != "canceled" && outputVariant(other.options) == outputVariant(j.options) {
 					j.state = "canceled"
 					j.detail = tr("Этот ролик уже есть в очереди.")
 					return j
@@ -216,4 +203,10 @@ func (w *jobOutput) flush() {
 		w.emit(safeText(w.pending))
 		w.pending = ""
 	}
+}
+
+func sameSite(a, b string) bool {
+	x, e := url.Parse(a)
+	y, f := url.Parse(b)
+	return e == nil && f == nil && x.Hostname() == y.Hostname()
 }

@@ -249,6 +249,7 @@ func (u *panelUI) key(key string) {
 		if u.focus == 1 {
 			if j := u.selectedJob(); j != nil && (j.state == "failed" || j.state == "canceled") {
 				j.state = "queued"
+				j.options.Cookies = u.o.Cookies
 				j.detail = ""
 				j.info = mediaInfo{}
 				u.log(tr("Повтор задания"))
@@ -283,7 +284,7 @@ func (u *panelUI) open(path string, reveal bool) {
 	}
 }
 func (u *panelUI) settings() {
-	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}}, "")
+	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}}, "")
 }
 func (u *panelUI) save(candidate options) {
 	if err := saveSettings(u.config, candidate); err != nil {
@@ -306,7 +307,7 @@ func (u *panelUI) modalKey(key string) {
 		}
 		return
 	}
-	if u.modal == "url" || u.modal == "folder" {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" {
 		if strings.HasPrefix(key, "paste:") {
 			value := strings.TrimPrefix(key, "paste:")
 			value = strings.ReplaceAll(strings.ReplaceAll(value, "\r", " "), "\n", " ")
@@ -325,6 +326,18 @@ func (u *panelUI) modalKey(key string) {
 				u.input = u.input[:len(u.input)-n]
 			}
 		case "enter":
+			if u.modal == "browser" {
+				value := strings.TrimSpace(u.input)
+				if value != "" && !validBrowser(value) {
+					u.log(tr("неподдерживаемый браузер"))
+					return
+				}
+				candidate := *u.o
+				candidate.Cookies = value
+				u.save(candidate)
+				u.modal = ""
+				return
+			}
 			if u.modal == "folder" {
 				path, e := writableFolder(u.input, u.home)
 				if e != nil {
@@ -393,6 +406,10 @@ func (u *panelUI) modalKey(key string) {
 			}
 		case "settings":
 			switch value {
+			case "browser":
+				u.modal = "browser"
+				u.title = tr("Браузер cookies: firefox[:профиль], пусто — отключить")
+				u.input = u.o.Cookies
 			case "folder":
 				u.modal = "folder"
 				u.title = tr("Папка сохранения")

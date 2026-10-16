@@ -11,6 +11,7 @@ import (
 type options struct {
 	URL, Mode, Quality, Audio, Out, Cookies, Lang string
 	Formats                                       bool
+	duration                                      float64
 }
 
 func validate(o options) error {
@@ -33,7 +34,7 @@ func validate(o options) error {
 	if !contains([]string{"mp3", "m4a", "opus", "flac", "wav", "best"}, o.Audio) {
 		return errors.New(tr("неподдерживаемый аудиоформат"))
 	}
-	if o.Cookies != "" && !contains([]string{"safari", "chrome", "firefox", "edge", "brave"}, o.Cookies) {
+	if o.Cookies != "" && !validBrowser(o.Cookies) {
 		return errors.New(tr("неподдерживаемый браузер"))
 	}
 	if strings.TrimSpace(o.Out) == "" {
@@ -53,15 +54,15 @@ func contains(values []string, value string) bool {
 
 func arguments(o options) []string {
 	// progressWriter redraws download updates when attached to a terminal.
-	// --print implies quiet mode, so explicitly keep status and progress visible.
-	a := []string{"--ignore-config", "--no-playlist", "--no-overwrites", "--no-quiet", "--progress"}
+	// Child output is captured; keep progress visible in both interfaces.
+	a := []string{"--ignore-config", "--no-playlist", "--no-overwrites", "--no-quiet", "--progress", "--abort-on-unavailable-fragments"}
 	if o.Cookies != "" {
 		a = append(a, "--cookies-from-browser", o.Cookies)
 	}
 	if o.Formats {
 		return append(a, "--list-formats", "--", o.URL)
 	}
-	a = append(a, "--paths", o.Out, "--output", "%(title).150B [%(id)s].%(ext)s", "--print", tr("after_move:Сохранено: %(filepath)s"))
+	a = append(a, "--paths", o.Out, "--output", "%(title).120B [%(extractor_key)s-%(id)s] ["+outputVariant(o)+"].%(ext)s")
 	if o.Mode == "audio" {
 		a = append(a, "--format", "bestaudio/best", "--extract-audio", "--audio-format", o.Audio, "--audio-quality", "0")
 	} else {
@@ -76,6 +77,11 @@ func arguments(o options) []string {
 	return append(a, "--", o.URL)
 }
 
+func validBrowser(value string) bool {
+	name := strings.SplitN(value, ":", 2)[0]
+	return contains([]string{"safari", "chrome", "firefox", "edge", "brave"}, name) && !strings.ContainsAny(value, "\r\n\x00")
+}
+
 func expandHome(path, home string) string {
 	if path == "~" {
 		return home
@@ -84,4 +90,11 @@ func expandHome(path, home string) string {
 		return filepath.Join(home, path[2:])
 	}
 	return path
+}
+
+func outputVariant(o options) string {
+	if o.Mode == "audio" {
+		return "audio-" + o.Audio
+	}
+	return "video-" + o.Quality
 }

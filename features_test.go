@@ -22,7 +22,7 @@ func TestSettingsRoundTripAndCorruption(t *testing.T) {
 	if err := loadSettings(path, &loaded); err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Quality != o.Quality || loaded.Out != o.Out || loaded.Cookies != "" || loaded.URL != "" {
+	if loaded.Quality != o.Quality || loaded.Out != o.Out || loaded.Cookies != "firefox" || loaded.URL != "" {
 		t.Fatalf("%+v", loaded)
 	}
 	st, _ := os.Stat(path)

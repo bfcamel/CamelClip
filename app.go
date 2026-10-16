@@ -121,6 +121,7 @@ func runQueue(ctx context.Context, urls []string, o options, configPath string, 
 			var info mediaInfo
 			info, err = inspect(ctx, ytdlp, o)
 			if err == nil {
+				o.duration = info.Duration
 				fmt.Printf("%s", safeText(info.Title))
 				if info.Duration > 0 {
 					fmt.Printf(" · %d:%02d", int(info.Duration)/60, int(info.Duration)%60)

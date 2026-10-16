@@ -76,6 +76,11 @@ func requestedLanguage(args []string, fallback string) string {
 }
 
 var english = map[string]string{
+	"Браузер cookies": "Browser cookies",
+	"Браузер cookies: firefox[:профиль], пусто — отключить": "Browser cookies: firefox[:profile], empty to disable",
+	"Проверка и подготовка совместимого MP4…":               "Preparing compatible MP4…",
+	"Проверка целостности файла…":                           "Verifying media integrity…",
+	"YouTube просит подтвердить, что вы не бот. Проверьте cookies выбранного профиля Firefox и доступ через ту же сеть.": "YouTube requests a bot check. Check the selected Firefox profile cookies and use the same network.",
 	"Отменено.":                 "Canceled.",
 	"Ошибка:":                   "Error:",
 	"операция отменена":         "operation canceled",

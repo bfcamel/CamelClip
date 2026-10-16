@@ -205,7 +205,7 @@ func (u *panelUI) render() {
 func (u *panelUI) drawModal(c *panelCanvas) {
 	width := minInt(86, c.w-8)
 	height := 7
-	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "details" {
+	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "browser" && u.modal != "details" {
 		height = minInt(c.h-4, len(u.choices)+5)
 	}
 	if u.modal == "details" {
@@ -213,7 +213,7 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 	}
 	x, y := (c.w-width)/2, (c.h-height)/2
 	c.box(x, y, width, height, u.title, true)
-	if u.modal == "url" || u.modal == "folder" {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" {
 		value := []rune(u.input)
 		if len(value) > width-8 {
 			value = value[len(value)-(width-8):]

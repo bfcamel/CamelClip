@@ -144,7 +144,7 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 	for {
 		screen(m, tr("Настройки"), *o, notice)
 		notice = ""
-		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("← Главное меню"), "back"}}
+		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("Браузер cookies") + ": " + o.Cookies, "browser"}, {tr("← Главное меню"), "back"}}
 		action, err := m.selectItem(ctx, tr("Выберите настройку"), items, "")
 		if err != nil {
 			return err
@@ -154,6 +154,11 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 		}
 		candidate := *o
 		switch action {
+		case "browser":
+			candidate.Cookies, err = m.line(tr("Браузер cookies: firefox[:профиль], пусто — отключить"), "")
+			if err == nil && candidate.Cookies != "" && !validBrowser(candidate.Cookies) {
+				err = errors.New(tr("неподдерживаемый браузер"))
+			}
 		case "folder":
 			candidate.Out, err = m.line(tr("Папка сохранения"), o.Out)
 			if err == nil {
