@@ -53,6 +53,7 @@ type panelUI struct {
 	credentialForm                                    core.Credentials
 	formStep                                          int
 	formCredentials                                   bool
+	newProfileAfterUnlock                             bool
 	secretMode                                        string
 	secretFirst                                       string
 	rotationPassword                                  string
@@ -111,6 +112,7 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 			}
 			u.pool.refresh()
 			u.workspaceRefresh()
+			u.resumeProfileCreation()
 			if u.modal == "resources-panel" {
 				u.input = u.resourcesText()
 			}

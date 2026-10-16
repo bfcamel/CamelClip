@@ -43,9 +43,12 @@ func (u *panelUI) profileKey(key string) bool {
 		u.confirmAction(tr("Сбросить S3-профили и ключи? История файлов сохранится."))
 	case "n":
 		if w.Cloud.Locked() {
-			u.log(tr("Сначала разблокируйте хранилище: u"))
+			u.newProfileAfterUnlock = true
+			u.profileKey("u")
 			return true
 		}
+		u.newProfileAfterUnlock = false
+		u.credentialForm = core.Credentials{}
 		u.profileForm = core.S3Profile{ID: core.NewID(), Enabled: true, Style: "auto", Region: "auto"}
 		u.formStep = 0
 		u.formCredentials = true
@@ -220,6 +223,7 @@ func (u *panelUI) workspaceModalKey(key string) bool {
 		return false
 	}
 	if key == "escape" {
+		u.newProfileAfterUnlock = false
 		u.input = ""
 		u.secretFirst = ""
 		u.rotationPassword = ""
@@ -513,4 +517,11 @@ func (u *panelUI) queueControlKey(key string) bool {
 	u.bulkAction = action
 	u.showChoices("bulk-confirm", fmt.Sprintf(tr("Выполнить %s для %d заданий?"), action, len(ids)), []choice{{tr("Нет"), "no"}, {tr("Да"), "yes"}}, "no")
 	return true
+}
+
+// Continue on the UI goroutine only after the asynchronous vault operation succeeds.
+func (u *panelUI) resumeProfileCreation() {
+	if u.newProfileAfterUnlock && u.modal == "" && !u.pool.workspace.Cloud.Locked() {
+		u.profileKey("n")
+	}
 }

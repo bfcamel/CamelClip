@@ -69,3 +69,52 @@ func TestResourcePanelIncludesEveryLogicalCPUAndSupportsScroll(t *testing.T) {
 		t.Fatal("resources cannot scroll")
 	}
 }
+
+func TestNewProfilePromptsForVaultAndContinues(t *testing.T) {
+	ctx := context.Background()
+	w, err := bootstrap.OpenWorkspace(bootstrap.Downloader())(ctx, t.TempDir()+"/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	u := panelUI{ctx: ctx, pool: &jobPool{workspace: w, service: w.Queue}, section: 3}
+	u.workspaceKey("n")
+	if u.modal != "vault" || u.secretMode != "initialize" {
+		t.Fatalf("new profile did not open vault setup: %q %q", u.modal, u.secretMode)
+	}
+	u.workspaceModalKey("escape")
+	if u.newProfileAfterUnlock || u.input != "" {
+		t.Fatal("cancel retained pending creation")
+	}
+	u.workspaceKey("n")
+	u.modal = ""
+	u.resumeProfileCreation()
+	if u.modal != "" {
+		t.Fatal("continued before successful unlock")
+	}
+	if err := w.Cloud.Initialize(ctx, []byte("test-password-123")); err != nil {
+		t.Fatal(err)
+	}
+	u.resumeProfileCreation()
+	if u.modal != "profile-field" || u.formStep != 0 || u.profileForm.ID == "" {
+		t.Fatal("profile wizard did not continue")
+	}
+	w.Cloud.Lock()
+	u.modal = ""
+	u.workspaceKey("n")
+	if u.modal != "vault" || u.secretMode != "unlock" {
+		t.Fatal("existing vault did not request unlock")
+	}
+	u.workspaceModalKey("escape")
+	if err := w.Cloud.Unlock(ctx, []byte("test-password-123")); err != nil {
+		t.Fatal(err)
+	}
+	u.resumeProfileCreation()
+	if u.modal != "" {
+		t.Fatal("canceled wizard resumed")
+	}
+	u.workspaceKey("n")
+	if u.modal != "profile-field" {
+		t.Fatal("unlocked vault did not open profile wizard directly")
+	}
+}
