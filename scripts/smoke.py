@@ -39,7 +39,7 @@ def jobs(config):
     with sqlite3.connect(str(config / 'queue.sqlite3'), timeout=1) as db:
         return db.execute('SELECT state,output_path FROM jobs ORDER BY id').fetchall()
 
-with tempfile.TemporaryDirectory(prefix='macdown-smoke-') as temporary:
+with tempfile.TemporaryDirectory(prefix='clipnaro-smoke-') as temporary:
     root = Path(temporary)
     tools = root / 'tools'
     tools.mkdir()
@@ -80,6 +80,17 @@ os.execv(os.environ['SMOKE_FFMPEG'], [os.environ['SMOKE_FFMPEG']]+args)
     (tools / 'ffmpeg').chmod(0o755)
     base_env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'], SMOKE_FIXTURE=str(fixture), SMOKE_FFMPEG=ffmpeg, TERM='xterm-256color', LANG='en_US.UTF-8')
     try:
+        setup_config = root / 'first-run'
+        setup_config.mkdir()
+        setup_env = dict(base_env, CLIPNARO_CONFIG_DIR=str(setup_config), SMOKE_HOLD_STAGE='', SMOKE_MARKER=str(root / 'setup-marker'))
+        setup_input = '1\n' + str(root / 'first-downloads') + '\n1\n1\n1\n7\n'
+        first = subprocess.run([str(BINARY)], input=setup_input, text=True, env=setup_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=25)
+        assert first.returncode == 0, first.stdout
+        preferences = json.loads((setup_config / 'settings.json').read_text())
+        assert preferences['video_codec'] == 'h264' and preferences.get('cookies_browser', '') == ''
+        second = subprocess.run([str(BINARY)], input='7\n', text=True, env=setup_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=10)
+        assert second.returncode == 0 and 'Language / Язык' not in second.stdout, second.stdout
+        print('First-run setup, explicit consent and subsequent wizard bypass passed.')
         for stage in ('downloading', 'processing', 'verifying'):
             config = root / stage
             config.mkdir()
@@ -87,7 +98,7 @@ os.execv(os.environ['SMOKE_FFMPEG'], [os.environ['SMOKE_FFMPEG']]+args)
             settings = dict(language='en', mode='video', quality='best', audio_format='mp3', output_directory=str(output), video_codec='h264', video_container='mp4')
             (config / 'settings.json').write_text(json.dumps(settings))
             marker = config / 'stage-ready'
-            env = dict(base_env, MACDOWN_CONFIG_DIR=str(config), SMOKE_HOLD_STAGE=stage, SMOKE_MARKER=str(marker))
+            env = dict(base_env, CLIPNARO_CONFIG_DIR=str(config), SMOKE_HOLD_STAGE=stage, SMOKE_MARKER=str(marker))
             command = [str(BINARY), 'download', 'https://example.test/fixture']
             with (config / 'run.log').open('wb') as log:
                 first = subprocess.Popen(command, env=env, stdout=log, stderr=log)
@@ -105,7 +116,7 @@ os.execv(os.environ['SMOKE_FFMPEG'], [os.environ['SMOKE_FFMPEG']]+args)
             subprocess.run([ffmpeg, '-v', 'error', '-xerror', '-i', rows[0][1], '-f', 'null', '-'], check=True)
         print('Abrupt exit/restart during download, processing and verification passed.')
         # Test terminal controls on an actual PTY, including idle polling on Linux.
-        env = dict(base_env, MACDOWN_CONFIG_DIR=str(config), SMOKE_HOLD_STAGE='', SMOKE_MARKER=str(marker))
+        env = dict(base_env, CLIPNARO_CONFIG_DIR=str(config), SMOKE_HOLD_STAGE='', SMOKE_MARKER=str(marker))
         master, slave = pty.openpty()
         saved = termios.tcgetattr(slave)
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 130, 0, 0))
@@ -148,7 +159,7 @@ os.execv(os.environ['SMOKE_FFMPEG'], [os.environ['SMOKE_FFMPEG']]+args)
         print('PTY settings/back navigation, idle refresh and terminal restoration passed.')
         package = root / 'package'
         package.mkdir()
-        shutil.copy2(BINARY, package / 'macdown')
+        shutil.copy2(BINARY, package / 'clipnaro')
         shutil.copy2(REPO / 'install.sh', package / 'install.sh')
         home = root / 'home'
         home.mkdir()
@@ -158,8 +169,8 @@ os.execv(os.environ['SMOKE_FFMPEG'], [os.environ['SMOKE_FFMPEG']]+args)
         subprocess.run(install + ['--force'], env=env, check=True, stdout=subprocess.DEVNULL)
         assert subprocess.run(install, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0
         profile = home / ('.zprofile' if sys.platform == 'darwin' else '.bashrc')
-        assert profile.read_text().count('# MacDown CLI') == 1
-        assert subprocess.check_output([str(home / '.local/bin/macdown'), 'version'], env=env) == subprocess.check_output([str(BINARY), 'version'], env=env)
+        assert profile.read_text().count('# Clipnaro CLI') == 1
+        assert subprocess.check_output([str(home / '.local/bin/clipnaro'), 'version'], env=env) == subprocess.check_output([str(BINARY), 'version'], env=env)
         print('Packaged installation, upgrade, overwrite protection and PATH idempotence passed.')
     finally:
         for process in ACTIVE:

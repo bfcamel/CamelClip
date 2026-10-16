@@ -67,7 +67,7 @@ func TestCompatibilityAndIntegrity(t *testing.T) {
 }
 func TestVerifiedDownloadPublication(t *testing.T) {
 	source := makeFixture(t)
-	t.Setenv("MACDOWN_TEST_FIXTURE", source)
+	t.Setenv("CLIPNARO_TEST_FIXTURE", source)
 	dir := t.TempDir()
 	downloader := filepath.Join(dir, "downloader")
 	script := `#!/bin/sh
@@ -78,7 +78,7 @@ while [ "$#" -gt 0 ]; do
  *) shift;;
  esac
 done
-cp "$MACDOWN_TEST_FIXTURE" "$dest/clip.mp4"
+cp "$CLIPNARO_TEST_FIXTURE" "$dest/clip.mp4"
 printf '"%s"\n' "$dest/clip.mp4" > "$manifest"
 `
 	if err := os.WriteFile(downloader, []byte(script), 0700); err != nil {
@@ -104,7 +104,7 @@ printf '"%s"\n' "$dest/clip.mp4" > "$manifest"
 	if !bytes.Equal(original, after) {
 		t.Fatal("existing file overwritten")
 	}
-	t.Setenv("MACDOWN_TEST_FIXTURE", filepath.Join(dir, "broken"))
+	t.Setenv("CLIPNARO_TEST_FIXTURE", filepath.Join(dir, "broken"))
 	os.WriteFile(filepath.Join(dir, "broken"), []byte("bad"), 0600)
 	o.Out = filepath.Join(dir, "bad-out")
 	if verifiedDownload(context.Background(), downloader, o, &log) == nil {

@@ -28,10 +28,11 @@ def package():
     archives = []
     for system in ('macos', 'linux'):
         for arch in ('arm64', 'amd64'):
-            name = f'macdown_{version}_{system}_{arch}'
-            binary = out / f'macdown-{system}-{arch}'
+            name = f'clipnaro_{version}_{system}_{arch}'
+            binary = out / f'clipnaro-{system}-{arch}'
             files = {n: ((ROOT / n).read_bytes(), 0o755 if n.endswith('.sh') else 0o644) for n in ('README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.txt', 'CHANGELOG.md', 'install.sh')}
-            files['macdown'] = (binary.read_bytes(), 0o755)
+            files.update({str(p.relative_to(ROOT)): (p.read_bytes(), 0o644) for p in (ROOT / 'docs').glob('*.md')})
+            files['clipnaro'] = (binary.read_bytes(), 0o755)
             if system == 'macos':
                 files['Start.command'] = ((ROOT / 'Start.command').read_bytes(), 0o755)
             files['BUILD.json'] = (json.dumps({'version': version, 'commit': commit, 'os': system, 'arch': arch}, sort_keys=True, indent=2).encode() + b'\n', 0o644)

@@ -16,7 +16,7 @@ import (
 	"github.com/bfcamel/video-downloader/internal/diagnostics"
 )
 
-const version = "0.9.0"
+const version = "0.10.0"
 
 var buildCommit = "development"
 
@@ -26,18 +26,18 @@ func (e *usageError) Error() string { return e.message }
 
 type cliRequest struct {
 	command string
-	urls    links
+	urls    []string
 	list    string
 	help    bool
 	json    bool
 }
 
-var commandNames = []string{"download", "audio", "formats", "config", "migrate", "doctor", "version", "help"}
+var commandNames = []string{"download", "audio", "formats", "setup", "config", "doctor", "version", "help"}
 
 func parseCLI(args []string, o *options) (cliRequest, error) {
 	r := cliRequest{}
 	// Locate the command after any leading global flags without confusing flag values with commands.
-	valueFlags := map[string]bool{"lang": true, "url": true, "list": true, "mode": true, "quality": true, "audio-format": true, "out": true, "cookies-browser": true, "video-codec": true, "video-format": true}
+	valueFlags := map[string]bool{"lang": true, "list": true, "quality": true, "audio-format": true, "out": true, "cookies-browser": true, "video-codec": true, "video-format": true}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if a == "--" {
@@ -53,8 +53,8 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		if contains(commandNames, a) {
 			r.command = a
 			args = append(append([]string{}, args[:i]...), args[i+1:]...)
-		} else if !strings.HasPrefix(a, "http://") && !strings.HasPrefix(a, "https://") {
-			return r, &usageError{fmt.Sprintf(tr("Неизвестная команда: %s. Справка: macdown help"), a)}
+		} else {
+			return r, &usageError{fmt.Sprintf(tr("Неизвестная команда: %s. Справка: clipnaro help"), a)}
 		}
 		break
 	}
@@ -66,7 +66,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 			args = args[1:]
 		}
 	}
-	fs := flag.NewFlagSet("macdown", flag.ContinueOnError)
+	fs := flag.NewFlagSet("clipnaro", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&o.Lang, "lang", o.Lang, "auto, ru, en")
 	fs.BoolVar(&r.help, "help", r.help, "")
@@ -76,9 +76,8 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 	}
 	var showVersion bool
 	fs.BoolVar(&showVersion, "version", false, "")
-	transfer := r.command == "" || r.command == "download" || r.command == "audio" || r.command == "formats"
+	transfer := r.command == "download" || r.command == "audio" || r.command == "formats"
 	if transfer {
-		fs.Var(&r.urls, "url", "")
 		fs.StringVar(&r.list, "list", "", "")
 		fs.StringVar(&o.Quality, "quality", o.Quality, "")
 		fs.StringVar(&o.Audio, "audio-format", o.Audio, "")
@@ -86,11 +85,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		fs.StringVar(&o.Cookies, "cookies-browser", o.Cookies, "")
 		fs.StringVar(&o.Codec, "video-codec", videoCodec(*o), "")
 		fs.StringVar(&o.Container, "video-format", videoContainer(*o), "")
-		// Legacy flags remain available only without a subcommand, so explicit commands always mean what they say.
-		if r.command == "" {
-			fs.StringVar(&o.Mode, "mode", o.Mode, "")
-			fs.BoolVar(&o.Formats, "formats", false, "")
-		}
+
 	}
 	// Go's flag parser stops at the first positional value. Reorder only known flags, respecting -- and flag values.
 	flags := []string{}
@@ -108,7 +103,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		name := strings.TrimLeft(strings.SplitN(a, "=", 2)[0], "-")
 		f := fs.Lookup(name)
 		if f == nil {
-			return r, &usageError{fmt.Sprintf(tr("Неизвестный параметр: %s. Справка: macdown help"), a)}
+			return r, &usageError{fmt.Sprintf(tr("Неизвестный параметр: %s. Справка: clipnaro help"), a)}
 		}
 		flags = append(flags, a)
 		if b, ok := f.Value.(interface{ IsBoolFlag() bool }); (!ok || !b.IsBoolFlag()) && !strings.Contains(a, "=") {
@@ -142,29 +137,29 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		o.Formats = true
 	}
 	if transfer && r.command != "" && len(r.urls) == 0 && r.list == "" && !r.help {
-		return r, &usageError{tr("Укажите URL или --list FILE. Для меню запустите macdown без команды.")}
+		return r, &usageError{tr("Укажите URL или --list FILE. Для меню запустите clipnaro без команды.")}
 	}
 	return r, nil
 }
 func printHelp(command string) {
-	fmt.Printf("MacDown %s\n\n", version)
+	fmt.Printf("Clipnaro %s\n\n", version)
 	if command != "" {
-		fmt.Printf("macdown %s", command)
+		fmt.Printf("clipnaro %s", command)
 		if contains([]string{"download", "audio", "formats"}, command) {
 			fmt.Print(" [options] URL...")
 		}
 		fmt.Print("\n\n")
 	}
 	fmt.Println(tr(`Использование:
-  macdown                         Интерактивное меню
-  macdown download URL...         Видео со звуком в выбранном формате
-  macdown audio URL...            Только звук
-  macdown formats URL...          Доступные форматы
-  macdown config                  Настройки и путь к файлу (JSON)
-  macdown migrate                 Перенести очередь в SQLite
-  macdown doctor [--json]         Проверка зависимостей и хранилища
-  macdown version                 Версия программы
-  macdown help [COMMAND]          Справка
+  clipnaro                         Интерактивное меню
+  clipnaro download URL...         Видео со звуком в выбранном формате
+  clipnaro audio URL...            Только звук
+  clipnaro formats URL...          Доступные форматы
+  clipnaro setup                   Настроить Clipnaro заново
+  clipnaro config                  Настройки и путь к файлу (JSON)
+  clipnaro doctor [--json]         Проверка зависимостей и хранилища
+  clipnaro version                 Версия программы
+  clipnaro help [COMMAND]          Справка
 
 Параметры загрузки (до или после URL):
   --quality HEIGHT|best          Максимальная высота видео
@@ -172,7 +167,6 @@ func printHelp(command string) {
   --video-format mp4|mkv|webm     Контейнер видео (по умолчанию mp4)
   --audio-format mp3|m4a|opus|flac|wav|best
   --out DIR                      Папка сохранения
-  --url URL                      Добавить ссылку (можно повторять)
   --list FILE                    Файл со ссылками, по одной в строке
   --cookies-browser BROWSER      Авторизация через браузер
 
@@ -182,11 +176,9 @@ func printHelp(command string) {
   --version                      Версия
 
 Примеры:
-  macdown download 'URL' --quality 1080
-  macdown audio 'URL' --audio-format mp3
-  macdown download --list links.txt
-
-Старый синтаксис macdown -url URL -mode audio также поддерживается.`))
+  clipnaro download 'URL' --quality 1080
+  clipnaro audio 'URL' --audio-format mp3
+  clipnaro download --list links.txt`))
 }
 func showConfig(path string, o options) error {
 	e := json.NewEncoder(os.Stdout)
@@ -206,7 +198,7 @@ func doctor(ctx context.Context, path string, o options, asJSON bool) error {
 			return err
 		}
 	} else {
-		fmt.Printf("MacDown %s (%s/%s)\n", report.Version, report.OS, report.Arch)
+		fmt.Printf("Clipnaro %s (%s/%s)\n", report.Version, report.OS, report.Arch)
 		for _, check := range report.Checks {
 			fmt.Printf("%-4s %s: %s\n", check.Status, check.ID, diagnosticText(check.Message))
 			if check.Hint != "" {
@@ -214,7 +206,7 @@ func doctor(ctx context.Context, path string, o options, asJSON bool) error {
 			}
 		}
 		fmt.Println(dependencyHint())
-		fmt.Println(tr("Отчёт для обращения об ошибке: macdown doctor --json"))
+		fmt.Println(tr("Отчёт для обращения об ошибке: clipnaro doctor --json"))
 	}
 	if ctx.Err() != nil {
 		return errCanceled

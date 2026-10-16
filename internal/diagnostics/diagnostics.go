@@ -168,7 +168,7 @@ func checkDirectory(r *Report, id, path string) {
 		}
 		existing = filepath.Dir(existing)
 	}
-	f, err := os.CreateTemp(existing, ".macdown-doctor-*")
+	f, err := os.CreateTemp(existing, ".clipnaro-doctor-*")
 	if err != nil {
 		r.add(id, "FAIL", "Directory is not writable.", "Check permissions or choose another directory.")
 		return
@@ -198,15 +198,6 @@ func checkSettings(r *Report, path string) {
 		err = json.Unmarshal(data, &s)
 	}
 	if err == nil {
-		if s.Language == "" {
-			s.Language = "auto"
-		}
-		if s.Codec == "" {
-			s.Codec = "h264"
-		}
-		if s.Container == "" {
-			s.Container = "mp4"
-		}
 		err = config.Validate(s)
 	}
 	if err != nil {

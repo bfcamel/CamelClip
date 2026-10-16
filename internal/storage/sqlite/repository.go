@@ -36,7 +36,7 @@ func Open(ctx context.Context, dir string) (*Repository, error) {
 	}
 	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		lock.Close()
-		return nil, errors.New("queue is already open in another MacDown session")
+		return nil, errors.New("queue is already open in another Clipnaro session")
 	}
 	path := filepath.Join(dir, "queue.sqlite3")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
@@ -75,9 +75,6 @@ func Open(ctx context.Context, dir string) (*Repository, error) {
 		if _, err = db.ExecContext(ctx, statement); err != nil {
 			return fail(err)
 		}
-	}
-	if err = r.migrateLegacy(ctx, filepath.Join(dir, "queue.json")); err != nil {
-		return fail(err)
 	}
 	return r, nil
 }
@@ -174,89 +171,4 @@ func (r *Repository) Close() error {
 		err = e
 	}
 	return err
-}
-
-// Import legacy JSON exactly once. Its original bytes remain as a backup; the
-// migration marker and every imported job are committed in the same transaction.
-func (r *Repository) migrateLegacy(ctx context.Context, path string) error {
-	var imported int
-	err := r.db.QueryRowContext(ctx, "SELECT value FROM metadata WHERE key='legacy_imported'").Scan(&imported)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	var count int
-	if err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM jobs").Scan(&count); err != nil {
-		return err
-	}
-	snapshot := application.Snapshot{}
-	if count == 0 {
-		data, e := os.ReadFile(path)
-		if e != nil && !os.IsNotExist(e) {
-			return e
-		}
-		if e == nil {
-			var legacy struct {
-				Version int `json:"version"`
-				NextID  int `json:"next_id"`
-				Jobs    []struct {
-					ID       int               `json:"id"`
-					URL      string            `json:"url"`
-					Title    string            `json:"title"`
-					State    application.State `json:"state"`
-					Detail   string            `json:"detail"`
-					Info     core.MediaInfo    `json:"media"`
-					Settings struct {
-						Language  string `json:"language"`
-						Mode      string `json:"mode"`
-						Quality   string `json:"quality"`
-						Audio     string `json:"audio_format"`
-						Out       string `json:"output_directory"`
-						Browser   string `json:"cookies_browser"`
-						Codec     string `json:"video_codec"`
-						Container string `json:"video_container"`
-					} `json:"settings"`
-				} `json:"jobs"`
-			}
-			if e = json.Unmarshal(data, &legacy); e != nil {
-				return fmt.Errorf("legacy queue retained unchanged: %w", e)
-			}
-			if legacy.Version != 1 || legacy.NextID < 0 {
-				return errors.New("unsupported legacy queue version")
-			}
-			snapshot.NextID = legacy.NextID
-			seen := map[int]bool{}
-			for _, j := range legacy.Jobs {
-				if j.ID <= 0 || seen[j.ID] || !j.State.Valid() {
-					return errors.New("invalid legacy queue job")
-				}
-				seen[j.ID] = true
-				s := j.Settings
-				request := core.Request{URL: j.URL, Mode: s.Mode, Quality: s.Quality, Audio: s.Audio, Out: s.Out, Cookies: s.Browser, Codec: s.Codec, Container: s.Container, Duration: j.Info.Duration}
-				if e = core.Validate(request); e != nil {
-					return fmt.Errorf("invalid legacy job: %w", e)
-				}
-				snapshot.Jobs = append(snapshot.Jobs, application.Job{ID: j.ID, Request: request, Title: j.Title, State: j.State, Detail: j.Detail, Info: j.Info, NeedsQuality: true})
-				if j.ID > snapshot.NextID {
-					snapshot.NextID = j.ID
-				}
-			}
-		}
-	}
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if count == 0 {
-		if err = saveTx(ctx, tx, snapshot); err != nil {
-			return err
-		}
-	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO metadata(key,value) VALUES('legacy_imported',1)"); err != nil {
-		return err
-	}
-	return tx.Commit()
 }

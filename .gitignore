@@ -1,8 +1,8 @@
-/macdown
-/macdown-macos-*
+/clipnaro
+/clipnaro-macos-*
 /dist/
 *.part
 .DS_Store
 
 __pycache__/
-/macdown-linux-*
+/clipnaro-linux-*

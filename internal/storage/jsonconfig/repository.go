@@ -35,15 +35,6 @@ func (f File) Load(ctx context.Context) (config.Settings, error) {
 	if err = json.Unmarshal(data, &s); err != nil {
 		return f.Defaults, err
 	}
-	if s.Language == "" {
-		s.Language = "auto"
-	}
-	if s.Codec == "" {
-		s.Codec = "h264"
-	}
-	if s.Container == "" {
-		s.Container = "mp4"
-	}
 	if err = config.Validate(s); err != nil {
 		return f.Defaults, err
 	}

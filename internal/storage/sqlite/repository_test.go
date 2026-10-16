@@ -5,7 +5,6 @@ package sqlite
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,63 +56,5 @@ func TestSQLiteRoundTripPermissionsLockAndRollback(t *testing.T) {
 	loaded, err = reopened.Load(ctx)
 	if err != nil || loaded.NextID != 1 {
 		t.Fatal(loaded, err)
-	}
-}
-func legacyBytes() []byte {
-	data, _ := json.Marshal(map[string]any{"version": 1, "next_id": 7, "jobs": []any{map[string]any{"id": 7, "url": "https://example.com/video", "title": "Legacy", "state": "processing", "settings": map[string]any{"language": "ru", "mode": "video", "quality": "720", "audio_format": "mp3", "output_directory": "/tmp/videos", "cookies_browser": "firefox:work", "video_codec": "av1", "video_container": "webm"}, "media": map[string]any{"id": "video", "duration": 12}}}})
-	return data
-}
-func TestLegacyMigrationIsAtomicIdempotentAndKeepsBackup(t *testing.T) {
-	ctx := context.Background()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "queue.json")
-	original := legacyBytes()
-	os.WriteFile(path, original, 0600)
-	r, err := Open(ctx, dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := r.Load(ctx)
-	if err != nil || len(s.Jobs) != 1 || s.Jobs[0].Request.Codec != "av1" || s.Jobs[0].State != application.Processing || s.NextID != 7 {
-		t.Fatal(s, err)
-	}
-	if err = r.Save(ctx, application.Snapshot{NextID: 7}); err != nil {
-		t.Fatal(err)
-	}
-	r.Close()
-	r, err = Open(ctx, dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Close()
-	s, err = r.Load(ctx)
-	if err != nil || len(s.Jobs) != 0 {
-		t.Fatal("legacy queue reimported", s, err)
-	}
-	after, _ := os.ReadFile(path)
-	if string(after) != string(original) {
-		t.Fatal("legacy backup changed")
-	}
-}
-func TestInvalidLegacyDataNeverBecomesEmptyQueue(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "queue.json")
-	os.WriteFile(path, []byte("{broken"), 0600)
-	if _, err := Open(context.Background(), dir); err == nil {
-		t.Fatal("corrupt JSON ignored")
-	}
-	after, _ := os.ReadFile(path)
-	if string(after) != "{broken" {
-		t.Fatal("backup overwritten")
-	}
-	os.WriteFile(path, legacyBytes(), 0600)
-	r, err := Open(context.Background(), dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Close()
-	s, _ := r.Load(context.Background())
-	if len(s.Jobs) != 1 {
-		t.Fatal("failed import marked as successful")
 	}
 }

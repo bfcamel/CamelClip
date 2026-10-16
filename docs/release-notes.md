@@ -1,11 +1,8 @@
-MacDown 0.9.0 adds Linux support alongside macOS, local regression checks and release packaging.
+Clipnaro 0.10.0 introduces the new product name, a guided first launch and a terminal selection fix.
 
-- Linux/macOS, each with amd64 and arm64 builds.
-- Persistent SQLite queue, separate settings and verified media publication.
-- Offline `macdown doctor` and a private-data-free `doctor --json` report.
-- Fault tests for database limits, stage failures, cancellation and restart recovery.
-- Contributor, security, support and troubleshooting documentation.
+- The executable is `clipnaro`, preferences use `Clipnaro` directories and `CLIPNARO_CONFIG_DIR` selects a separate profile.
+- First launch explains the basic controls and offers language, output folder, video profile and optional browser cookies, followed by dependency/storage checks.
+- Selected rows reset their background before the next cell style, keeping highlighting inside the correct panel.
+- Deprecated CLI forms and JSON queue import have been removed. Use explicit `download`, `audio` and `formats` commands.
 
-Extract the archive for your OS/architecture and run `sh install.sh --add-to-path`. Install yt-dlp, FFmpeg/ffprobe and Deno separately; see README. Verify archives against SHA256SUMS.
-
-This is a pre-1.0 release. Windows and a GUI are not supported. macOS builds are unsigned and not notarized. Checksums detect corruption and are not publisher signatures. Configuration and the SQLite schema remain compatible with 0.8.0. Back up your configuration directory before upgrading.
+This pre-1.0 version targets macOS and Linux on arm64/amd64. Windows and a GUI are not supported. Dependencies are installed separately; builds are unsigned and macOS binaries are not notarized. Existing user data is handled during the maintainer's one-time installation update; the application contains no previous-brand compatibility paths.

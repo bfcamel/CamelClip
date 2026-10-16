@@ -27,6 +27,9 @@ type Repository interface {
 }
 
 func Validate(s Settings) error {
+	if s.Codec == "" || s.Container == "" {
+		return fmt.Errorf("video_codec and video_container are required")
+	}
 	if s.Language != "auto" && s.Language != "ru" && s.Language != "en" {
 		return fmt.Errorf("invalid language")
 	}

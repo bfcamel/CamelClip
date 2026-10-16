@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0
+
+- Rename the product, command, environment variables, folders and packages to Clipnaro.
+- First-run setup for language, storage, video profile and optional browser access, with dependency checks and retry.
+- Reset terminal background attributes between cells to contain selected rows inside their panel.
+- Remove deprecated CLI modes and legacy JSON queue import.
+
 ## 0.9.0
 
 - Linux support on amd64 and arm64, alongside both macOS architectures.
@@ -14,7 +21,7 @@
 
 - Apache License 2.0.
 - Isolated downloader core and application service with strict interfaces for frontends and storage.
-- Transactional SQLite queue/history and one-time migration from legacy JSON; separate JSON settings.
+- Transactional SQLite queue/history and separate JSON settings.
 - Consistent settings/back navigation and a visible settings shortcut.
 
 ## 0.7.0

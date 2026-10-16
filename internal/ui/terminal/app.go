@@ -16,10 +16,6 @@ import (
 	"syscall"
 )
 
-type links []string
-
-func (l *links) String() string     { return strings.Join(*l, " ") }
-func (l *links) Set(s string) error { *l = append(*l, s); return nil }
 func run(deps Dependencies) error {
 	system := systemLanguage()
 	useLanguage(requestedLanguage(os.Args[1:], "auto"), system)
@@ -33,8 +29,8 @@ func run(deps Dependencies) error {
 	if err != nil {
 		return err
 	}
-	configPath := filepath.Join(configDir, "MacDown", "settings.json")
-	if override := os.Getenv("MACDOWN_CONFIG_DIR"); override != "" {
+	configPath := filepath.Join(configDir, "Clipnaro", "settings.json")
+	if override := os.Getenv("CLIPNARO_CONFIG_DIR"); override != "" {
 		configPath = filepath.Join(override, "settings.json")
 	}
 	o := defaultOptions(home)
@@ -54,20 +50,14 @@ func run(deps Dependencies) error {
 	}
 	switch request.command {
 	case "version":
-		fmt.Println("macdown " + version)
+		fmt.Println("clipnaro " + version)
 		return nil
+	case "setup":
+		m := newMenu()
+		m.ctx = ctx
+		return firstRun(ctx, m, &o, configPath, system, home)
 	case "config":
 		return showConfig(configPath, o)
-	case "migrate":
-		queue, e := deps.OpenQueue(ctx, configPath, 1)
-		if e != nil {
-			return e
-		}
-		if e = queue.Close(); e != nil {
-			return e
-		}
-		fmt.Println(tr("Очередь хранится в SQLite."))
-		return nil
 	case "doctor":
 		return doctor(ctx, configPath, o, request.json)
 	}
@@ -94,6 +84,11 @@ func run(deps Dependencies) error {
 	if len(urls) == 0 {
 		m := newMenu()
 		m.ctx = ctx
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			if err := firstRun(ctx, m, &o, configPath, system, home); err != nil {
+				return err
+			}
+		}
 		return dashboard(ctx, m, &o, configPath, system, home)
 	}
 	return runQueue(ctx, urls, o, configPath, nil)

@@ -20,7 +20,7 @@ func settingsFor(o options) settings {
 	return settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o)}
 }
 func defaultOptions(home string) options {
-	return options{Lang: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: filepath.Join(downloadsDirectory(home), "MacDown")}
+	return options{Lang: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: filepath.Join(downloadsDirectory(home), "Clipnaro")}
 }
 func loadSettings(path string, o *options) error {
 	if o.runtime == nil || o.runtime.OpenConfig == nil {

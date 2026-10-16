@@ -111,7 +111,10 @@ func (c *panelCanvas) String() string {
 		}
 		for _, cell := range row {
 			if cell.style != style {
-				b.WriteString(cell.style)
+				b.WriteString(normal)
+				if cell.style != normal {
+					b.WriteString(cell.style)
+				}
 				style = cell.style
 			}
 			b.WriteString(cell.text)
@@ -126,7 +129,7 @@ func (u *panelUI) render() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, fmt.Sprintf("MACDOWN %s  |  %s: %d/2", version, tr("Активно"), u.pool.active), cyan)
+	c.text(1, 0, w-2, fmt.Sprintf("CLIPNARO %s  |  %s: %d/2", version, tr("Активно"), u.pool.active), cyan)
 	if w < 72 || h < 19 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 73 × 20."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), normal)

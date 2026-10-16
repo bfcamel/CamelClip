@@ -17,7 +17,7 @@ func screen(m *menu, title string, o options, notice string) {
 	if m.terminal {
 		fmt.Fprint(m.out, "\033[2J\033[H\033[1;36m")
 	}
-	fmt.Fprintf(m.out, "  MACDOWN  %s\n", version)
+	fmt.Fprintf(m.out, "  CLIPNARO  %s\n", version)
 	if m.terminal {
 		fmt.Fprint(m.out, "\033[0m")
 	}
@@ -133,7 +133,7 @@ func writableFolder(path, home string) (string, error) {
 	if err = os.MkdirAll(path, 0755); err != nil {
 		return "", err
 	}
-	f, err := os.CreateTemp(path, ".macdown-write-check-*")
+	f, err := os.CreateTemp(path, ".clipnaro-write-check-*")
 	if err != nil {
 		return "", err
 	}

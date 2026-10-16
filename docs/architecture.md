@@ -1,10 +1,10 @@
 # Architecture and extension contracts
 
-MacDown separates policy, process execution, persistence and presentation. The binary in `cmd/macdown` is the composition root: it constructs adapters in `internal/bootstrap` and injects typed ports into the terminal frontend. Constructors are the only place that know the concrete implementation of every module.
+Clipnaro separates policy, process execution, persistence and presentation. The binary in `cmd/clipnaro` is the composition root: it constructs adapters in `internal/bootstrap` and injects typed ports into the terminal frontend. Constructors are the only place that know the concrete implementation of every module.
 
 ```mermaid
 flowchart TD
-    Main[cmd/macdown] --> Wiring[bootstrap]
+    Main[cmd/clipnaro] --> Wiring[bootstrap]
     Wiring --> Terminal[terminal frontend]
     Wiring --> Backend[yt-dlp / FFmpeg adapter]
     Wiring --> DB[SQLite repository]
@@ -33,9 +33,8 @@ The event channel is a bounded, single-consumer notification stream. Slow observ
 
 ## Persistence
 
-`application.Repository` atomically loads/saves a typed snapshot. The SQLite implementation owns schema versioning, locking, transactions, WAL settings and legacy import. Jobs have their own rows with indexed primary IDs, URL, status, title, output path, quality-selection flag, and JSON-encoded per-job request/metadata values. Only changed rows are updated and removed IDs are deleted transactionally. Database and queue-lock files use owner-only creation permissions.
+`application.Repository` atomically loads/saves a typed snapshot. The SQLite implementation owns schema versioning, locking, transactions and WAL settings. Jobs have their own rows with indexed primary IDs, URL, status, title, output path, quality-selection flag, and JSON-encoded per-job request/metadata values. Only changed rows are updated and removed IDs are deleted transactionally. Database and queue-lock files use owner-only creation permissions.
 
-The v1 migration imports legacy JSON and its completion marker in one transaction. A corrupt file or unsupported version is reported, never silently replaced. The old JSON is retained byte-for-byte and is never reimported after a successful migration, even if the database queue is later cleared.
 
 `config.Repository` is a separate port for user preferences. Its JSON file adapter atomically writes `settings.json`. A job captures a copy of download parameters; changing preferences does not mutate queued work. Retrying an authentication failure explicitly takes the current browser selector.
 
@@ -53,7 +52,7 @@ queue.Start()
 // Consume queue.Events(), then read queue.Jobs() and marshal updates to the UI thread.
 ```
 
-These are internal module APIs intended for frontends in this repository. They do not promise a versioned external SDK or an HTTP protocol. `core` and `application` have no concrete UI/storage dependencies; dependency-direction tests reject accidental coupling. Backend media tests, SQLite transaction/migration tests and UI navigation tests are kept alongside their packages.
+These are internal module APIs intended for frontends in this repository. They do not promise a versioned external SDK or an HTTP protocol. `core` and `application` have no concrete UI/storage dependencies; dependency-direction tests reject accidental coupling. Backend media tests, SQLite transaction/fault tests and UI navigation tests are kept alongside their packages.
 
 
 ## Operating-system integration and diagnostics

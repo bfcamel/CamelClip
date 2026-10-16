@@ -1,6 +1,6 @@
-Third-party license notices for MacDown
+Third-party license notices for Clipnaro
 
-MacDown project source is licensed under Apache-2.0. The components below retain their own licenses.
+Clipnaro project source is licensed under Apache-2.0. The components below retain their own licenses.
 yt-dlp and FFmpeg are external programs, not bundled in this package; their licenses depend on their respective distributions.
 
 ========================================================================

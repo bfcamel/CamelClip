@@ -10,16 +10,16 @@ import (
 	"testing"
 )
 
-func TestVideoProfileSettingsMigrationAndCLI(t *testing.T) {
+func TestVideoProfileSettingsAndCLI(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "settings.json")
-	os.WriteFile(path, []byte(`{"language":"ru","mode":"video","quality":"best","audio_format":"mp3","output_directory":"/tmp/videos"}`), 0600)
+	os.WriteFile(path, []byte(`{"language":"ru","mode":"video","quality":"best","audio_format":"mp3","output_directory":"/tmp/videos","video_codec":"h264","video_container":"mp4"}`), 0600)
 	o := testOptions(root)
 	if err := loadSettings(path, &o); err != nil {
 		t.Fatal(err)
 	}
 	if o.Codec != "h264" || o.Container != "mp4" {
-		t.Fatal("old settings lost defaults")
+		t.Fatal("profile settings lost")
 	}
 	if _, err := parseCLI([]string{"download", "--video-codec", "vp9", "https://example.com/a", "--video-format", "webm"}, &o); err != nil {
 		t.Fatal(err)

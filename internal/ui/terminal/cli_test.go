@@ -19,7 +19,6 @@ func TestCLICommandsAndInterspersedFlags(t *testing.T) {
 	}{
 		{[]string{"download", "https://example.com/a", "--quality", "720", "https://example.com/b"}, "download", "video", "720", []string{"https://example.com/a", "https://example.com/b"}},
 		{[]string{"--lang", "en", "audio", "https://example.com/a", "--audio-format", "opus"}, "audio", "audio", "best", []string{"https://example.com/a"}},
-		{[]string{"-url", "https://example.com/a", "-mode", "audio"}, "", "audio", "best", []string{"https://example.com/a"}},
 		{[]string{"formats", "--", "https://example.com/a?x=download"}, "formats", "video", "best", []string{"https://example.com/a?x=download"}},
 	} {
 		o := testOptions("/tmp")
@@ -38,7 +37,7 @@ func TestExplicitCommandOverridesSavedMode(t *testing.T) {
 	}
 }
 func TestCLIRejectsInvalidUsage(t *testing.T) {
-	for _, args := range [][]string{{"download"}, {"audio", "--quality"}, {"doctor", "https://example.com/a"}, {"wat"}, {"download", "--mode", "audio", "https://example.com/a"}, {"--lang", "xx"}, {"config", "--out", "/tmp"}, {"download", "https://example.com/a", "--typo"}} {
+	for _, args := range [][]string{{"-url", "https://example.com/a"}, {"-mode", "audio"}, {"migrate"}, {"https://example.com/a"}, {"download"}, {"audio", "--quality"}, {"doctor", "https://example.com/a"}, {"wat"}, {"download", "--mode", "audio", "https://example.com/a"}, {"--lang", "xx"}, {"config", "--out", "/tmp"}, {"download", "https://example.com/a", "--typo"}} {
 		o := testOptions("/tmp")
 		if _, e := parseCLI(args, &o); e == nil {
 			t.Fatalf("accepted %v", args)
