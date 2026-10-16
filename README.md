@@ -55,7 +55,13 @@ Video codecs: `h264` (default), `hevc`, `vp9`, `av1`. Containers: `mp4` (default
 - **Jobs:** inspection, quality selection, download, processing and verification. Enter selects quality or opens details; `x` cancels, `r` retries and `d` removes finished history without deleting files.
 - **Event log:** recent progress and errors.
 
-`Tab` switches panels, arrows select, `v`/`a` add video/audio, `s` opens Settings, `q` exits. In nested settings, Esc/left/Backspace returns to the parent. Numbered menus are used when terminal controls are unavailable. Minimum panel size: 73 × 20. English and Russian are supported. Downloads continue while browsing settings and files.
+`Tab` / `Shift+Tab` switch status tabs; arrows or `j`/`k` select jobs. `a` adds video or audio, `v` quickly adds video, `/` searches titles and URLs, `Enter` opens details, `?` shows help. `s` opens Settings, `f` opens the download folder, `o` reveals the selected completed file, `l` opens the log, and `q` exits. `x` cancels, `r` retries, and `d` removes history only after confirmation. In nested settings, Esc/left/Backspace returns to the parent. The layout adapts from 40 × 10 to wide windows with details and logs. Numbered menus are used when terminal controls are unavailable. English and Russian are supported. Downloads continue while browsing settings.
+
+Download and processing limits are independent: five network transfers and `max(cpu_count / 4, 2)` processing tasks by default (integer division). Processing includes merging, audio extraction, conversion and full verification. Configure these in Settings or override for one CLI invocation with `--max-downloads 1..32` and `--max-processing auto|1..32`.
+
+`--rate-limit 2MiB/s` allocates a conservative global budget into fixed shares based on maximum downloads; unused shares are not redistributed. `--job-rate-limit 512KiB/s` caps each job. The smaller nonzero limit applies. `0` means unlimited. Changes apply to newly launched network processes; running transfers retain their existing limits. These are bytes/second; CLI overrides do not overwrite saved preferences.
+
+Progress percentages belong to separate stages. Missing totals/speed/ETA display as an em dash; speeds older than three seconds are marked stale. Queue schema upgrades preserve existing history transactionally.
 
 ## Storage and integrity
 

@@ -17,6 +17,7 @@ type job struct {
 	options              options
 	title, state, detail string
 	info                 mediaInfo
+	record               application.Job
 }
 type jobPool struct {
 	service application.Queue
@@ -34,6 +35,10 @@ func openPersistentPool(ctx context.Context, o options, config string, workers i
 	if err != nil {
 		return nil, err
 	}
+	if err = q.SetLimits(settingsFor(o).Limits()); err != nil {
+		q.Close()
+		return nil, err
+	}
 	p := &jobPool{service: q, events: q.Events()}
 	p.refresh()
 	return p, nil
@@ -42,7 +47,7 @@ func view(j application.Job) *job {
 	if j.State == application.Failed {
 		j.Detail = explain(j.Detail)
 	}
-	return &job{id: j.ID, options: optionsFromRequest(j.Request), title: j.Title, state: string(j.State), detail: j.Detail, info: j.Info}
+	return &job{id: j.ID, options: optionsFromRequest(j.Request), title: j.Title, state: string(j.State), detail: j.Detail, info: j.Info, record: j}
 }
 func optionsFromRequest(r core.Request) options {
 	return options{URL: r.URL, Mode: r.Mode, Quality: r.Quality, Audio: r.Audio, Out: r.Out, Cookies: r.Cookies, Codec: r.Codec, Container: r.Container, duration: r.Duration}

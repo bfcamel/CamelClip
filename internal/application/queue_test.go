@@ -175,8 +175,8 @@ func TestExplicitCLISelectionDoesNotRunUnrelatedJobs(t *testing.T) {
 	}
 }
 func TestRestoreEveryLifecycleState(t *testing.T) {
-	states := []State{Queued, Inspecting, Choosing, Ready, Downloading, Processing, Verifying, Canceling, Done, Failed, Canceled}
-	expected := []State{Queued, Queued, Choosing, Ready, Ready, Ready, Ready, Canceled, Done, Failed, Canceled}
+	states := []State{Queued, Inspecting, Choosing, Ready, Downloading, Processing, Verifying, Canceling, Done, Failed, Canceled, WaitingDownload, WaitingProcessing, WaitingVerification}
+	expected := []State{Queued, Queued, Choosing, Ready, Ready, Ready, Ready, Canceled, Done, Failed, Canceled, Ready, Ready, Ready}
 	repo := &memoryRepository{}
 	for i, state := range states {
 		repo.snapshot.Jobs = append(repo.snapshot.Jobs, Job{ID: i + 1, Request: req(), State: state, Info: core.MediaInfo{Duration: 12}})

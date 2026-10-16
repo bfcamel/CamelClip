@@ -5,9 +5,14 @@
 package ytdlp
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
+	"math"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bfcamel/video-downloader/internal/core"
 )
@@ -60,6 +65,9 @@ type eventWriter struct {
 	observer core.Observer
 	pending  string
 	last     string
+	files    map[string]int64
+	totals   map[string]int64
+	parts    int
 }
 
 func (w *eventWriter) Write(data []byte) (int, error) {
@@ -71,6 +79,10 @@ func (w *eventWriter) Write(data []byte) (int, error) {
 		}
 		line := safeText(w.pending[:i])
 		w.pending = w.pending[i+1:]
+		if strings.HasPrefix(line, "CLIPNARO_PROGRESS ") {
+			w.measure(strings.TrimPrefix(line, "CLIPNARO_PROGRESS "))
+			continue
+		}
 		if w.observer != nil && line != "" {
 			kind := core.Log
 			if strings.HasPrefix(line, "[download]") {
@@ -89,21 +101,20 @@ func (e *Engine) Download(ctx context.Context, r core.Request, observer core.Obs
 		return core.Result{}, err
 	}
 	result := core.Result{}
-	w := &eventWriter{observer: observer}
-	err := verifiedDownloadWithObserver(ctx, e.Executable, r, w, func(stage, detail string) {
-		if stage == "published" {
-			result.Path = detail
-			if observer != nil {
-				observer(core.Event{Kind: core.Published, Path: detail})
-			}
-			return
+	parts := 1
+	if r.Mode == "video" {
+		parts = 2
+	}
+	if r.ExpectedParts > 0 {
+		parts = r.ExpectedParts
+	}
+	w := &eventWriter{observer: observer, parts: parts}
+	err := verifiedDownloadWithObserver(ctx, e.Executable, r, w, func(event core.Event) {
+		if event.Kind == core.Published {
+			result.Path = event.Path
 		}
 		if observer != nil {
-			kind := core.StageChanged
-			if detail != "" {
-				kind = core.Progress
-			}
-			observer(core.Event{Kind: kind, Stage: core.Stage(stage), Detail: detail})
+			observer(event)
 		}
 	})
 	if ctx.Err() != nil {
@@ -128,3 +139,72 @@ func (e *Engine) Formats(ctx context.Context, r core.Request, observer core.Obse
 
 // Compile-time interface checks include standard stream adapters.
 var _ io.Writer = (*eventWriter)(nil)
+
+func number(raw json.RawMessage) *float64 {
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil
+	}
+	var n float64
+	if json.Unmarshal(raw, &n) != nil {
+		var text string
+		if json.Unmarshal(raw, &text) != nil {
+			return nil
+		}
+		v, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return nil
+		}
+		n = v
+	}
+	if n < 0 || n > 1e18 || math.IsNaN(n) || math.IsInf(n, 0) {
+		return nil
+	}
+	return &n
+}
+func (w *eventWriter) measure(line string) {
+	var data struct {
+		Downloaded json.RawMessage `json:"downloaded_bytes"`
+		Total      json.RawMessage `json:"total_bytes"`
+		Speed      json.RawMessage `json:"speed"`
+		ETA        json.RawMessage `json:"eta"`
+		Filename   string          `json:"filename"`
+	}
+	if json.Unmarshal([]byte(line), &data) != nil || w.observer == nil {
+		return
+	}
+	if w.files == nil {
+		w.files = map[string]int64{}
+		w.totals = map[string]int64{}
+	}
+	downloaded := number(data.Downloaded)
+	if downloaded == nil {
+		return
+	}
+	if _, exists := w.files[data.Filename]; !exists && len(w.files) >= 4 {
+		return
+	}
+	w.files[data.Filename] = int64(*downloaded)
+	if total := number(data.Total); total != nil && *total > 0 {
+		w.totals[data.Filename] = int64(*total)
+	}
+	m := core.Metrics{SpeedBPS: number(data.Speed), ETASeconds: number(data.ETA), At: time.Now()}
+	for _, n := range w.files {
+		m.DownloadedBytes += n
+	}
+	if len(w.totals) >= w.parts && len(w.totals) == len(w.files) {
+		total := int64(0)
+		for _, n := range w.totals {
+			total += n
+		}
+		m.TotalBytes = &total
+		if total > 0 {
+			percent := min(100.0, 100*float64(m.DownloadedBytes)/float64(total))
+			m.Percent = &percent
+		}
+	}
+	detail := ""
+	if m.Percent != nil {
+		detail = strconv.FormatFloat(*m.Percent, 'f', 0, 64) + "%"
+	}
+	w.observer(core.Event{Kind: core.Progress, Stage: core.Downloading, Metrics: &m, Detail: detail})
+}

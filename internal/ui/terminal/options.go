@@ -17,11 +17,16 @@ type options struct {
 	URL, Mode, Quality, Audio, Out, Cookies, Lang string
 	Codec, Container                              string
 	Formats                                       bool
+	MaxDownloads, MaxProcessing                   int
+	RateLimitBPS, JobRateLimitBPS                 int64
 	duration                                      float64
 	runtime                                       *Dependencies
 }
 
 func validate(o options) error {
+	if err := settingsFor(o).Limits().Validate(); err != nil {
+		return err
+	}
 	if o.Lang != "" && !contains([]string{"auto", "ru", "en"}, o.Lang) {
 		return errors.New(tr("язык должен быть auto, ru или en"))
 	}
@@ -85,5 +90,5 @@ func outputVariant(o options) string {
 }
 
 func request(o options) core.Request {
-	return core.Request{URL: o.URL, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Cookies: o.Cookies, Codec: o.Codec, Container: o.Container, Duration: o.duration}
+	return core.Request{URL: o.URL, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Cookies: o.Cookies, Codec: o.Codec, Container: o.Container, Duration: o.duration, RateLimitBPS: o.JobRateLimitBPS}
 }

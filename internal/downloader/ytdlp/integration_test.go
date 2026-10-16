@@ -146,21 +146,18 @@ func TestAllVideoProfilesProduceSelectedCodecsAndContainers(t *testing.T) {
 		}
 	}
 }
-func TestPipelineProgressAndMergerStages(t *testing.T) {
+func TestPipelineProgressIsNumericalAndPerStage(t *testing.T) {
 	var events []string
-	observer := func(stage, detail string) { events = append(events, stage+":"+detail) }
+	observer := func(e core.Event) {
+		if e.Metrics == nil || e.Metrics.Percent == nil {
+			t.Fatal("missing numerical phase progress")
+		}
+		events = append(events, string(e.Stage)+":"+e.Detail)
+	}
 	p := &ffmpegProgress{duration: 10, stage: "processing", observer: observer}
 	p.Write([]byte("out_ti"))
 	p.Write([]byte("me_us=5000000\nout_time_us=12000000\n"))
 	if !reflect.DeepEqual(events, []string{"processing:50%", "processing:99%"}) {
-		t.Fatal(events)
-	}
-	events = nil
-	var output bytes.Buffer
-	w := &downloaderOutput{out: &output, observer: observer}
-	w.Write([]byte("[Mer"))
-	w.Write([]byte("ger] Combining\n[VideoRemuxer] Done\n"))
-	if !reflect.DeepEqual(events, []string{"processing:"}) {
 		t.Fatal(events)
 	}
 }
@@ -188,6 +185,76 @@ func TestStandaloneEngineCancellation(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel2()
 	if _, err := engine.Download(ctx2, r, nil); !errors.Is(err, core.ErrCanceled) {
+		t.Fatal(err)
+	}
+}
+
+func TestAudioProfilesExtractAudioAndKeepRequestedEncoding(t *testing.T) {
+	fixture := makeFixture(t)
+	for format, expected := range map[string]string{"mp3": "mp3", "m4a": "aac", "opus": "opus", "flac": "flac", "wav": "pcm_s16le", "best": "opus"} {
+		t.Run(format, func(t *testing.T) {
+			r := defaults()
+			r.Mode, r.Audio, r.Duration = "audio", format, 1
+			path, err := processAudio(context.Background(), fixture, t.TempDir(), r, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			info, err := probeMedia(context.Background(), path, false, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, stream := range info.Streams {
+				if stream.Type == "video" || stream.Type == "audio" && stream.Codec != expected {
+					t.Fatalf("unexpected stream: %+v", stream)
+				}
+			}
+			if err := verifyMedia(context.Background(), path, false, 1); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestSeparateTracksAreMergedBeforeVerifiedPublication(t *testing.T) {
+	fixture := makeFixture(t)
+	dir := t.TempDir()
+	video, audio := filepath.Join(dir, "video.mp4"), filepath.Join(dir, "audio.opus")
+	for _, args := range [][]string{
+		{"-v", "error", "-i", fixture, "-map", "0:v:0", "-c", "copy", video},
+		{"-v", "error", "-i", fixture, "-map", "0:a:0", "-c", "copy", audio},
+	} {
+		if output, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
+			t.Fatalf("split fixture: %v %s", err, output)
+		}
+	}
+	t.Setenv("CLIPNARO_TEST_VIDEO", video)
+	t.Setenv("CLIPNARO_TEST_AUDIO", audio)
+	downloader := filepath.Join(dir, "downloader")
+	script := `#!/bin/sh
+while [ "$#" -gt 0 ]; do
+ case "$1" in
+ --paths) dest="$2"; shift 2;;
+ --print-to-file) manifest="$3"; shift 3;;
+ *) shift;;
+ esac
+done
+cp "$CLIPNARO_TEST_VIDEO" "$dest/video.mp4"
+cp "$CLIPNARO_TEST_AUDIO" "$dest/audio.opus"
+printf '"%s"\n"%s"\n' "$dest/video.mp4" "$dest/audio.opus" > "$manifest"
+`
+	if err := os.WriteFile(downloader, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	r := defaults()
+	r.Out, r.Duration = filepath.Join(dir, "output"), 1
+	result, err := New(downloader).Download(context.Background(), r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyMedia(context.Background(), result.Path, true, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyVideoProfile(context.Background(), result.Path, r); err != nil {
 		t.Fatal(err)
 	}
 }

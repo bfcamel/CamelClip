@@ -149,7 +149,7 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 	for {
 		screen(m, tr("Настройки"), *o, notice)
 		notice = ""
-		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*o)), "video-format"}, {tr("Браузер cookies") + ": " + o.Cookies, "browser"}, {tr("← Главное меню"), "back"}}
+		items := []choice{{tr("Папка сохранения") + ": " + shortName(o.Out, 36), "folder"}, {tr("Язык") + ": " + o.Lang, "language"}, {tr("Качество") + ": " + o.Quality, "quality"}, {tr("Формат аудио") + ": " + o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*o)), "video-format"}, {tr("Браузер cookies") + ": " + o.Cookies, "browser"}, {resourceTitle("downloads") + ": " + resourceValue(*o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*o, "job-rate"), "job-rate"}, {tr("← Главное меню"), "back"}}
 		action, err := m.selectItem(ctx, tr("Выберите настройку"), items, "")
 		if err != nil {
 			return err
@@ -159,6 +159,12 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 		}
 		candidate := *o
 		switch action {
+		case "downloads", "processing-limit", "global-rate", "job-rate":
+			var value string
+			value, err = m.line(resourceTitle(action), resourceValue(candidate, action))
+			if err == nil {
+				err = setResource(&candidate, action, value)
+			}
 		case "video-codec":
 			candidate.Codec, err = m.selectItem(ctx, tr("Кодек видео"), videoCodecChoices(), videoCodec(*o))
 			if err == nil && validateVideoProfile(candidate) != nil {

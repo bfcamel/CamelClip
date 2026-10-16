@@ -15,7 +15,7 @@ func validate(o options) error { return core.Validate(o) }
 func TestVideoLimitAndURLIsolation(t *testing.T) {
 	o := defaults()
 	a := arguments(o)
-	if !contains(a, "bestvideo[height<=1080]+bestaudio/best[height<=1080]") {
+	if !contains(a, "bestvideo[height<=1080]/best[height<=1080],bestaudio/best[height<=1080]") {
 		t.Fatal(a)
 	}
 	if !reflect.DeepEqual(a[len(a)-2:], []string{"--", o.URL}) {
@@ -25,7 +25,7 @@ func TestVideoLimitAndURLIsolation(t *testing.T) {
 		t.Fatal("path split")
 	}
 	o.Quality = "best"
-	if !contains(arguments(o), "bestvideo+bestaudio/best") {
+	if !contains(arguments(o), "bestvideo/best,bestaudio/best") {
 		t.Fatal(arguments(o))
 	}
 }
@@ -34,7 +34,7 @@ func TestAudioAndListing(t *testing.T) {
 	o := defaults()
 	o.Mode = "audio"
 	a := arguments(o)
-	if !contains(a, "--extract-audio") || contains(a, "--remux-video") {
+	if contains(a, "--extract-audio") || contains(a, "--remux-video") || contains(a, "--merge-output-format") || !contains(a, "never") {
 		t.Fatal(a)
 	}
 	o.Cookies = "firefox"

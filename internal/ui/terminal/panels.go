@@ -32,6 +32,10 @@ type panelUI struct {
 	choiceIndex, target                   int
 	quit, dirty                           bool
 	parents                               []modalFrame
+	tab, selectedID, detailOffset         int
+	search                                string
+	showLog                               bool
+	lastFrame                             string
 }
 
 func panelDashboard(parent context.Context, m *menu, o *options, config, system, home string) error {
@@ -59,26 +63,35 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 	u := &panelUI{ctx: ctx, out: m.out, o: o, config: config, system: system, home: home, pool: pool, width: 100, height: 30, dirty: true}
 	defer func() { cancel(); u.pool.wait() }()
 	u.refresh()
-	u.log(tr("Tab — переключение панелей. v — видео, a — аудио."))
+	u.pool.schedule()
+	u.log(tr("Tab / Shift+Tab — следующая / предыдущая вкладка"))
 	decoder := keyDecoder{}
 	nextRefresh := time.Time{}
+	nextSize := time.Time{}
+	nextDraw := time.Time{}
 	var input [1024]byte
 	for !u.quit && ctx.Err() == nil {
 		now := time.Now()
 		if now.After(nextRefresh) {
-			if size, e := stty("size"); e == nil {
-				var h, w int
-				if _, e = fmt.Sscanf(string(size), "%d %d", &h, &w); e == nil && h > 0 && w > 0 {
-					if h != u.height || w != u.width {
-						u.height = h
-						u.width = w
-						u.dirty = true
-						fmt.Fprint(u.out, "\033[2J")
+			if now.After(nextSize) {
+				nextSize = now.Add(500 * time.Millisecond)
+				if size, e := stty("size"); e == nil {
+					var h, w int
+					if _, e = fmt.Sscanf(string(size), "%d %d", &h, &w); e == nil && h > 0 && w > 0 {
+						if h != u.height || w != u.width {
+							u.height = h
+							u.width = w
+							u.dirty = true
+							fmt.Fprint(u.out, "\033[2J")
+						}
 					}
 				}
 			}
+			u.pool.refresh()
+			u.reconcile()
+
 			u.refresh()
-			nextRefresh = now.Add(time.Second)
+			nextRefresh = now.Add(250 * time.Millisecond)
 		}
 		for pending := true; pending; {
 			select {
@@ -91,11 +104,11 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 		if err = u.pool.saveQueue(); err != nil {
 			return err
 		}
-		u.pool.schedule()
 		if err = u.pool.saveQueue(); err != nil {
 			return err
 		}
-		if u.dirty {
+		if u.dirty && now.After(nextDraw) {
+			nextDraw = now.Add(250 * time.Millisecond)
 			u.render()
 			u.dirty = false
 		}
@@ -149,22 +162,31 @@ func (u *panelUI) refresh() {
 	if u.fileIndex >= len(u.files) {
 		u.fileIndex = maxInt(0, len(u.files)-1)
 	}
+	u.reconcile()
 	u.dirty = true
 }
 func (u *panelUI) event(e application.Event) {
+	// Metrics use the periodic authoritative snapshot to bound rendering work.
+	if e.Kind == core.Progress {
+		return
+	}
+	if e.Kind == core.Log {
+		u.log(fmt.Sprintf("#%d %s", e.Job.ID, e.Detail))
+		return
+	}
 	j := u.pool.apply(e)
 	if j == nil {
 		return
 	}
 	u.dirty = true
 	if u.modal == "details" && u.target == j.id {
-		u.input = jobState(j.state) + " | " + j.detail + " | " + j.options.Out
+		u.input = detailsText(j)
 		if j.state == "choose" {
 			u.showChoices("quality", j.title, qualities(j.info), j.options.Quality)
 		}
 	}
 	if e.Kind != core.Progress && e.Kind != core.Log {
-		u.log(j.title + ": " + jobState(j.state))
+		u.log(fmt.Sprintf("#%d %s: %s", j.id, j.title, jobState(j.state)))
 		if j.state == "failed" || j.state == "canceled" && j.detail != "" {
 			u.log(j.detail)
 		}
@@ -174,15 +196,16 @@ func (u *panelUI) event(e application.Event) {
 	}
 }
 func jobState(s string) string {
-	labels := map[string]string{"queued": "В очереди", "inspecting": "Получение данных", "choose": "Выберите качество: Enter", "ready": "Готов к загрузке", "downloading": "Загрузка", "processing": "Обработка", "verifying": "Проверка", "done": "Готово", "failed": "Ошибка", "canceling": "Отмена…", "canceled": "Отменено"}
+	labels := map[string]string{"queued": "В очереди", "inspecting": "Получение данных", "choose": "Выберите качество: Enter", "ready": "Готов к загрузке", "waiting_download": "Ожидание скачивания", "waiting_processing": "Ожидание обработки", "waiting_verification": "Ожидание проверки", "downloading": "Загрузка", "processing": "Обработка", "verifying": "Проверка", "done": "Готово", "failed": "Ошибка", "canceling": "Отмена…", "canceled": "Отменено"}
 	return tr(labels[s])
 }
 func (u *panelUI) selectedJob() *job {
-	if len(u.pool.jobs) == 0 {
+	items := u.visibleJobs()
+	if len(items) == 0 {
 		return nil
 	}
-	u.jobIndex = maxInt(0, minInt(u.jobIndex, len(u.pool.jobs)-1))
-	return u.pool.jobs[u.jobIndex]
+	u.jobIndex = max(0, min(u.jobIndex, len(items)-1))
+	return items[u.jobIndex]
 }
 func (u *panelUI) showChoices(kind, title string, choices []choice, preferred string) {
 	u.modal = kind
@@ -198,97 +221,101 @@ func (u *panelUI) showChoices(kind, title string, choices []choice, preferred st
 func (u *panelUI) key(key string) {
 	if u.pool != nil && u.pool.service != nil {
 		u.pool.refresh()
+		u.reconcile()
 	}
 	if u.modal != "" {
 		u.modalKey(key)
 		return
 	}
 	switch key {
-	case "tab":
-		u.focus = (u.focus + 1) % 3
-	case "shift-tab":
-		u.focus = (u.focus + 2) % 3
-	case "up", "down", "pageup", "pagedown":
+	case "tab", "shift-tab":
 		delta := 1
-		if key == "up" || key == "pageup" {
+		if key == "shift-tab" {
+			delta = 5
+		}
+		u.tab = (u.tab + delta) % 6
+		u.reconcile()
+	case "up", "down", "j", "k", "pageup", "pagedown":
+		delta := 1
+		if key == "up" || key == "k" || key == "pageup" {
 			delta = -1
 		}
 		if key == "pageup" || key == "pagedown" {
-			delta *= 5
+			delta *= 10
 		}
-		switch u.focus {
-		case 0:
-			u.fileIndex = maxInt(0, minInt(u.fileIndex+delta, len(u.files)-1))
-		case 1:
-			u.jobIndex = maxInt(0, minInt(u.jobIndex+delta, len(u.pool.jobs)-1))
-		case 2:
-			u.logOffset = maxInt(0, minInt(u.logOffset-delta, len(u.logs)-1))
+		items := u.visibleJobs()
+		u.jobIndex = max(0, min(u.jobIndex+delta, len(items)-1))
+		if len(items) > 0 {
+			u.selectedID = items[u.jobIndex].id
 		}
-	case "v", "a":
+	case "a":
+		u.showChoices("add-mode", tr("Добавить"), []choice{{tr("Видео"), "video"}, {tr("Аудио"), "audio"}}, "video")
+	case "v":
 		u.mode = "video"
-		if key == "a" {
-			u.mode = "audio"
-		}
 		u.modal = "url"
 		u.title = tr("Вставьте одну или несколько ссылок через пробел")
 		u.input = ""
+	case "/":
+		u.modal = "search"
+		u.title = tr("Поиск по названию и URL")
+		u.input = u.search
+	case "escape":
+		u.search = ""
+		u.reconcile()
 	case "enter":
-		if u.focus == 0 && len(u.files) > 0 {
-			u.open(u.files[u.fileIndex].Path, false)
+		j := u.selectedJob()
+		if j == nil {
+			return
 		}
-		if u.focus == 1 {
-			j := u.selectedJob()
-			if j == nil {
-				return
-			}
-			u.target = j.id
-			if j.state == "choose" {
-				u.showChoices("quality", j.title, qualities(j.info), j.options.Quality)
-			} else {
-				u.modal = "details"
-				u.title = j.title
-				u.input = jobState(j.state) + " | " + j.detail + " | " + j.options.Out
-			}
+		u.target = j.id
+		if j.state == "choose" {
+			u.showChoices("quality", j.title, qualities(j.info), j.options.Quality)
+		} else {
+			u.modal = "details"
+			u.title = j.title
+			u.input = detailsText(j)
+			u.detailOffset = 0
 		}
 	case "d":
-		if u.focus == 1 {
-			if j := u.selectedJob(); j != nil && contains([]string{"done", "failed", "canceled"}, j.state) {
-				u.pool.remove(j.id)
-				u.jobIndex = maxInt(0, minInt(u.jobIndex, len(u.pool.jobs)-1))
-				u.log(tr("Запись удалена из очереди. Файлы сохранены."))
-			}
+		if j := u.selectedJob(); j != nil && contains([]string{"done", "failed", "canceled"}, j.state) {
+			u.target = j.id
+			u.showChoices("remove", tr("Удалить только запись? Файл сохранится."), []choice{{tr("Нет"), "no"}, {tr("Да"), "yes"}}, "no")
 		}
 	case "x":
-		if u.focus == 1 {
-			if j := u.selectedJob(); j != nil {
-				u.pool.cancelJob(j)
-				u.log(j.title + ": " + jobState(j.state))
-			}
+		if j := u.selectedJob(); j != nil && !j.record.State.Terminal() {
+			u.target = j.id
+			u.showChoices("cancel", tr("Отменить задание?"), []choice{{tr("Нет"), "no"}, {tr("Да"), "yes"}}, "no")
 		}
 	case "r":
-		if u.focus == 1 {
-			if j := u.selectedJob(); j != nil && (j.state == "failed" || j.state == "canceled") {
-				u.pool.retry(j, u.o.Cookies)
-				u.log(tr("Повтор задания"))
-			}
-		} else {
-			u.refresh()
+		if j := u.selectedJob(); j != nil && (j.state == "failed" || j.state == "canceled") {
+			u.pool.retry(j, u.o.Cookies)
+			u.log(tr("Повтор задания"))
 		}
 	case "o":
-		if u.focus == 0 && len(u.files) > 0 {
-			u.open(u.files[u.fileIndex].Path, true)
+		if j := u.selectedJob(); j != nil && j.record.OutputPath != "" {
+			u.open(j.record.OutputPath, true)
 		}
 	case "f":
-		if e := os.MkdirAll(u.o.Out, 0755); e != nil {
-			u.log(e.Error())
+		if err := os.MkdirAll(u.o.Out, 0755); err != nil {
+			u.log(err.Error())
 		} else {
 			u.open(u.o.Out, false)
 		}
 	case "s":
 		u.settings()
+	case "?":
+		u.modal = "help"
+		u.title = tr("Справка")
+		u.input = helpText()
+		u.detailOffset = 0
+	case "l":
+		u.modal = "logs"
+		u.title = tr("Журнал событий")
+		u.input = strings.Join(u.logs, "\n")
+		u.detailOffset = max(0, len(u.logs)-max(1, u.height-10))
 	case "q":
 		if u.pool.busy() {
-			u.showChoices("quit", tr("Остановить задания и выйти?"), []choice{{tr("Продолжить работу"), "no"}, {tr("Остановить и выйти"), "yes"}}, "no")
+			u.showChoices("quit", tr("Остановить работу и выйти? Очередь восстановится."), []choice{{tr("Продолжить работу"), "no"}, {tr("Остановить и выйти"), "yes"}}, "no")
 		} else {
 			u.quit = true
 		}
@@ -301,12 +328,18 @@ func (u *panelUI) open(path string, reveal bool) {
 	}
 }
 func (u *panelUI) settings() {
-	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}}, "")
+	u.showChoices("settings", tr("Настройки"), []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}, {resourceTitle("downloads") + ": " + resourceValue(*u.o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*u.o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*u.o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*u.o, "job-rate"), "job-rate"}}, "")
 }
 func (u *panelUI) save(candidate options) bool {
 	if err := saveSettings(u.config, candidate); err != nil {
 		u.log(err.Error())
 		return false
+	}
+	if u.pool != nil && u.pool.service != nil {
+		if err := u.pool.service.SetLimits(settingsFor(candidate).Limits()); err != nil {
+			u.log(err.Error())
+			return false
+		}
 	}
 	*u.o = candidate
 	useLanguage(u.o.Lang, u.system)
@@ -319,13 +352,19 @@ func (u *panelUI) modalKey(key string) {
 		u.back()
 		return
 	}
-	if u.modal == "details" {
+	if u.modal == "details" || u.modal == "help" || u.modal == "logs" {
+		if key == "up" || key == "k" {
+			u.detailOffset = max(0, u.detailOffset-1)
+		}
+		if key == "down" || key == "j" {
+			u.detailOffset++
+		}
 		if key == "enter" || key == "q" {
 			u.modal = ""
 		}
 		return
 	}
-	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || strings.HasPrefix(u.modal, "resource:") {
 		if strings.HasPrefix(key, "paste:") {
 			value := strings.TrimPrefix(key, "paste:")
 			value = strings.ReplaceAll(strings.ReplaceAll(value, "\r", " "), "\n", " ")
@@ -344,6 +383,23 @@ func (u *panelUI) modalKey(key string) {
 				u.input = u.input[:len(u.input)-n]
 			}
 		case "enter":
+			if u.modal == "search" {
+				u.search = strings.TrimSpace(u.input)
+				u.modal = ""
+				u.reconcile()
+				return
+			}
+			if strings.HasPrefix(u.modal, "resource:") {
+				candidate := *u.o
+				if err := setResource(&candidate, strings.TrimPrefix(u.modal, "resource:"), u.input); err != nil {
+					u.log(err.Error())
+					return
+				}
+				if u.save(candidate) {
+					u.back()
+				}
+				return
+			}
 			if u.modal == "browser" {
 				value := strings.TrimSpace(u.input)
 				if value != "" && !validBrowser(value) {
@@ -390,8 +446,10 @@ func (u *panelUI) modalKey(key string) {
 					u.log(tr("Этот ролик уже есть в очереди."))
 				}
 			}
-			u.focus = 1
-			u.jobIndex = maxInt(0, len(u.pool.jobs)-len(urls))
+			u.tab = 0
+			u.selectedID = 0
+			u.jobIndex = max(0, len(u.pool.jobs)-len(urls))
+			u.reconcile()
 			u.modal = ""
 		default:
 			if utf8.RuneCountInString(key) == 1 && key != "\t" {
@@ -424,6 +482,25 @@ func (u *panelUI) modalKey(key string) {
 		switch kind {
 		case "quit":
 			u.quit = value == "yes"
+		case "remove":
+			if value == "yes" {
+				u.pool.remove(u.target)
+				u.reconcile()
+			}
+		case "cancel":
+			if value == "yes" {
+				for _, j := range u.pool.jobs {
+					if j.id == u.target {
+						u.pool.cancelJob(j)
+						break
+					}
+				}
+			}
+		case "add-mode":
+			u.mode = value
+			u.modal = "url"
+			u.title = tr("Вставьте одну или несколько ссылок через пробел")
+			u.input = ""
 		case "quality":
 			for _, j := range u.pool.jobs {
 				if j.id == u.target && j.state == "choose" {
@@ -435,6 +512,10 @@ func (u *panelUI) modalKey(key string) {
 			}
 		case "settings":
 			switch value {
+			case "downloads", "processing-limit", "global-rate", "job-rate":
+				u.modal = "resource:" + value
+				u.title = resourceTitle(value)
+				u.input = resourceValue(*u.o, value)
 			case "video-codec":
 				u.showChoices("video-codec", tr("Кодек видео"), videoCodecChoices(), videoCodec(*u.o))
 			case "video-format":

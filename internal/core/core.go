@@ -19,6 +19,8 @@ var ErrCanceled = errors.New("operation canceled")
 type Request struct {
 	URL, Mode, Quality, Audio, Out, Cookies, Codec, Container string
 	Duration                                                  float64
+	RateLimitBPS                                              int64
+	ExpectedParts                                             int
 }
 type MediaFormat struct {
 	Height int    `json:"height"`
@@ -37,6 +39,9 @@ type MediaInfo struct {
 }
 
 func Validate(o Request) error {
+	if o.RateLimitBPS < 0 {
+		return errors.New("rate limit must be nonnegative")
+	}
 	u, err := url.Parse(o.URL)
 	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		return errors.New("a valid http:// or https:// URL is required")
@@ -97,10 +102,11 @@ const (
 
 // Event is independent of display, localization and persistence.
 type Event struct {
-	Kind   EventKind
-	Stage  Stage
-	Detail string
-	Path   string
+	Kind    EventKind
+	Stage   Stage
+	Detail  string
+	Path    string
+	Metrics *Metrics
 }
 
 // Observer receives serialized notifications for a single download.

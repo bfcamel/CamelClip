@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0
+
+- Adaptive jobs dashboard with status tabs, stable selection, search, details and help.
+- Independent FIFO download and processing limits; defaults: 5 downloads and max(CPU / 4, 2) processing tasks.
+- Structured per-stage metrics and bounded speed sampling, with unknown and stale values shown explicitly.
+- Configurable per-job rates and a conservative global budget divided into fixed shares for new downloads.
+- Transactional SQLite schema migration preserving existing jobs and settings.
+
 ## 0.10.0
 
 - Rename the product, command, environment variables, folders and packages to Clipnaro.

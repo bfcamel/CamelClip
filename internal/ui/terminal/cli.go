@@ -9,14 +9,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/bfcamel/video-downloader/internal/core"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/bfcamel/video-downloader/internal/diagnostics"
 )
 
-const version = "0.10.0"
+const version = "0.11.0"
 
 var buildCommit = "development"
 
@@ -37,7 +39,7 @@ var commandNames = []string{"download", "audio", "formats", "setup", "config", "
 func parseCLI(args []string, o *options) (cliRequest, error) {
 	r := cliRequest{}
 	// Locate the command after any leading global flags without confusing flag values with commands.
-	valueFlags := map[string]bool{"lang": true, "list": true, "quality": true, "audio-format": true, "out": true, "cookies-browser": true, "video-codec": true, "video-format": true}
+	valueFlags := map[string]bool{"lang": true, "list": true, "quality": true, "audio-format": true, "out": true, "cookies-browser": true, "video-codec": true, "video-format": true, "rate-limit": true, "job-rate-limit": true, "max-downloads": true, "max-processing": true}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if a == "--" {
@@ -69,6 +71,34 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 	fs := flag.NewFlagSet("clipnaro", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&o.Lang, "lang", o.Lang, "auto, ru, en")
+	fs.Func("rate-limit", "", func(value string) error {
+		n, err := core.ParseRate(value)
+		if err == nil {
+			o.RateLimitBPS = n
+		}
+		return err
+	})
+	fs.Func("job-rate-limit", "", func(value string) error {
+		n, err := core.ParseRate(value)
+		if err == nil {
+			o.JobRateLimitBPS = n
+		}
+		return err
+	})
+	fs.IntVar(&o.MaxDownloads, "max-downloads", o.MaxDownloads, "")
+	fs.Func("max-processing", "", func(value string) error {
+		if value == "auto" {
+			o.MaxProcessing = 0
+			return nil
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 {
+			return fmt.Errorf("use auto or 1..32")
+		}
+		o.MaxProcessing = n
+		return nil
+	})
+
 	fs.BoolVar(&r.help, "help", r.help, "")
 	fs.BoolVar(&r.help, "h", r.help, "")
 	if r.command == "doctor" {
@@ -116,6 +146,12 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 	}
 	if err := fs.Parse(flags); err != nil {
 		return r, &usageError{err.Error()}
+	}
+	if err := settingsFor(*o).Limits().Validate(); err != nil {
+		return r, &usageError{err.Error()}
+	}
+	if o.MaxDownloads == 0 {
+		return r, &usageError{"max-downloads must be 1..32"}
 	}
 	if !contains([]string{"auto", "ru", "en"}, o.Lang) {
 		return r, &usageError{tr("язык должен быть auto, ru или en")}
@@ -169,6 +205,10 @@ func printHelp(command string) {
   --out DIR                      Папка сохранения
   --list FILE                    Файл со ссылками, по одной в строке
   --cookies-browser BROWSER      Авторизация через браузер
+  --max-downloads 1..32          Concurrent downloads (5)
+  --max-processing auto|1..32    max(CPU / 4, 2)
+  --rate-limit RATE              Global budget, fixed shares
+  --job-rate-limit RATE          Per job: B/s, KiB/s, MiB/s; 0 = unlimited
 
 Общие параметры:
   --lang auto|en|ru               Язык
@@ -184,10 +224,11 @@ func showConfig(path string, o options) error {
 	e := json.NewEncoder(os.Stdout)
 	e.SetIndent("", "  ")
 	return e.Encode(struct {
-		Path     string   `json:"path"`
-		Settings settings `json:"settings"`
-		Language string   `json:"effective_language"`
-	}{path, settings{Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o)}, currentLanguage})
+		Path                string   `json:"path"`
+		Settings            settings `json:"settings"`
+		EffectiveProcessing int      `json:"effective_processing"`
+		Language            string   `json:"effective_language"`
+	}{Path: path, Settings: settingsFor(o), Language: currentLanguage, EffectiveProcessing: settingsFor(o).Limits().Effective().Processing})
 }
 func doctor(ctx context.Context, path string, o options, asJSON bool) error {
 	report := diagnostics.Collect(ctx, version, buildCommit, path, settingsFor(o))

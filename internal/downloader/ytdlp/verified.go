@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bfcamel/video-downloader/internal/core"
 	"io"
 	"math"
 	"os"
@@ -115,7 +116,11 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 	if err := validateVideoProfile(o); err != nil {
 		return err
 	}
-	notifyStage(observer, output, "downloading")
+	if err := core.EnterStage(ctx, core.Downloading); err != nil {
+		return err
+	}
+	o.RateLimitBPS = core.DownloadRate(ctx, o.RateLimitBPS)
+	notifyStage(observer, "downloading")
 	absoluteOut, err := filepath.Abs(o.Out)
 	if err != nil {
 		return err
@@ -150,7 +155,7 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 	args = append(args[:len(args)-2], "--print-to-file", "after_move:%(filepath)j", manifest, "--", o.URL)
 	c := command(ctx, executable, args...)
 	var tail tailBuffer
-	w := &downloaderOutput{out: io.MultiWriter(output, &tail), observer: observer}
+	w := io.MultiWriter(output, &tail)
 	c.Stdout = w
 	c.Stderr = w
 	if err = c.Run(); err != nil {
@@ -164,40 +169,77 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 		return err
 	}
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 1 || lines[0] == "" {
-		return fmt.Errorf("downloader did not report exactly one completed file")
-	}
-	var source string
-	if err = json.Unmarshal([]byte(lines[0]), &source); err != nil {
-		return err
-	}
-	source, err = filepath.Abs(source)
-	if err != nil {
-		return err
+	if len(lines) > 2 || len(lines) == 0 {
+		return fmt.Errorf("downloader reported an invalid file count")
 	}
 	stageAbs, err := filepath.Abs(stage)
 	if err != nil {
 		return err
 	}
-	if filepath.Dir(source) != stageAbs {
-		return fmt.Errorf("downloader output is outside staging directory")
+	sources := []string{}
+	seen := map[string]bool{}
+	for _, line := range lines {
+		var source string
+		if err = json.Unmarshal([]byte(line), &source); err != nil {
+			return err
+		}
+		source, err = filepath.Abs(source)
+		if err != nil {
+			return err
+		}
+		if filepath.Dir(source) != stageAbs {
+			return fmt.Errorf("downloader output is outside staging directory")
+		}
+		st, e := os.Lstat(source)
+		if e != nil {
+			return e
+		}
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("downloader output is not a regular file")
+		}
+		if !seen[source] {
+			sources = append(sources, source)
+			seen[source] = true
+		}
 	}
-	st, err := os.Lstat(source)
-	if err != nil {
+	if len(sources) == 0 {
+		return fmt.Errorf("downloader did not report a completed file")
+	}
+	// The network child has exited and reaped before releasing its download slot.
+	// Waiting for conversion never holds a download permit.
+	if err = core.EnterStage(ctx, core.Processing); err != nil {
 		return err
 	}
-	if !st.Mode().IsRegular() {
-		return fmt.Errorf("downloader output is not a regular file")
+	notifyStage(observer, "processing")
+	source := sources[0]
+	if len(sources) == 2 {
+		merged := filepath.Join(stageAbs, "joined.mkv")
+		c := command(ctx, "ffmpeg", "-v", "error", "-xerror", "-nostdin", "-y", "-i", sources[0], "-i", sources[1], "-map", "0:v:0", "-map", "1:a:0", "-c", "copy", "-progress", "pipe:1", "-nostats", merged)
+		var tail tailBuffer
+		c.Stderr = &tail
+		c.Stdout = &ffmpegProgress{duration: o.Duration, stage: "processing", observer: observer}
+		if err = c.Run(); err != nil {
+			return fmt.Errorf("merge failed: %w: %s", err, tail.String())
+		}
+		source = merged
 	}
 	result := source
 	if o.Mode == "video" {
-		notifyStage(observer, output, "processing")
+		notifyStage(observer, "processing")
 		result, err = convertVideo(ctx, source, stageAbs, o, observer)
 		if err != nil {
 			return err
 		}
+	} else {
+		result, err = processAudio(ctx, source, stageAbs, o, observer)
+		if err != nil {
+			return err
+		}
 	}
-	notifyStage(observer, output, "verifying")
+	if err = core.EnterStage(ctx, core.Verifying); err != nil {
+		return err
+	}
+	notifyStage(observer, "verifying")
 	if err = verifyMediaWithObserver(ctx, result, o.Mode == "video", o.Duration, observer); err != nil {
 		if ctx.Err() != nil {
 			return errCanceled
@@ -212,10 +254,8 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 	if ctx.Err() != nil {
 		return errCanceled
 	}
-	name := filepath.Base(source)
-	if o.Mode == "video" {
-		name = strings.TrimSuffix(name, filepath.Ext(name)) + "." + videoContainer(o)
-	}
+	name := filepath.Base(sources[0])
+	name = strings.TrimSuffix(name, filepath.Ext(name)) + filepath.Ext(result)
 	target := filepath.Join(o.Out, name)
 	// link publishes atomically without overwriting a file created by another job/process.
 	if err = os.Link(result, target); err != nil {
@@ -238,7 +278,7 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 		}
 	}
 	if observer != nil {
-		observer("published", target)
+		observer(core.Event{Kind: core.Published, Path: target})
 	}
 	return nil
 }

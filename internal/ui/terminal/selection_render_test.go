@@ -21,7 +21,6 @@ func TestSelectionBackgroundCannotCrossPanelBorder(t *testing.T) {
 			x, y, background := 0, 0, 0
 			highlighted := 0
 			data := []rune(output.String())
-			left := (width - 1) / 2
 			for i := 0; i < len(data); i++ {
 				r := data[i]
 				if r == 27 && i+1 < len(data) && data[i+1] == '[' {
@@ -59,10 +58,7 @@ func TestSelectionBackgroundCannotCrossPanelBorder(t *testing.T) {
 				}
 				if background == 46 {
 					highlighted++
-					allowed := y == 4 && x >= 1 && x < left-1
-					if focus == 1 {
-						allowed = y == 4 && x > left && x < width-2
-					}
+					allowed := (y == 3 || y == 6) && x >= 1 && x < width-2
 					if !allowed {
 						t.Fatalf("width=%d focus=%d: selection leaked to (%d,%d)", width, focus, x, y)
 					}

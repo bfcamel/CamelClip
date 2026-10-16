@@ -59,22 +59,16 @@ func Open(ctx context.Context, dir string) (*Repository, error) {
 	if err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 1 {
+	if version > 2 {
 		return fail(fmt.Errorf("unsupported database schema version %d", version))
 	}
-	for _, statement := range []string{
-		"PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON",
-		`CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY,value INTEGER NOT NULL)`,
-		`CREATE TABLE IF NOT EXISTS jobs (
-    id INTEGER PRIMARY KEY CHECK(id>0),url TEXT NOT NULL,title TEXT NOT NULL,
-    state TEXT NOT NULL CHECK(state IN ('queued','inspecting','choose','ready','downloading','processing','verifying','done','failed','canceling','canceled')),
-    detail TEXT NOT NULL,output_path TEXT NOT NULL,needs_quality INTEGER NOT NULL CHECK(needs_quality IN (0,1)),
-    request_json TEXT NOT NULL,media_json TEXT NOT NULL)`,
-		"PRAGMA user_version=1",
-	} {
+	for _, statement := range []string{"PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON"} {
 		if _, err = db.ExecContext(ctx, statement); err != nil {
 			return fail(err)
 		}
+	}
+	if err = r.schema(ctx, version); err != nil {
+		return fail(err)
 	}
 	return r, nil
 }
@@ -84,22 +78,25 @@ func (r *Repository) Load(ctx context.Context) (application.Snapshot, error) {
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return snapshot, err
 	}
-	rows, err := r.db.QueryContext(ctx, "SELECT id,url,title,state,detail,output_path,needs_quality,request_json,media_json FROM jobs ORDER BY id")
+	rows, err := r.db.QueryContext(ctx, "SELECT id,url,title,state,detail,output_path,needs_quality,request_json,media_json,monitor_json FROM jobs ORDER BY id")
 	if err != nil {
 		return snapshot, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var j application.Job
-		var request, info string
+		var request, info, monitor string
 		var url string
-		if err = rows.Scan(&j.ID, &url, &j.Title, &j.State, &j.Detail, &j.OutputPath, &j.NeedsQuality, &request, &info); err != nil {
+		if err = rows.Scan(&j.ID, &url, &j.Title, &j.State, &j.Detail, &j.OutputPath, &j.NeedsQuality, &request, &info, &monitor); err != nil {
 			return snapshot, err
 		}
 		if err = json.Unmarshal([]byte(request), &j.Request); err != nil {
 			return snapshot, err
 		}
 		if err = json.Unmarshal([]byte(info), &j.Info); err != nil {
+			return snapshot, err
+		}
+		if err = json.Unmarshal([]byte(monitor), &j.Monitoring); err != nil {
 			return snapshot, err
 		}
 		if j.Request.URL != url {
@@ -143,7 +140,11 @@ func saveTx(ctx context.Context, tx *sql.Tx, snapshot application.Snapshot) erro
 		if err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO jobs(id,url,title,state,detail,output_path,needs_quality,request_json,media_json) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET url=excluded.url,title=excluded.title,state=excluded.state,detail=excluded.detail,output_path=excluded.output_path,needs_quality=excluded.needs_quality,request_json=excluded.request_json,media_json=excluded.media_json WHERE jobs.url!=excluded.url OR jobs.title!=excluded.title OR jobs.state!=excluded.state OR jobs.detail!=excluded.detail OR jobs.output_path!=excluded.output_path OR jobs.needs_quality!=excluded.needs_quality OR jobs.request_json!=excluded.request_json OR jobs.media_json!=excluded.media_json`, j.ID, j.Request.URL, j.Title, string(j.State), j.Detail, j.OutputPath, j.NeedsQuality, string(request), string(info)); err != nil {
+		monitor, err := json.Marshal(j.Monitoring)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO jobs(id,url,title,state,detail,output_path,needs_quality,request_json,media_json,monitor_json) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET url=excluded.url,title=excluded.title,state=excluded.state,detail=excluded.detail,output_path=excluded.output_path,needs_quality=excluded.needs_quality,request_json=excluded.request_json,media_json=excluded.media_json,monitor_json=excluded.monitor_json WHERE jobs.url!=excluded.url OR jobs.title!=excluded.title OR jobs.state!=excluded.state OR jobs.detail!=excluded.detail OR jobs.output_path!=excluded.output_path OR jobs.needs_quality!=excluded.needs_quality OR jobs.request_json!=excluded.request_json OR jobs.media_json!=excluded.media_json OR jobs.monitor_json!=excluded.monitor_json`, j.ID, j.Request.URL, j.Title, string(j.State), j.Detail, j.OutputPath, j.NeedsQuality, string(request), string(info), string(monitor)); err != nil {
 			return err
 		}
 	}

@@ -4,7 +4,6 @@
 package terminal
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
 )
@@ -123,103 +122,18 @@ func (c *panelCanvas) String() string {
 	b.WriteString(normal)
 	return b.String()
 }
-func (u *panelUI) render() {
-	w, h := minInt(u.width-1, 240), minInt(u.height-1, 80)
-	if w < 1 || h < 1 {
-		return
-	}
-	c := newCanvas(w, h)
-	c.text(1, 0, w-2, fmt.Sprintf("CLIPNARO %s  |  %s: %d/2", version, tr("Активно"), u.pool.active), cyan)
-	if w < 72 || h < 19 {
-		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 73 × 20."), normal)
-		c.text(1, 4, w-2, "q: "+tr("Выход"), normal)
-		if u.modal == "quit" {
-			c.text(1, 6, w-2, tr("Остановить задания и выйти?"), normal)
-			c.text(1, 7, w-2, "↑/↓ Enter: "+u.choices[u.choiceIndex].Label, cyan)
-		}
-		fmt.Fprint(u.out, c.String())
-		return
-	}
-	c.text(1, 1, w-2, u.o.Out, dim)
-	logH := maxInt(5, minInt(9, h/4))
-	topH := h - logH - 5
-	leftW := w / 2
-	rightX := leftW
-	rightW := w - rightX
-	c.box(0, 3, leftW, topH, tr("Мои файлы")+fmt.Sprintf(" [%d]", len(u.files)), u.focus == 0)
-	c.box(rightX, 3, rightW, topH, tr("Задания")+fmt.Sprintf(" [%d]", len(u.pool.jobs)), u.focus == 1)
-	rows := topH - 2
-	start := maxInt(0, u.fileIndex-rows+1)
-	if len(u.files) == 0 {
-		c.text(2, 5, leftW-4, tr("Здесь пока нет видео или аудио."), dim)
-	}
-	for i := start; i < len(u.files) && i < start+rows; i++ {
-		style := normal
-		prefix := "  "
-		if i == u.fileIndex {
-			prefix = "› "
-			if u.focus == 0 {
-				style = selected
-			}
-		}
-		row := 4 + i - start
-		c.fill(1, row, leftW-2, style)
-		c.text(2, row, leftW-16, prefix+u.files[i].Name, style)
-		c.text(leftW-13, row, 11, fileSize(u.files[i].Size), style)
-	}
-	jobRows := maxInt(1, rows/2)
-	jobStart := maxInt(0, u.jobIndex-jobRows+1)
-	if len(u.pool.jobs) == 0 {
-		c.text(rightX+2, 5, rightW-4, tr("v — видео · a — аудио"), dim)
-	}
-	for i := jobStart; i < len(u.pool.jobs) && i < jobStart+jobRows; i++ {
-		j := u.pool.jobs[i]
-		row := 4 + (i-jobStart)*2
-		style := normal
-		if j.state == "done" {
-			style = green
-		}
-		prefix := "  "
-		if i == u.jobIndex {
-			prefix = "› "
-			if u.focus == 1 {
-				style = selected
-			}
-		}
-		c.fill(rightX+1, row, rightW-2, style)
-		c.text(rightX+2, row, rightW-4, fmt.Sprintf("%s#%d %s", prefix, j.id, j.title), style)
-		detail := jobState(j.state)
-		if contains([]string{"downloading", "processing", "verifying"}, j.state) {
-			detail += " " + j.detail
-		}
-		c.text(rightX+3, row+1, rightW-5, detail, dim)
-	}
-	logY := 3 + topH
-	c.box(0, logY, w, logH, tr("Журнал событий"), u.focus == 2)
-	last := maxInt(0, len(u.logs)-u.logOffset)
-	first := maxInt(0, last-(logH-2))
-	for i := first; i < last; i++ {
-		c.text(2, logY+1+i-first, w-4, u.logs[i], normal)
-	}
-	c.text(1, h-2, w-2, tr("Tab: панель  ↑↓: выбор  Enter: открыть/качество  v/a: добавить  s: настройки"), cyan)
-	c.text(1, h-1, w-2, tr("s: Настройки f:папка o:показать x:отмена r:повтор d:убрать q:выход"), dim)
-	if u.modal != "" {
-		u.drawModal(c)
-	}
-	fmt.Fprint(u.out, c.String())
-}
 func (u *panelUI) drawModal(c *panelCanvas) {
 	width := minInt(86, c.w-8)
 	height := 7
-	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "browser" && u.modal != "details" {
+	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "browser" && u.modal != "details" && u.modal != "search" && !strings.HasPrefix(u.modal, "resource:") {
 		height = minInt(c.h-4, len(u.choices)+5)
 	}
-	if u.modal == "details" {
-		height = minInt(c.h-4, 12)
+	if u.modal == "details" || u.modal == "help" || u.modal == "logs" {
+		height = minInt(c.h-4, 20)
 	}
 	x, y := (c.w-width)/2, (c.h-height)/2
 	c.box(x, y, width, height, u.title, true)
-	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || strings.HasPrefix(u.modal, "resource:") {
 		value := []rune(u.input)
 		if len(value) > width-8 {
 			value = value[len(value)-(width-8):]
@@ -227,12 +141,11 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 		c.fill(x+2, y+2, width-4, selected)
 		c.text(x+2, y+2, width-4, "> "+string(value)+"▏", selected)
 		c.text(x+2, y+height-2, width-4, tr("Enter: подтвердить · Esc: назад. Загрузки продолжаются."), dim)
-	} else if u.modal == "details" {
-		runes := []rune(safeText(u.input))
-		for row := 0; row < height-3 && len(runes) > 0; row++ {
-			n := minInt(len(runes), width-6)
-			c.text(x+2, y+1+row, width-4, string(runes[:n]), normal)
-			runes = runes[n:]
+	} else if u.modal == "details" || u.modal == "help" || u.modal == "logs" {
+		lines := wrapLines(u.input, width-4)
+		start := min(u.detailOffset, max(0, len(lines)-(height-3)))
+		for row := 0; row < height-3 && row+start < len(lines); row++ {
+			c.text(x+2, y+1+row, width-4, lines[row+start], normal)
 		}
 		c.text(x+2, y+height-2, width-4, "Enter / Esc", dim)
 	} else {

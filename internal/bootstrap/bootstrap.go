@@ -30,7 +30,7 @@ func OpenQueue(backend core.Downloader) func(context.Context, string, int) (appl
 		if err != nil {
 			return nil, err
 		}
-		service, err := application.New(ctx, backend, repo, workers)
+		service, err := application.New(ctx, backend, repo, 5)
 		if err != nil {
 			repo.Close()
 			return nil, err

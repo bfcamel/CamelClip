@@ -7,6 +7,7 @@ package jsonconfig
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -31,9 +32,19 @@ func (f File) Load(ctx context.Context) (config.Settings, error) {
 	if err != nil {
 		return f.Defaults, err
 	}
-	var s config.Settings
+	s := f.Defaults
+	if s.MaxDownloads == 0 {
+		s.MaxDownloads = 5
+	}
 	if err = json.Unmarshal(data, &s); err != nil {
 		return f.Defaults, err
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(data, &fields); err != nil {
+		return f.Defaults, err
+	}
+	if _, exists := fields["max_concurrent_downloads"]; exists && s.MaxDownloads == 0 {
+		return f.Defaults, fmt.Errorf("max_concurrent_downloads must be 1..32")
 	}
 	if err = config.Validate(s); err != nil {
 		return f.Defaults, err
@@ -41,6 +52,12 @@ func (f File) Load(ctx context.Context) (config.Settings, error) {
 	return s, nil
 }
 func (f File) Save(ctx context.Context, s config.Settings) error {
+	if s.MaxDownloads == 0 {
+		s.MaxDownloads = 5
+	}
+	if _, err := f.Load(ctx); err != nil {
+		return fmt.Errorf("existing settings are invalid; back up and correct the file before saving: %w", err)
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}

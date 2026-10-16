@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/bfcamel/video-downloader/internal/core"
 )
@@ -16,23 +17,26 @@ import (
 type State string
 
 const (
-	Queued      State = "queued"
-	Inspecting  State = "inspecting"
-	Choosing    State = "choose"
-	Ready       State = "ready"
-	Downloading State = "downloading"
-	Processing  State = "processing"
-	Verifying   State = "verifying"
-	Done        State = "done"
-	Failed      State = "failed"
-	Canceling   State = "canceling"
-	Canceled    State = "canceled"
+	Queued              State = "queued"
+	Inspecting          State = "inspecting"
+	Choosing            State = "choose"
+	Ready               State = "ready"
+	WaitingDownload     State = "waiting_download"
+	WaitingProcessing   State = "waiting_processing"
+	WaitingVerification State = "waiting_verification"
+	Downloading         State = "downloading"
+	Processing          State = "processing"
+	Verifying           State = "verifying"
+	Done                State = "done"
+	Failed              State = "failed"
+	Canceling           State = "canceling"
+	Canceled            State = "canceled"
 )
 
 func (s State) Terminal() bool { return s == Done || s == Failed || s == Canceled }
 func (s State) Valid() bool {
 	switch s {
-	case Queued, Inspecting, Choosing, Ready, Downloading, Processing, Verifying, Done, Failed, Canceling, Canceled:
+	case Queued, Inspecting, Choosing, Ready, WaitingDownload, WaitingProcessing, WaitingVerification, Downloading, Processing, Verifying, Done, Failed, Canceling, Canceled:
 		return true
 	}
 	return false
@@ -47,6 +51,19 @@ type Job struct {
 	Info         core.MediaInfo
 	OutputPath   string
 	NeedsQuality bool
+	Monitoring   Monitoring
+}
+type Monitoring struct {
+	CreatedAt  time.Time
+	StartedAt  time.Time
+	UpdatedAt  time.Time
+	FinishedAt time.Time
+	Attempts   int
+	LastError  string
+	ErrorCode  string
+	Download   core.Metrics
+	Process    core.Metrics
+	Verify     core.Metrics
 }
 type Snapshot struct {
 	NextID int
@@ -74,6 +91,8 @@ type Queue interface {
 	Cancel(int) error
 	Retry(int, string) error
 	Remove(int) error
+	SetLimits(core.Limits) error
+	Statistics() Statistics
 	Start()
 	StartOnly([]int)
 	Events() <-chan Event
@@ -91,6 +110,10 @@ type Service struct {
 	repository              Repository
 	jobs                    []Job
 	nextID, active, workers int
+	metadataActive          int
+	resources               *resources
+	samples                 map[int][]rateSample
+	sessionBytes            int64
 	cancels                 map[int]context.CancelFunc
 	events                  chan Event
 	started, closing        bool
@@ -115,7 +138,7 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		return nil, err
 	}
 	c, cancel := context.WithCancel(ctx)
-	s := &Service{ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
+	s := &Service{ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, resources: newResources(), samples: map[int][]rateSample{}, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
 	seen := map[int]bool{}
 	for _, j := range snapshot.Jobs {
 		if j.ID <= 0 || seen[j.ID] || !j.State.Valid() {
@@ -130,12 +153,14 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		switch j.State {
 		case Inspecting:
 			j.State = Queued
-		case Downloading, Processing, Verifying:
+		case WaitingDownload, WaitingProcessing, WaitingVerification, Downloading, Processing, Verifying:
 			j.State = Ready
 		case Canceling:
 			j.State = Canceled
 		}
 		j.Request.Duration = j.Info.Duration
+		j.Monitoring.Download.SpeedBPS = nil
+		j.Monitoring.Download.ETASeconds = nil
 		if !j.State.Terminal() {
 			j.Detail = ""
 		}
@@ -146,7 +171,13 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 	}
 	return s, nil
 }
-func clone(j Job) Job { j.Info.Formats = append([]core.MediaFormat(nil), j.Info.Formats...); return j }
+func clone(j Job) Job {
+	j.Info.Formats = append([]core.MediaFormat(nil), j.Info.Formats...)
+	j.Monitoring.Download = core.CloneMetrics(j.Monitoring.Download)
+	j.Monitoring.Process = core.CloneMetrics(j.Monitoring.Process)
+	j.Monitoring.Verify = core.CloneMetrics(j.Monitoring.Verify)
+	return j
+}
 func (s *Service) snapshotLocked() Snapshot {
 	v := Snapshot{NextID: s.nextID, Jobs: make([]Job, len(s.jobs))}
 	for i, j := range s.jobs {
@@ -154,6 +185,8 @@ func (s *Service) snapshotLocked() Snapshot {
 		if !j.State.Terminal() {
 			v.Jobs[i].Detail = ""
 		}
+		v.Jobs[i].Monitoring.Download.SpeedBPS = nil
+		v.Jobs[i].Monitoring.Download.ETASeconds = nil
 	}
 	return v
 }
@@ -206,7 +239,7 @@ func (s *Service) Submit(r core.Request, choose bool) (Job, error) {
 		}
 	}
 	s.nextID++
-	j := Job{ID: s.nextID, Request: r, Title: r.URL, State: Queued, NeedsQuality: choose}
+	j := Job{ID: s.nextID, Request: r, Title: r.URL, State: Queued, NeedsQuality: choose, Monitoring: Monitoring{CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	s.jobs = append(s.jobs, j)
 	if err := s.saveLocked(); err != nil {
 		return Job{}, err
@@ -244,6 +277,11 @@ func (s *Service) Choose(id int, quality string) error {
 	}
 	s.jobs[i].Request = candidate
 	s.jobs[i].State = Ready
+	s.jobs[i].Monitoring.UpdatedAt = time.Now()
+	s.jobs[i].Monitoring.UpdatedAt = time.Now()
+	if s.jobs[i].State.Terminal() {
+		s.jobs[i].Monitoring.FinishedAt = time.Now()
+	}
 	if err = s.saveLocked(); err != nil {
 		return err
 	}
@@ -270,6 +308,10 @@ func (s *Service) Cancel(id int) error {
 	} else {
 		s.jobs[i].State = Canceled
 	}
+	s.jobs[i].Monitoring.UpdatedAt = time.Now()
+	if s.jobs[i].State.Terminal() {
+		s.jobs[i].Monitoring.FinishedAt = time.Now()
+	}
 	if err = s.saveLocked(); err != nil {
 		return err
 	}
@@ -295,6 +337,13 @@ func (s *Service) Retry(id int, browser string) error {
 	s.jobs[i].State = Queued
 	s.jobs[i].Detail = ""
 	s.jobs[i].Info = core.MediaInfo{}
+	s.jobs[i].Monitoring.Attempts++
+	s.jobs[i].Monitoring.Download = core.Metrics{}
+	s.jobs[i].Monitoring.Process = core.Metrics{}
+	s.jobs[i].Monitoring.Verify = core.Metrics{}
+	s.jobs[i].Monitoring.StartedAt = time.Time{}
+	s.jobs[i].Monitoring.FinishedAt = time.Time{}
+	delete(s.samples, id)
 	s.jobs[i].Request.Cookies = browser
 	if err = s.saveLocked(); err != nil {
 		return err
@@ -315,6 +364,7 @@ func (s *Service) Remove(id int) error {
 	if !s.jobs[i].State.Terminal() {
 		return errors.New("cancel active jobs before removing")
 	}
+	delete(s.samples, id)
 	s.jobs = append(s.jobs[:i], s.jobs[i+1:]...)
 	return s.saveLocked()
 }
@@ -338,9 +388,7 @@ func (s *Service) scheduleLocked() {
 		return
 	}
 	for i := range s.jobs {
-		if s.active >= s.workers {
-			return
-		}
+
 		j := &s.jobs[i]
 		if s.allowed != nil && !s.allowed[j.ID] {
 			continue
@@ -349,13 +397,24 @@ func (s *Service) scheduleLocked() {
 			continue
 		}
 		inspecting := j.State == Queued
+		if inspecting && s.metadataActive >= s.workers {
+			continue
+		}
 		if inspecting {
 			j.State = Inspecting
+			s.metadataActive++
 		} else {
-			j.State = Downloading
+			j.State = WaitingDownload
+		}
+		j.Monitoring.UpdatedAt = time.Now()
+		if j.Monitoring.StartedAt.IsZero() {
+			j.Monitoring.StartedAt = time.Now()
 		}
 		j.Detail = ""
 		if err := s.saveLocked(); err != nil {
+			if inspecting {
+				s.metadataActive--
+			}
 			return
 		}
 		ctx, cancel := context.WithCancel(s.ctx)
@@ -373,13 +432,41 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 	var info core.MediaInfo
 	var result core.Result
 	var err error
-	if inspecting {
-		info, err = s.backend.Inspect(ctx, r)
-	} else {
-		result, err = s.backend.Download(ctx, r, func(e core.Event) { s.observe(id, e) })
+	var resource *lease
+	if !inspecting {
+		resource = &lease{manager: s.resources, phase: func(stage core.Stage, waiting bool) { s.resourcePhase(id, stage, waiting) }}
+		ctx = core.WithResources(ctx, resource)
+		err = resource.Enter(ctx, core.Downloading)
+	}
+	func() {
+		defer func() {
+			if value := recover(); value != nil {
+				err = fmt.Errorf("backend panic: %v", value)
+			}
+		}()
+		if err != nil { // canceled while waiting for a resource
+		} else if inspecting {
+			info, err = s.backend.Inspect(ctx, r)
+		} else {
+			r.RateLimitBPS = core.DownloadRate(ctx, r.RateLimitBPS)
+			result, err = s.backend.Download(ctx, r, func(e core.Event) {
+				if e.Kind == core.StageChanged {
+					if gateErr := resource.Enter(ctx, e.Stage); gateErr != nil {
+						return
+					}
+				}
+				s.observe(id, e)
+			})
+		}
+	}()
+	if resource != nil {
+		resource.close()
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if inspecting {
+		s.metadataActive--
+	}
 	if cancel := s.cancels[id]; cancel != nil {
 		cancel()
 		delete(s.cancels, id)
@@ -390,16 +477,34 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		return
 	}
 	j := &s.jobs[i]
+	j.Monitoring.UpdatedAt = time.Now()
+	j.Monitoring.Download.SpeedBPS = nil
+	j.Monitoring.Download.ETASeconds = nil
 	if j.State == Canceling || errors.Is(err, core.ErrCanceled) {
 		j.State = Canceled
 		j.Detail = ""
 	} else if err != nil {
 		j.State = Failed
 		j.Detail = err.Error()
+		j.Monitoring.LastError = err.Error()
+		j.Monitoring.ErrorCode = "backend"
 	} else if inspecting {
 		j.Info = info
 		j.Title = info.Title
 		j.Request.Duration = info.Duration
+		j.Request.ExpectedParts = 1
+		videoOnly, audioOnly := false, false
+		for _, format := range info.Formats {
+			if format.VCodec != "" && format.VCodec != "none" && format.ACodec == "none" {
+				videoOnly = true
+			}
+			if format.ACodec != "" && format.ACodec != "none" && format.VCodec == "none" {
+				audioOnly = true
+			}
+		}
+		if r.Mode == "video" && videoOnly && audioOnly {
+			j.Request.ExpectedParts = 2
+		}
 		if r.Mode == "video" && j.NeedsQuality {
 			j.State = Choosing
 		} else {
@@ -407,8 +512,13 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		}
 	} else {
 		j.State = Done
+		n := 100.0
+		j.Monitoring.Verify.Percent = &n
 		j.OutputPath = result.Path
 		j.Detail = "100%"
+	}
+	if j.State.Terminal() {
+		j.Monitoring.FinishedAt = time.Now()
 	}
 	if s.saveLocked() != nil {
 		return
@@ -432,6 +542,7 @@ func (s *Service) observe(id int, e core.Event) {
 	}
 	switch e.Kind {
 	case core.StageChanged:
+		j.Monitoring.UpdatedAt = time.Now()
 		state := State(e.Stage)
 		if state != Downloading && state != Processing && state != Verifying {
 			return
@@ -446,6 +557,7 @@ func (s *Service) observe(id int, e core.Event) {
 		}
 	case core.Progress:
 		j.Detail = e.Detail
+		s.measureLocked(j, e)
 	case core.Published:
 		j.OutputPath = e.Path
 	}

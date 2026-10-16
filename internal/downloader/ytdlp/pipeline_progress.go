@@ -5,16 +5,18 @@ package ytdlp
 
 import (
 	"fmt"
-	"io"
+	"github.com/bfcamel/video-downloader/internal/core"
+	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
-type pipelineObserver func(stage, detail string)
+type pipelineObserver func(core.Event)
 
-func notifyStage(observer pipelineObserver, output io.Writer, stage string) {
+func notifyStage(observer pipelineObserver, stage string) {
 	if observer != nil {
-		observer(stage, "")
+		observer(core.Event{Kind: core.StageChanged, Stage: core.Stage(stage)})
 	}
 
 }
@@ -43,7 +45,7 @@ func (p *ffmpegProgress) Write(data []byte) (int, error) {
 			continue
 		}
 		micros, err := strconv.ParseFloat(strings.TrimPrefix(line, "out_time_us="), 64)
-		if err != nil {
+		if err != nil || math.IsNaN(micros) || math.IsInf(micros, 0) {
 			continue
 		}
 		percent := int(micros / 1e6 / p.duration * 100)
@@ -56,40 +58,12 @@ func (p *ffmpegProgress) Write(data []byte) (int, error) {
 		if !p.reported || percent != p.last {
 			p.last = percent
 			p.reported = true
-			p.observer(p.stage, fmt.Sprintf("%d%%", percent))
+			value := float64(percent)
+			p.observer(core.Event{Kind: core.Progress, Stage: core.Stage(p.stage), Detail: fmt.Sprintf("%d%%", percent), Metrics: &core.Metrics{Percent: &value, At: time.Now()}})
 		}
 	}
 	if len(p.pending) > 16384 {
 		p.pending = ""
 	}
 	return len(data), nil
-}
-
-type downloaderOutput struct {
-	out        io.Writer
-	observer   pipelineObserver
-	pending    string
-	processing bool
-}
-
-func (w *downloaderOutput) Write(data []byte) (int, error) {
-	w.pending += string(data)
-	for {
-		i := strings.IndexAny(w.pending, "\r\n")
-		if i < 0 {
-			break
-		}
-		line := w.pending[:i]
-		w.pending = w.pending[i+1:]
-		if !w.processing && (strings.HasPrefix(line, "[Merger]") || strings.HasPrefix(line, "[ExtractAudio]") || strings.HasPrefix(line, "[VideoRemuxer]")) {
-			w.processing = true
-			if w.observer != nil {
-				w.observer("processing", "")
-			}
-		}
-	}
-	if len(w.pending) > 16384 {
-		w.pending = ""
-	}
-	return w.out.Write(data)
 }
