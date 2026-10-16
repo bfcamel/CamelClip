@@ -21,7 +21,7 @@ python3 scripts/test_packages.py
 
 ## Prepare and publish
 
-1. Update the application version, CHANGELOG.md and docs/release-notes.md. Complete the release checklist in [roadmap-1.0.md](roadmap-1.0.md).
+1. Update the application version, CHANGELOG.md and docs/release-notes.md. Record the validation results for the candidate.
 2. Commit to main, validate that exact clean commit using the commands above, and push it. If anything changes, repeat the relevant checks and rebuild packages. Record the full commit and validation results with the candidate.
 3. Upload the four archives and SHA256SUMS to a draft GitHub release targeting that exact commit. Inspect the contents and test installation/upgrade from an extracted archive in an isolated account or machine.
 4. Publish only after the recorded checks and manual acceptance are complete. Give the release a unique matching tag, such as `v0.9.0`. Mark 0.x and release candidates as prereleases. A tag push by itself does not build or publish anything.
@@ -37,4 +37,4 @@ sha256sum -c SHA256SUMS
 shasum -a 256 -c SHA256SUMS
 ```
 
-Checksums detect corruption, not publisher identity. Signing, macOS notarization and distribution choices are tracked in the roadmap. External yt-dlp, FFmpeg and Deno are not bundled. Dependency updates are reviewed and tested manually.
+Checksums detect corruption, not publisher identity. Current builds are unsigned and macOS binaries are not notarized. External yt-dlp, FFmpeg and Deno are not bundled. Dependency updates are reviewed and tested manually.

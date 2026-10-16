@@ -30,4 +30,4 @@ Describe the user-visible problem, resulting behavior, testing and any migration
 
 For access problems, reproduce with an up-to-date yt-dlp first. Do not attach cookies, browser databases, private URLs or your queue database to an issue. See [SECURITY.md](SECURITY.md) for private reporting.
 
-Dependency updates are reviewed manually: inspect upstream release notes, update go.mod/go.sum and third-party notices where needed, then run the local checks. See [the 1.0 roadmap](docs/roadmap-1.0.md).
+Dependency updates are reviewed manually: inspect upstream release notes, update go.mod/go.sum and third-party notices where needed, then run the local checks.

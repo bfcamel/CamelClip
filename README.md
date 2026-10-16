@@ -346,6 +346,5 @@ Release packages are prepared locally and uploaded to [GitHub Releases](https://
 - [Architecture and adding a GUI](docs/architecture.md)
 - [Failure tests](docs/testing.md)
 - [Local release process](docs/releases.md)
-- [Work required for 1.0.0](docs/roadmap-1.0.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [Community conduct](CODE_OF_CONDUCT.md)
