@@ -5,8 +5,8 @@
 - Linux support on amd64 and arm64, alongside both macOS architectures.
 - Linux desktop opening through xdg-open, XDG configuration and localized download directories, headless operation and a platform-aware installer.
 - Offline diagnostics for dependencies, selected encoders, storage access, free disk space, saved settings and SQLite integrity; shareable JSON reports exclude private data.
-- Native GitHub checks on Linux/macOS and both architectures, including race detection, media tests, PTY navigation, crash recovery and installation.
-- Versioned release archives, dependency notices, build metadata, SHA-256 checksums and reproducible archive packaging.
+- Local checks for race detection, media processing, PTY navigation, crash recovery and installation on macOS/Linux.
+- Locally prepared versioned release archives, dependency notices, build metadata, SHA-256 checksums and reproducible archive packaging.
 - Failure tests for full SQLite storage, failed processing/verification, descendant cancellation, corrupt databases and preservation of existing files.
 - Contribution, security, community, support, troubleshooting and release documentation.
 

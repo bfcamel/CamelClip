@@ -1,4 +1,4 @@
-MacDown 0.9.0 adds Linux support alongside macOS, native automated checks and a complete release packaging pipeline.
+MacDown 0.9.0 adds Linux support alongside macOS, local regression checks and release packaging.
 
 - Linux/macOS, each with amd64 and arm64 builds.
 - Persistent SQLite queue, separate settings and verified media publication.

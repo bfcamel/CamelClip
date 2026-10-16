@@ -1,12 +1,12 @@
 # Supported environments and compatibility
 
-| Platform | Architectures | Automated native coverage |
+| Platform | Architectures | Validation performed |
 | --- | --- | --- |
-| macOS | Apple Silicon arm64, Intel amd64 | macOS 15, both architectures |
-| Linux | arm64, amd64 | Ubuntu 24.04, both architectures |
+| macOS | Apple Silicon arm64, Intel amd64 | Local arm64 tests; amd64 smoke/race tests under Rosetta |
+| Linux | arm64, amd64 | Local arm64 Linux VM/container tests; amd64 smoke tests under emulation |
 | Windows | — | Unsupported; requires additional OS adapters |
 
-Other Linux distributions may work with the standalone CGO-free binary, but are not yet part of the native support matrix. A POSIX terminal and `stty` are needed for the panel interface; pipes and `TERM=dumb` use numbered menus. SSH/headless environments support downloading. Opening files from the library requires a graphical session and xdg-utils on Linux.
+Other Linux distributions may work with the standalone CGO-free binary, but need separate validation before being included in the release support matrix. A POSIX terminal and `stty` are needed for the panel interface; pipes and `TERM=dumb` use numbered menus. SSH/headless environments support downloading. Opening files from the library requires a graphical session and xdg-utils on Linux.
 
 Required runtime tools: yt-dlp and FFmpeg/ffprobe, with the selected encoders. Deno and yt-dlp EJS components are recommended for YouTube. External sites and authentication can change independently of MacDown; a successful doctor run does not guarantee access to a video.
 

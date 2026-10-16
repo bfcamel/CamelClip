@@ -1,17 +1,34 @@
-# Release process
+# Local release process
 
-Pull requests and main commits run native checks on macOS/Linux for amd64/arm64. These include Go race tests, vet, media conversion/integrity tests, SQLite fault tests, native terminal/crash/installer smoke tests and checks of all four archives. Local fixtures keep the checks independent of YouTube availability and credentials.
+Tests, builds and packaging run on the maintainer's machine. GitHub hosts source and release files; GitHub Actions and scheduled dependency bots are not part of this process.
 
-Before releasing:
+## Validate a candidate
 
-1. Update the version in `internal/ui/terminal/cli.go`, CHANGELOG.md and docs/release-notes.md in the same commit.
-2. Merge the tested commit into main. Run `sh build.sh`, `python3 scripts/package.py` and `python3 scripts/test_packages.py` locally when possible.
-3. Push a unique matching tag, for example `v0.9.0`. The Release workflow requires the tag commit to be an ancestor of main and reruns all checks before publishing.
-4. Inspect the release assets and test a clean install/upgrade from an extracted archive. All 0.x and hyphenated versions are marked as GitHub prereleases.
+Install Go 1.26+, Python 3, FFmpeg and ffprobe. Use a clean checkout and run:
 
-The workflow uses the repository GITHUB_TOKEN with contents:write only for the publishing job. Pull-request checks have read-only repository access and cannot publish. Assets are created with `gh release create`; existing releases are not overwritten. Never move a published tag or replace a released archive. Fix a release with a new patch version. A failed unpublished tag run can be rerun after transient infrastructure problems; source changes require a new version/tag.
+```sh
+test -z "$(gofmt -l cmd internal)"
+go test -race -count=1 -timeout=5m ./...
+go vet ./...
+go build -o macdown ./cmd/macdown
+python3 scripts/smoke.py ./macdown
+sh build.sh
+python3 scripts/package.py
+python3 scripts/test_packages.py
+```
 
-Each archive contains the executable, installer, README, changelog, Apache license/notices and BUILD.json with the full source commit. SHA256SUMS covers exactly the four versioned archives. Packaging normalizes timestamps, ownership and file order; identical input binaries and source metadata produce identical archives. This does not claim independently reproducible Go builds across toolchains.
+`build.sh` cross-builds macOS/Linux for arm64/amd64. Cross-compilation alone is not a runtime test. Run smoke tests on each supported OS, record the OS/tool versions and distinguish native hardware from emulation. Media tests must run with FFmpeg installed; skipped media tests are not a successful release validation. External-site access checks remain manual and use content the tester can access.
+
+## Prepare and publish
+
+1. Update the application version, CHANGELOG.md and docs/release-notes.md. Complete the release checklist in [roadmap-1.0.md](roadmap-1.0.md).
+2. Commit to main, validate that exact clean commit using the commands above, and push it. If anything changes, repeat the relevant checks and rebuild packages. Record the full commit and validation results with the candidate.
+3. Upload the four archives and SHA256SUMS to a draft GitHub release targeting that exact commit. Inspect the contents and test installation/upgrade from an extracted archive in an isolated account or machine.
+4. Publish only after the recorded checks and manual acceptance are complete. Give the release a unique matching tag, such as `v0.9.0`. Mark 0.x and release candidates as prereleases. A tag push by itself does not build or publish anything.
+
+The existing 0.9.0 draft can be updated before publication. Published tags and assets must never be moved or replaced; fixes require a new version. Keep the previous binary and a configuration backup for compatible rollback. Never downgrade an incompatible SQLite schema.
+
+Each archive contains the executable, installer, README, changelog, Apache license/notices and BUILD.json with the full source commit. SHA256SUMS covers exactly the four versioned archives. Packaging normalizes timestamps, ownership and file order; repeated packaging with the same inputs/toolchain is checked locally. This does not claim independently reproducible Go builds across toolchains.
 
 ```sh
 # Linux
@@ -20,6 +37,4 @@ sha256sum -c SHA256SUMS
 shasum -a 256 -c SHA256SUMS
 ```
 
-These checks detect download corruption; checksums hosted beside artifacts do not authenticate a publisher. Signing, macOS notarization and Homebrew packaging are future work. External yt-dlp, FFmpeg and Deno are not bundled.
-
-Current automated failure coverage is recorded in [testing.md](testing.md). Real external-site smoke checks remain manual and must use content you can access; their instability must not hide deterministic test failures.
+Checksums detect corruption, not publisher identity. Signing, macOS notarization and distribution choices are tracked in the roadmap. External yt-dlp, FFmpeg and Deno are not bundled. Dependency updates are reviewed and tested manually.

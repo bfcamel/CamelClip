@@ -16,7 +16,7 @@ python3 scripts/package.py
 python3 scripts/test_packages.py
 ```
 
-Format Go changes with `gofmt`. Tests that use media tools skip when those tools are unavailable locally; all native CI jobs install FFmpeg so media tests run there. The packaging job additionally cross-builds all four supported targets. No test should access YouTube, use your real browser profile or fill the host disk.
+Format Go changes with `gofmt`. Tests that use media tools skip when those tools are unavailable locally; install those tools before release validation so the media tests run. `build.sh` cross-builds all four supported targets. No test should access YouTube, use your real browser profile or fill the host disk.
 
 ## Architecture
 
@@ -29,3 +29,5 @@ Add tests for observable behavior and regressions, especially cancellation, atom
 Describe the user-visible problem, resulting behavior, testing and any migration. Keep unrelated changes separate. By submitting a contribution, you agree to license it under Apache-2.0. Preserve third-party notices and add dependency licenses when introducing a library. Maintainers review and merge; no release schedule or response-time guarantee is implied.
 
 For access problems, reproduce with an up-to-date yt-dlp first. Do not attach cookies, browser databases, private URLs or your queue database to an issue. See [SECURITY.md](SECURITY.md) for private reporting.
+
+Dependency updates are reviewed manually: inspect upstream release notes, update go.mod/go.sum and third-party notices where needed, then run the local checks. See [the 1.0 roadmap](docs/roadmap-1.0.md).

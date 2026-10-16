@@ -322,7 +322,7 @@ Source builds require **Go 1.26+**. Compiled arm64 and amd64 distributions remai
 
 ## Linux
 
-Linux amd64 and arm64 are supported; automated native checks target Ubuntu 24.04. For other distributions, use the standalone binary or build with Go 1.26+. Required tools must be in PATH:
+Linux amd64 and arm64 builds are available. Local checks cover arm64 Linux and amd64 execution under emulation; see the validation details in [supported environments](docs/support.md). For other distributions, use the standalone binary or build with Go 1.26+. Required tools must be in PATH:
 
 - yt-dlp, with its EJS components for full YouTube support;
 - FFmpeg/ffprobe with the selected video/audio encoders;
@@ -338,13 +338,14 @@ Firefox/Chrome browser cookies are optional. Flatpak/Snap installations may need
 
 ## Releases, diagnostics and participation
 
-[GitHub Releases](https://github.com/bfcamel/video-downloader/releases) contain versioned archives and SHA256SUMS. Each archive includes an installer, licenses and source-commit metadata. Verify checksums before installation; builds are currently unsigned, and macOS binaries are not notarized.
+Release packages are prepared locally and uploaded to [GitHub Releases](https://github.com/bfcamel/video-downloader/releases) with SHA256SUMS. The current 0.9.0 preview is prepared as a draft; publication is a maintainer decision. Each archive includes an installer, licenses and source-commit metadata. Verify checksums before installation; builds are currently unsigned, and macOS binaries are not notarized.
 
 `macdown doctor` checks dependencies, selected encoders, directory access, free disk space, saved settings and SQLite integrity. `macdown doctor --json > doctor.json` produces a shareable report without cookies, profile selectors, URLs, local paths or raw dependency output. It performs offline checks and cannot guarantee authentication or site access. See [troubleshooting](docs/troubleshooting.md).
 
 - [Supported environments and compatibility](docs/support.md)
 - [Architecture and adding a GUI](docs/architecture.md)
 - [Failure tests](docs/testing.md)
-- [Release process](docs/releases.md)
+- [Local release process](docs/releases.md)
+- [Work required for 1.0.0](docs/roadmap-1.0.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [Community conduct](CODE_OF_CONDUCT.md)
