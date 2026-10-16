@@ -59,7 +59,31 @@ Video codecs: `h264` (default), `hevc`, `vp9`, `av1`. Containers: `mp4` (default
 
 Download and processing limits are independent: five network transfers and `max(cpu_count / 4, 2)` processing tasks by default (integer division). Processing includes merging, audio extraction, conversion and full verification. Configure these in Settings or override for one CLI invocation with `--max-downloads 1..32` and `--max-processing auto|1..32`.
 
-`--rate-limit 2MiB/s` allocates a conservative global budget into fixed shares based on maximum downloads; unused shares are not redistributed. `--job-rate-limit 512KiB/s` caps each job. The smaller nonzero limit applies. `0` means unlimited. Changes apply to newly launched network processes; running transfers retain their existing limits. These are bytes/second; CLI overrides do not overwrite saved preferences.
+### Limit download speed / Ограничение скорости скачивания
+
+In the terminal interface, press `s` to open Settings. Set **Rate budget: fixed shares, new downloads** (Russian: **Бюджет скорости: фиксированные доли, новые загрузки**) for the total download budget, or **Per job: new downloads** (**Предел на задание: новые загрузки**) for each download. Enter a value such as `2MiB/s` or `512KiB/s` and confirm with Enter. These settings are saved for subsequent launches. Enter `0` to disable the corresponding limit.
+
+В терминальном интерфейсе нажмите `s` → выберите **«Бюджет скорости: фиксированные доли, новые загрузки»** для общего бюджета или **«Предел на задание: новые загрузки»** для ограничения каждого файла → введите, например, `2MiB/s` или `512KiB/s` → нажмите Enter. Значение сохраняется в настройках. `0` отключает соответствующее ограничение.
+
+For a single CLI invocation / Для одного запуска из командной строки:
+
+```sh
+# Total budget of 2 MiB/s across downloads / Общий бюджет 2 МиБ/с
+clipnaro download --list links.txt --rate-limit 2MiB/s
+
+# Cap each file at 512 KiB/s / Не более 512 КиБ/с на файл
+clipnaro download 'VIDEO_URL' --job-rate-limit 512KiB/s
+
+# One download can use the full 2 MiB/s budget / Весь бюджет одному файлу
+clipnaro download 'VIDEO_URL' --max-downloads 1 --rate-limit 2MiB/s
+
+# Disable both limits for this invocation / Отключить оба ограничения на этот запуск
+clipnaro download 'VIDEO_URL' --rate-limit 0 --job-rate-limit 0
+```
+
+Rates are **bytes per second**, not bits: `1MiB/s` = 1,048,576 B/s (about 8.39 Mbit/s). The global budget is divided into fixed shares based on the configured maximum downloads; unused shares are not redistributed. For example, `--rate-limit 5MiB/s --max-downloads 5` gives each download at most `1MiB/s`, even if only one is active. When both limits are set, the smaller nonzero per-job limit or global share applies. Changes affect newly launched network processes; running transfers keep their existing limits. CLI overrides do not overwrite saved preferences. S3 upload speed has a separate setting.
+
+Скорость задаётся в **байтах в секунду**, а не в битах. Общий бюджет делится на настроенный максимум одновременных скачиваний: при бюджете `5MiB/s` и пяти слотах каждый файл получает не более `1MiB/s`, даже если скачивается только один. Свободные доли не перераспределяются. Если заданы оба ограничения, действует меньшее ненулевое значение: доля общего бюджета или предел на файл. Новые значения применяются к новым сетевым процессам; уже работающие сохраняют прежние ограничения. Параметры CLI действуют только на текущий запуск. Скорость отправки в S3 настраивается отдельно.
 
 Progress percentages belong to separate stages. Missing totals/speed/ETA display as an em dash; speeds older than three seconds are marked stale. Queue schema upgrades preserve existing history transactionally.
 
