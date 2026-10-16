@@ -15,11 +15,12 @@ type panelCanvas struct {
 }
 
 const (
-	normal   = "\033[0m"
-	cyan     = "\033[1;36m"
-	dim      = "\033[2m"
-	selected = "\033[30;46m"
-	green    = "\033[32m"
+	normal           = "\033[0m"
+	cyan             = "\033[1;36m"
+	dim              = "\033[2m"
+	selected         = "\033[30;46m"
+	selectedProgress = "\033[97;44m"
+	green            = "\033[32m"
 )
 
 func newCanvas(w, h int) *panelCanvas {

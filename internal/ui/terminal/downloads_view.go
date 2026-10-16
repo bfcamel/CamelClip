@@ -315,7 +315,11 @@ func (u *panelUI) render() {
 			if w < 120 {
 				bars = 4
 			}
-			c.text(progressX, y, speedX-progressX-1, progressCell(j, bars), style)
+			progressStyle := style
+			if j.id == u.selectedID {
+				progressStyle = selectedProgress
+			}
+			c.text(progressX, y, speedX-progressX-1, progressCell(j, bars), progressStyle)
 			if j.state == "downloading" {
 				c.text(speedX, y, etaX-speedX-1, speed(j.record.Monitoring.Download), style)
 				c.text(etaX, y, stageX-etaX-1, eta(j.record.Monitoring.Download), style)
