@@ -10,8 +10,10 @@ Install Go 1.26+, Python 3, FFmpeg and ffprobe. Use a clean checkout and run:
 test -z "$(gofmt -l cmd internal)"
 go test -race -count=1 -timeout=5m ./...
 go vet ./...
-go build -o clipnaro ./cmd/clipnaro
-python3 scripts/smoke.py ./clipnaro
+go mod download all
+python3 scripts/notices.py
+go build -o camelclip ./cmd/camelclip
+python3 scripts/smoke.py ./camelclip
 sh build.sh
 python3 scripts/package.py
 python3 scripts/test_packages.py

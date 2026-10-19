@@ -9,13 +9,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/bfcamel/video-downloader/internal/diagnostics"
+	"github.com/bfcamel/CamelClip/internal/diagnostics"
 )
 
 const version = "0.12.0"
@@ -34,7 +34,7 @@ type cliRequest struct {
 	json    bool
 }
 
-var commandNames = []string{"download", "audio", "formats", "setup", "config", "doctor", "version", "help", "queue", "library", "storage"}
+var commandNames = []string{"tui", "download", "audio", "formats", "setup", "config", "doctor", "version", "help", "queue", "library", "storage"}
 
 func parseCLI(args []string, o *options) (cliRequest, error) {
 	r := cliRequest{}
@@ -56,7 +56,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 			r.command = a
 			args = append(append([]string{}, args[:i]...), args[i+1:]...)
 		} else {
-			return r, &usageError{fmt.Sprintf(tr("Неизвестная команда: %s. Справка: clipnaro help"), a)}
+			return r, &usageError{fmt.Sprintf(tr("Неизвестная команда: %s. Справка: camelclip help"), a)}
 		}
 		break
 	}
@@ -68,7 +68,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 			args = args[1:]
 		}
 	}
-	fs := flag.NewFlagSet("clipnaro", flag.ContinueOnError)
+	fs := flag.NewFlagSet("camelclip", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&o.Lang, "lang", o.Lang, "auto, ru, en")
 	fs.Func("rate-limit", "", func(value string) error {
@@ -133,7 +133,7 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		name := strings.TrimLeft(strings.SplitN(a, "=", 2)[0], "-")
 		f := fs.Lookup(name)
 		if f == nil {
-			return r, &usageError{fmt.Sprintf(tr("Неизвестный параметр: %s. Справка: clipnaro help"), a)}
+			return r, &usageError{fmt.Sprintf(tr("Неизвестный параметр: %s. Справка: camelclip help"), a)}
 		}
 		flags = append(flags, a)
 		if b, ok := f.Value.(interface{ IsBoolFlag() bool }); (!ok || !b.IsBoolFlag()) && !strings.Contains(a, "=") {
@@ -173,29 +173,29 @@ func parseCLI(args []string, o *options) (cliRequest, error) {
 		o.Formats = true
 	}
 	if transfer && r.command != "" && len(r.urls) == 0 && r.list == "" && !r.help {
-		return r, &usageError{tr("Укажите URL или --list FILE. Для меню запустите clipnaro без команды.")}
+		return r, &usageError{tr("Укажите URL или --list FILE. Для меню запустите camelclip без команды.")}
 	}
 	return r, nil
 }
 func printHelp(command string) {
-	fmt.Printf("Clipnaro %s\n\n", version)
+	fmt.Printf("CamelClip %s\n\n", version)
 	if command != "" {
-		fmt.Printf("clipnaro %s", command)
+		fmt.Printf("camelclip %s", command)
 		if contains([]string{"download", "audio", "formats"}, command) {
 			fmt.Print(" [options] URL...")
 		}
 		fmt.Print("\n\n")
 	}
 	fmt.Println(tr(`Использование:
-  clipnaro                         Интерактивное меню
-  clipnaro download URL...         Видео со звуком в выбранном формате
-  clipnaro audio URL...            Только звук
-  clipnaro formats URL...          Доступные форматы
-  clipnaro setup                   Настроить Clipnaro заново
-  clipnaro config                  Настройки и путь к файлу (JSON)
-  clipnaro doctor [--json]         Проверка зависимостей и хранилища
-  clipnaro version                 Версия программы
-  clipnaro help [COMMAND]          Справка
+  camelclip [tui]                   Интерактивное меню
+  camelclip download URL...         Видео со звуком в выбранном формате
+  camelclip audio URL...            Только звук
+  camelclip formats URL...          Доступные форматы
+  camelclip setup                   Настроить CamelClip заново
+  camelclip config                  Настройки и путь к файлу (JSON)
+  camelclip doctor [--json]         Проверка зависимостей и хранилища
+  camelclip version                 Версия программы
+  camelclip help [COMMAND]          Справка
 
 Параметры загрузки (до или после URL):
   --quality HEIGHT|best          Максимальная высота видео
@@ -216,9 +216,9 @@ func printHelp(command string) {
   --version                      Версия
 
 Примеры:
-  clipnaro download 'URL' --quality 1080
-  clipnaro audio 'URL' --audio-format mp3
-  clipnaro download --list links.txt`))
+  camelclip download 'URL' --quality 1080
+  camelclip audio 'URL' --audio-format mp3
+  camelclip download --list links.txt`))
 	printWorkspaceHelp()
 }
 func showConfig(path string, o options) error {
@@ -240,7 +240,7 @@ func doctor(ctx context.Context, path string, o options, asJSON bool) error {
 			return err
 		}
 	} else {
-		fmt.Printf("Clipnaro %s (%s/%s)\n", report.Version, report.OS, report.Arch)
+		fmt.Printf("CamelClip %s (%s/%s)\n", report.Version, report.OS, report.Arch)
 		for _, check := range report.Checks {
 			fmt.Printf("%-4s %s: %s\n", check.Status, check.ID, diagnosticText(check.Message))
 			if check.Hint != "" {
@@ -248,7 +248,7 @@ func doctor(ctx context.Context, path string, o options, asJSON bool) error {
 			}
 		}
 		fmt.Println(dependencyHint())
-		fmt.Println(tr("Отчёт для обращения об ошибке: clipnaro doctor --json"))
+		fmt.Println(tr("Отчёт для обращения об ошибке: camelclip doctor --json"))
 	}
 	if ctx.Err() != nil {
 		return errCanceled

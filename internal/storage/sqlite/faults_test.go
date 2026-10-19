@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bfcamel/video-downloader/internal/application"
+	"github.com/bfcamel/CamelClip/internal/application"
 )
 
 func TestDatabaseFullRollsBackAndRemainsRecoverable(t *testing.T) {

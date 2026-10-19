@@ -6,9 +6,9 @@ package terminal
 import (
 	"bytes"
 	"context"
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/bootstrap"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/bootstrap"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"strings"
 	"testing"
 	"time"

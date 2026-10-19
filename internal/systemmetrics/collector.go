@@ -4,7 +4,7 @@ package systemmetrics
 
 import (
 	"context"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/process"

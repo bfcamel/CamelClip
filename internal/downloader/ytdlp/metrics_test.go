@@ -3,19 +3,19 @@
 package ytdlp
 
 import (
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"testing"
 )
 
 func TestStructuredMetricsAndSeparateTrackTotals(t *testing.T) {
 	events := []core.Event{}
 	w := eventWriter{parts: 2, observer: func(e core.Event) { events = append(events, e) }}
-	w.Write([]byte("CLIPNARO_PROGRESS {\"downloaded_bytes\":1024,\"total_bytes\":2048,\"speed\":null,\"eta\":null,\"filename\":\"v.webm\"}\n"))
+	w.Write([]byte("CAMELCLIP_PROGRESS {\"downloaded_bytes\":1024,\"total_bytes\":2048,\"speed\":null,\"eta\":null,\"filename\":\"v.webm\"}\n"))
 	m := events[0].Metrics
 	if m.SpeedBPS != nil || m.ETASeconds != nil || m.TotalBytes != nil || m.Percent != nil {
 		t.Fatal("unknown values fabricated", m)
 	}
-	w.Write([]byte("CLIPNARO_PROGRESS {\"downloaded_bytes\":1024,\"total_bytes\":2048,\"speed\":4096,\"eta\":2,\"filename\":\"a.webm\"}\n"))
+	w.Write([]byte("CAMELCLIP_PROGRESS {\"downloaded_bytes\":1024,\"total_bytes\":2048,\"speed\":4096,\"eta\":2,\"filename\":\"a.webm\"}\n"))
 	m = events[1].Metrics
 	if m.DownloadedBytes != 2048 || *m.TotalBytes != 4096 || *m.Percent != 50 || *m.SpeedBPS != 4096 {
 		t.Fatal(m)

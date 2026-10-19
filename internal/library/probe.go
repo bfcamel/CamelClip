@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"mime"
 	"os"
 	"os/exec"

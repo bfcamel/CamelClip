@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"io"
 	"math"
 	"os"
@@ -108,7 +108,7 @@ func convertVideo(ctx context.Context, path, dir string, o options, observer pip
 }
 
 // Each request has a private staging area. Only fully validated files enter the library.
-// A filesystem lock protects partial files even across independent Clipnaro processes.
+// A filesystem lock protects partial files even across independent CamelClip processes.
 func verifiedDownload(ctx context.Context, executable string, o options, output io.Writer) error {
 	return verifiedDownloadWithObserver(ctx, executable, o, output, nil)
 }
@@ -130,7 +130,7 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 		return err
 	}
 	key := sha256.Sum256([]byte(o.URL + "\x00" + outputVariant(o)))
-	stage := filepath.Join(o.Out, fmt.Sprintf(".clipnaro-%x", key[:12]))
+	stage := filepath.Join(o.Out, fmt.Sprintf(".camelclip-%x", key[:12]))
 	if err := os.MkdirAll(stage, 0700); err != nil {
 		return err
 	}

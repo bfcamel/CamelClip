@@ -10,7 +10,7 @@ func formatArguments(o options) []string { return buildArguments(o, true) }
 func buildArguments(o options, list bool) []string {
 	// progressWriter redraws download updates when attached to a terminal.
 	// Child output is captured; keep progress visible in both interfaces.
-	a := []string{"--ignore-config", "--no-playlist", "--no-overwrites", "--no-quiet", "--progress", "--abort-on-unavailable-fragments", "--fixup", "never", "--newline", "--progress-delta", "0.25", "--progress-template", `download:CLIPNARO_PROGRESS {"downloaded_bytes":%(progress.downloaded_bytes|0)j,"total_bytes":%(progress.total_bytes,progress.total_bytes_estimate|null)j,"speed":%(progress.speed|null)j,"eta":%(progress.eta|null)j,"filename":%(progress.filename)j}`}
+	a := []string{"--ignore-config", "--no-playlist", "--no-overwrites", "--no-quiet", "--progress", "--abort-on-unavailable-fragments", "--fixup", "never", "--newline", "--progress-delta", "0.25", "--progress-template", `download:CAMELCLIP_PROGRESS {"downloaded_bytes":%(progress.downloaded_bytes|0)j,"total_bytes":%(progress.total_bytes,progress.total_bytes_estimate|null)j,"speed":%(progress.speed|null)j,"eta":%(progress.eta|null)j,"filename":%(progress.filename)j}`}
 	if o.Cookies != "" {
 		a = append(a, "--cookies-from-browser", o.Cookies)
 	}

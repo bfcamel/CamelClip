@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/config"
+	"github.com/bfcamel/CamelClip/internal/config"
 	_ "modernc.org/sqlite"
 )
 
@@ -168,7 +168,7 @@ func checkDirectory(r *Report, id, path string) {
 		}
 		existing = filepath.Dir(existing)
 	}
-	f, err := os.CreateTemp(existing, ".clipnaro-doctor-*")
+	f, err := os.CreateTemp(existing, ".camelclip-doctor-*")
 	if err != nil {
 		r.add(id, "FAIL", "Directory is not writable.", "Check permissions or choose another directory.")
 		return

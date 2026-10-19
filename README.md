@@ -1,8 +1,11 @@
-# Clipnaro
+# CamelClip
 
 A local terminal video and audio downloader for macOS and Linux, written in Go. Uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for supported sites and FFmpeg/ffprobe for processing and verification. Apache-2.0 licensed.
 
 ## Getting started
+
+This is a pre-release development project. Build from source using the commands below if no release archive is available. The executable is `camelclip`; `camelclip tui` opens the terminal interface. On macOS, double-click `Start.command` in the installed application folder.
+
 
 Install yt-dlp, FFmpeg/ffprobe and a supported JavaScript runtime such as Deno. YouTube also needs yt-dlp's [EJS components](https://github.com/yt-dlp/yt-dlp/wiki/EJS). Dependencies must be on PATH.
 
@@ -19,30 +22,31 @@ Extract the package for your OS/architecture, then:
 ```sh
 sh install.sh --add-to-path
 # Open a new terminal.
-clipnaro
+camelclip
 ```
 
 On first interactive launch, setup asks for language, output directory, video profile and optional browser access, then checks dependencies/storage. You can retry the checks or open the app and fix dependencies later. Settings are saved only after confirmation. CLI help, version, config and download commands never start the wizard. Existing saved settings bypass it.
 
-The installer uses `~/.local/bin/clipnaro`. `--add-to-path` updates `~/.zprofile` for macOS/zsh, `~/.bashrc` for Linux bash, or `~/.profile` for Linux sh. Other shells need manual PATH setup. Use `--bin-dir /absolute/path` for a custom location and `--force` to replace an installed binary. To uninstall, remove the binary and the startup line marked `# Clipnaro CLI`; media and application data are retained.
+The installer uses `~/.local/bin/camelclip`. `--add-to-path` updates `~/.zprofile` for macOS/zsh, `~/.bashrc` for Linux bash, or `~/.profile` for Linux sh. Other shells need manual PATH setup. Use `--bin-dir /absolute/path` for a custom location and `--force` to replace an installed binary. To uninstall, remove the binary and the startup line marked `# CamelClip CLI`; media and application data are retained.
 
 ## Commands
 
 ```sh
-clipnaro                                  # Interactive setup/dashboard
-clipnaro download 'VIDEO_URL'
-clipnaro download 'VIDEO_URL' --quality 1080
-clipnaro audio 'VIDEO_URL' --audio-format mp3
-clipnaro formats 'VIDEO_URL'
-clipnaro download --list links.txt
-clipnaro download 'VIDEO_URL' --video-codec vp9 --video-format webm
-clipnaro download 'VIDEO_URL' --cookies-browser firefox:default-release
-clipnaro setup                             # Run guided setup again
-clipnaro config                            # Effective settings as JSON
-clipnaro doctor                            # Offline checks and guidance
-clipnaro doctor --json > doctor.json        # Shareable diagnostic report
-clipnaro version
-clipnaro help download
+camelclip tui                              # Interactive setup/dashboard
+camelclip                                  # Same interface
+camelclip download 'VIDEO_URL'
+camelclip download 'VIDEO_URL' --quality 1080
+camelclip audio 'VIDEO_URL' --audio-format mp3
+camelclip formats 'VIDEO_URL'
+camelclip download --list links.txt
+camelclip download 'VIDEO_URL' --video-codec vp9 --video-format webm
+camelclip download 'VIDEO_URL' --cookies-browser firefox:default-release
+camelclip setup                             # Run guided setup again
+camelclip config                            # Effective settings as JSON
+camelclip doctor                            # Offline checks and guidance
+camelclip doctor --json > doctor.json        # Shareable diagnostic report
+camelclip version
+camelclip help download
 ```
 
 Use an explicit command for downloads. URLs are positional; multiple URLs or a text list (one URL per line, `#` comments accepted) are supported. Flags may appear before/after URLs. `--` ends flag parsing. `download` always selects video; `audio` selects audio regardless of saved mode. `--lang auto|en|ru` selects the UI language.
@@ -51,7 +55,8 @@ Video codecs: `h264` (default), `hevc`, `vp9`, `av1`. Containers: `mp4` (default
 
 ## Terminal workspace
 
-- **My files:** actual media in the output directory. Enter opens a file; `o` shows it in Finder on macOS or opens its containing folder on Linux. `f` opens the output directory.
+The current workspace has four panels: jobs (`1`), library (`2`), uploads (`3`), and S3 profiles (`4`). CPU/RAM is available with `c`. The shortcuts below describe the jobs panel; library and S3 keys differ. See [the complete workspace controls](docs/s3.md).
+
 - **Jobs:** inspection, quality selection, download, processing and verification. Enter selects quality or opens details; `x` cancels, `r` retries and `d` removes finished history without deleting files.
 - **Event log:** recent progress and errors.
 
@@ -69,16 +74,16 @@ For a single CLI invocation / Для одного запуска из коман
 
 ```sh
 # Total budget of 2 MiB/s across downloads / Общий бюджет 2 МиБ/с
-clipnaro download --list links.txt --rate-limit 2MiB/s
+camelclip download --list links.txt --rate-limit 2MiB/s
 
 # Cap each file at 512 KiB/s / Не более 512 КиБ/с на файл
-clipnaro download 'VIDEO_URL' --job-rate-limit 512KiB/s
+camelclip download 'VIDEO_URL' --job-rate-limit 512KiB/s
 
 # One download can use the full 2 MiB/s budget / Весь бюджет одному файлу
-clipnaro download 'VIDEO_URL' --max-downloads 1 --rate-limit 2MiB/s
+camelclip download 'VIDEO_URL' --max-downloads 1 --rate-limit 2MiB/s
 
 # Disable both limits for this invocation / Отключить оба ограничения на этот запуск
-clipnaro download 'VIDEO_URL' --rate-limit 0 --job-rate-limit 0
+camelclip download 'VIDEO_URL' --rate-limit 0 --job-rate-limit 0
 ```
 
 Rates are **bytes per second**, not bits: `1MiB/s` = 1,048,576 B/s (about 8.39 Mbit/s). The global budget is divided into fixed shares based on the configured maximum downloads; unused shares are not redistributed. For example, `--rate-limit 5MiB/s --max-downloads 5` gives each download at most `1MiB/s`, even if only one is active. When both limits are set, the smaller nonzero per-job limit or global share applies. Changes affect newly launched network processes; running transfers keep their existing limits. CLI overrides do not overwrite saved preferences. S3 upload speed has a separate setting.
@@ -91,11 +96,11 @@ Progress percentages belong to separate stages. Missing totals/speed/ETA display
 
 Preferences (`settings.json`) and queue/history (`queue.sqlite3`) are separate:
 
-- macOS: `~/Library/Application Support/Clipnaro/`
-- Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/Clipnaro/`
-- Override: `CLIPNARO_CONFIG_DIR=/absolute/path`
+- macOS: `~/Library/Application Support/CamelClip/`
+- Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/CamelClip/`
+- Override: `CAMELCLIP_CONFIG_DIR=/absolute/path`
 
-The default output is `~/Downloads/Clipnaro`; Linux respects localized `XDG_DOWNLOAD_DIR`. Browser cookies are disabled by default and only read when explicitly selected. Firefox/Chrome profile selectors use yt-dlp syntax. Safari is macOS-only; Flatpak/Snap browser profiles may require explicit paths. Cookies cannot grant access your account lacks.
+The default output is `~/Downloads/CamelClip`; Linux respects localized `XDG_DOWNLOAD_DIR`. Browser cookies are disabled by default and only read when explicitly selected. Firefox/Chrome profile selectors use yt-dlp syntax. Safari is macOS-only; Flatpak/Snap browser profiles may require explicit paths. Cookies cannot grant access your account lacks.
 
 Queue writes are transactional and one session owns the queue at a time. Interrupted active work is restored on restart; processing/verification may restart from the beginning. Failed jobs can be retried; manually canceled jobs stay canceled. Corrupt databases are reported, never silently reset.
 
@@ -110,17 +115,23 @@ Go 1.26+ and Python 3 are needed for building/packaging; CGO is not required for
 ```sh
 go test -race -count=1 -timeout=5m ./...
 go vet ./...
-go build -o clipnaro ./cmd/clipnaro
-python3 scripts/smoke.py ./clipnaro
+go build -o camelclip ./cmd/camelclip
+python3 scripts/smoke.py ./camelclip
 sh build.sh
 python3 scripts/package.py
 python3 scripts/test_packages.py
 ```
 
-`dist/` contains `clipnaro-{macos,linux}-{arm64,amd64}`, versioned archives and SHA256SUMS. On macOS, `Start.command` launches the terminal interface. Verify checksums with `shasum -a 256 -c SHA256SUMS` (macOS) or `sha256sum -c SHA256SUMS` (Linux). Builds are unsigned; macOS binaries are not notarized. Published release files must never be replaced.
+`dist/` contains `camelclip-{macos,linux}-{arm64,amd64}`, versioned archives and SHA256SUMS. On macOS, `Start.command` launches the terminal interface. Verify checksums with `shasum -a 256 -c SHA256SUMS` (macOS) or `sha256sum -c SHA256SUMS` (Linux). Builds are unsigned; macOS binaries are not notarized. Published release files must never be replaced.
+
+## Naming and application data
+
+CamelClip uses only `camelclip`, `CAMELCLIP_CONFIG_DIR`, and the CamelClip directories listed above. Earlier development builds are not migrated or aliased. Existing settings, queues, media and encrypted vaults under a different product name are not read or deleted. Configure a new S3 vault/profile for CamelClip; do not copy an older encrypted vault into it.
 
 ## Project documentation
 
+- [CLI reference](docs/cli.md)
+- [Code audit](docs/audit.md), [License inventory and distribution](docs/licensing.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Supported environments](docs/support.md)
 - [Architecture and adding a GUI](docs/architecture.md)

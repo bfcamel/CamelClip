@@ -11,7 +11,7 @@ from package import ROOT, source_version
 
 out = ROOT / 'dist'
 checksums = (out / 'SHA256SUMS').read_text()
-expected = {f'clipnaro_{source_version()}_{os}_{arch}.tar.gz' for os in ('macos', 'linux') for arch in ('arm64', 'amd64')}
+expected = {f'camelclip_{source_version()}_{os}_{arch}.tar.gz' for os in ('macos', 'linux') for arch in ('arm64', 'amd64')}
 seen = set()
 for line in checksums.splitlines():
     digest, name = line.split()
@@ -20,11 +20,11 @@ for line in checksums.splitlines():
     assert hashlib.sha256((out / name).read_bytes()).hexdigest() == digest, name
     with tarfile.open(out / name) as archive:
         members = {Path(m.name).name: m for m in archive.getmembers()}
-        for required in ('clipnaro', 'install.sh', 'BUILD.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.txt', 'README.md', 'CHANGELOG.md'):
+        for required in ('camelclip', 'install.sh', 'BUILD.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.txt', 'README.md', 'CHANGELOG.md'):
             assert required in members, (name, required)
-        assert members['clipnaro'].mode == 0o755
+        assert members['camelclip'].mode == 0o755
         assert members['install.sh'].mode == 0o755
-        data = archive.extractfile(members['clipnaro']).read(4)
+        data = archive.extractfile(members['camelclip']).read(4)
         assert data == b'\x7fELF' if '_linux_' in name else data in (b'\xcf\xfa\xed\xfe', b'\xfe\xed\xfa\xcf')
 assert seen == expected
 subprocess.run([sys.executable, str(ROOT / 'scripts/package.py')], check=True)

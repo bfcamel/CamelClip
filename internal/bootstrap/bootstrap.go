@@ -9,16 +9,16 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/config"
-	"github.com/bfcamel/video-downloader/internal/core"
-	"github.com/bfcamel/video-downloader/internal/downloader/ytdlp"
-	"github.com/bfcamel/video-downloader/internal/library"
-	"github.com/bfcamel/video-downloader/internal/security"
-	"github.com/bfcamel/video-downloader/internal/storage/jsonconfig"
-	"github.com/bfcamel/video-downloader/internal/storage/sqlite"
-	"github.com/bfcamel/video-downloader/internal/systemmetrics"
-	s3adapter "github.com/bfcamel/video-downloader/internal/uploader/s3"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/config"
+	"github.com/bfcamel/CamelClip/internal/core"
+	"github.com/bfcamel/CamelClip/internal/downloader/ytdlp"
+	"github.com/bfcamel/CamelClip/internal/library"
+	"github.com/bfcamel/CamelClip/internal/security"
+	"github.com/bfcamel/CamelClip/internal/storage/jsonconfig"
+	"github.com/bfcamel/CamelClip/internal/storage/sqlite"
+	"github.com/bfcamel/CamelClip/internal/systemmetrics"
+	s3adapter "github.com/bfcamel/CamelClip/internal/uploader/s3"
 )
 
 func Downloader() core.Downloader {

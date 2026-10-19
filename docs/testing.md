@@ -16,7 +16,7 @@
 | Installation and update | Extracted-package layout, isolated HOME, overwrite protection, --force and idempotent PATH entry |
 | Diagnostic privacy | Fake dependencies print secret paths/URLs; only safe numeric versions enter the report |
 
-Run `go test -race -count=1 -timeout=5m ./...` and `python3 scripts/smoke.py ./clipnaro` with FFmpeg installed. The tests use temporary directories and local fixtures. They do not fill the host disk, kill unrelated processes or access browser data.
+Run `go test -race -count=1 -timeout=5m ./...` and `python3 scripts/smoke.py ./camelclip` with FFmpeg installed. The tests use temporary directories and local fixtures. They do not fill the host disk, kill unrelated processes or access browser data.
 
 A simulated FFmpeg ENOSPC response and a real SQLite quota exercise application failure paths; they do not simulate a physical disk losing power, filesystem corruption or every kernel writeback behavior. Native desktop opening is covered with a fake xdg-open command, so manual checks on GNOME/KDE and different macOS players are still valuable. External auth/session expiry and an actual network outage during yt-dlp transfer require manual checks.
 
@@ -30,6 +30,6 @@ With yt-dlp installed, the local HTTP integration test downloads and verifies vi
 
 ## Workspace, credentials and S3
 
-`python3 scripts/test_workspace.py ./clipnaro` starts a temporary loopback-only S3 API server and a real FFmpeg fixture. It exercises CLI library import/exclusion/reimport, private descriptor password/credential input, read-only and conditional-write tests, upload verification and deduplication. It checks database/WAL bytes for test secrets and confirms index removal keeps the file. No real keys/accounts are used.
+`python3 scripts/test_workspace.py ./camelclip` starts a temporary loopback-only S3 API server and a real FFmpeg fixture. It exercises CLI library import/exclusion/reimport, private descriptor password/credential input, read-only and conditional-write tests, upload verification and deduplication. It checks database/WAL bytes for test secrets and confirms index removal keeps the file. No real keys/accounts are used.
 
 Go tests cover priority and disk-pressure permit ordering, 10,000 paginated assets with Unicode search, published-asset/source retention, publication/automatic-upload idempotency, AEAD record binding/tampering, wrong-password unlock, atomic password rotation, per-session locking, independent two-object S3 concurrency, failed-profile isolation and recovery of acknowledged remote objects. S3 adapter tests stream both single and multipart files and reject endpoints that ignore conditional writes. Metrics tests cover initial unknown CPU, delta/reset counters and every core in a scrollable resource panel. Secret entry fields are checked against rendered output.

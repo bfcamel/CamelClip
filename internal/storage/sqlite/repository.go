@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
 	_ "modernc.org/sqlite"
 )
 
@@ -39,7 +39,7 @@ func Open(ctx context.Context, dir string) (*Repository, error) {
 	}
 	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		lock.Close()
-		return nil, errors.New("queue is already open in another Clipnaro session")
+		return nil, errors.New("queue is already open in another CamelClip session")
 	}
 	path := filepath.Join(dir, "queue.sqlite3")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)

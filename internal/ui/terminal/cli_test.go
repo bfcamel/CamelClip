@@ -99,3 +99,22 @@ func TestDoctorJSONFlagIsScopedToDiagnostics(t *testing.T) {
 		t.Fatal("diagnostic flag accepted for download")
 	}
 }
+
+func TestExplicitTUI(t *testing.T) {
+	for _, args := range [][]string{{"tui"}, {"--lang", "en", "tui"}, {"tui", "--lang", "ru"}} {
+		o := testOptions(t.TempDir())
+		r, err := parseCLI(args, &o)
+		if err != nil || r.command != "tui" || len(r.urls) != 0 {
+			t.Fatalf("%v: %+v %v", args, r, err)
+		}
+	}
+	o := testOptions(t.TempDir())
+	if _, err := parseCLI([]string{"tui", "https://example.com"}, &o); err == nil {
+		t.Fatal("TUI accepted URL")
+	}
+}
+func TestQueueAddRequiresURL(t *testing.T) {
+	if err := queueCLI(nil, nil, []string{"add"}, catalogFlags{}, options{}); err == nil {
+		t.Fatal("empty submission accepted")
+	}
+}

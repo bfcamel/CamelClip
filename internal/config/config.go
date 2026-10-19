@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 type Settings struct {

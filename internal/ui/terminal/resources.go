@@ -4,8 +4,8 @@ package terminal
 
 import (
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"strconv"
 	"strings"
 )

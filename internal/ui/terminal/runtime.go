@@ -6,9 +6,9 @@ package terminal
 import (
 	"context"
 
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/config"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/config"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 // Dependencies is supplied only by the composition root. This frontend knows no

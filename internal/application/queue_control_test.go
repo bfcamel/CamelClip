@@ -5,7 +5,7 @@ package application
 
 import (
 	"context"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"testing"
 	"time"
 )

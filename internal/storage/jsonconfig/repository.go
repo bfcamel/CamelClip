@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bfcamel/video-downloader/internal/config"
+	"github.com/bfcamel/CamelClip/internal/config"
 )
 
 type File struct {

@@ -1,4 +1,4 @@
-module github.com/bfcamel/video-downloader
+module github.com/bfcamel/CamelClip
 
 go 1.26.0
 

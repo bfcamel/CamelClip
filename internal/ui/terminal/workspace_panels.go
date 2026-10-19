@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 func (u *panelUI) workspaceRefresh() {
@@ -369,7 +369,7 @@ func (u *panelUI) resourcesText() string {
 	lines = append(lines, "Processing: "+mode+" · max(CPU / 4, 2)")
 	lines = append(lines, fmt.Sprintf("Download %d/%d | Processing %d/%d | S3 %d/%d", stats.Downloads, stats.Limits.Effective().Downloads, stats.Processing, stats.Limits.Effective().Processing, active, w.Cloud.Options().Objects))
 	if s.ProcessRSS != nil {
-		lines = append(lines, "Clipnaro RSS: "+fileSize(int64(*s.ProcessRSS)))
+		lines = append(lines, "CamelClip RSS: "+fileSize(int64(*s.ProcessRSS)))
 	}
 	lines = append(lines, s.Error)
 	return strings.Join(lines, "\n")
@@ -396,7 +396,7 @@ func (u *panelUI) renderWorkspace() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CLIPNARO "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили"), cyan)
+	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили"), cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), dim)

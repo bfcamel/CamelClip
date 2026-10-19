@@ -5,7 +5,7 @@ package ytdlp
 
 import (
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"math"
 	"strconv"
 	"strings"

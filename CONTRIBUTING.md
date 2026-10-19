@@ -1,6 +1,6 @@
 # Contributing
 
-Clipnaro is a terminal video downloader for macOS and Linux, licensed under Apache-2.0. Contributions through issues and pull requests are welcome. Windows and a graphical interface are outside the current supported scope.
+CamelClip is a terminal video downloader for macOS and Linux, licensed under Apache-2.0. Contributions through issues and pull requests are welcome. Windows and a graphical interface are outside the current supported scope.
 
 ## Development
 
@@ -9,8 +9,8 @@ Install Go 1.26+, FFmpeg and ffprobe, then clone the repository. yt-dlp and Deno
 ```sh
 go test -race -count=1 -timeout=5m ./...
 go vet ./...
-go build -o clipnaro ./cmd/clipnaro
-python3 scripts/smoke.py ./clipnaro
+go build -o camelclip ./cmd/camelclip
+python3 scripts/smoke.py ./camelclip
 sh build.sh
 python3 scripts/package.py
 python3 scripts/test_packages.py

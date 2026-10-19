@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 // job is a terminal view model, never the authoritative application state.

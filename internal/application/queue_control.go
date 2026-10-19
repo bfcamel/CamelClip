@@ -300,7 +300,7 @@ func stagingBytes(out string) int64 {
 	var total int64
 	entries, _ := os.ReadDir(out)
 	for _, e := range entries {
-		if !e.IsDir() || !strings.HasPrefix(e.Name(), ".clipnaro-") {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), ".camelclip-") {
 			continue
 		}
 		_ = filepath.WalkDir(filepath.Join(out, e.Name()), func(_ string, d os.DirEntry, err error) error {

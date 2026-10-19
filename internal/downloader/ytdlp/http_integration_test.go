@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 // Exercise actual yt-dlp selectors, manifest output and numerical progress,

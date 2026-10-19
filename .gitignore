@@ -1,8 +1,8 @@
-/clipnaro
-/clipnaro-macos-*
+/camelclip
+/camelclip-macos-*
 /dist/
 *.part
 .DS_Store
 
 __pycache__/
-/clipnaro-linux-*
+/camelclip-linux-*

@@ -4,7 +4,7 @@ package jsonconfig
 
 import (
 	"context"
-	"github.com/bfcamel/video-downloader/internal/config"
+	"github.com/bfcamel/CamelClip/internal/config"
 	"os"
 	"path/filepath"
 	"testing"

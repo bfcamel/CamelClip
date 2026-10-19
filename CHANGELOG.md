@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — CamelClip rename and audit
+
+- Rename executable, module, TUI branding, paths, variables and build artifacts to CamelClip/camelclip. No legacy aliases or data migration.
+- Add explicit `camelclip tui`.
+- Reject empty `queue add`, clarify Unicode password length and avoid a redundant immutable password copy.
+- Remove the two-minute total S3 upload timeout; retain a response-header timeout and cancellation.
+- Expand dependency license notices to nested attributions, patent grants and the Go runtime.
+- Reconcile CLI, workspace and packaging documentation with source; record audit scope and limits.
+
 ## 0.12.0
 
 - Priority/order controls, pending pause/resume, confirmed bulk actions, bounded retries and staging/disk backpressure.
@@ -19,7 +28,7 @@
 
 ## 0.10.0
 
-- Rename the product, command, environment variables, folders and packages to Clipnaro.
+- Rename the product, command, environment variables, folders and packages to CamelClip.
 - First-run setup for language, storage, video profile and optional browser access, with dependency checks and retry.
 - Reset terminal background attributes between cells to contain selected rows inside their panel.
 - Remove deprecated CLI modes and legacy JSON queue import.

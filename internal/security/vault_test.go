@@ -5,7 +5,7 @@ package security
 
 import (
 	"bytes"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"testing"
 )
 

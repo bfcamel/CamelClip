@@ -8,9 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
-	"github.com/bfcamel/video-downloader/internal/security"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
+	"github.com/bfcamel/CamelClip/internal/security"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,7 +89,7 @@ func TestAssetExclusionAndPendingUploadProtection(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer r.Close()
-	a, e := r.PutAsset(ctx, core.Asset{Path: "/tmp/clipnaro-test.mp4", Title: "Test", Status: "available", Added: time.Now()})
+	a, e := r.PutAsset(ctx, core.Asset{Path: "/tmp/camelclip-test.mp4", Title: "Test", Status: "available", Added: time.Now()})
 	if e != nil {
 		t.Fatal(e)
 	}

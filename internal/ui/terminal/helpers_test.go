@@ -4,8 +4,8 @@
 package terminal
 
 import (
-	"github.com/bfcamel/video-downloader/internal/config"
-	"github.com/bfcamel/video-downloader/internal/storage/jsonconfig"
+	"github.com/bfcamel/CamelClip/internal/config"
+	"github.com/bfcamel/CamelClip/internal/storage/jsonconfig"
 )
 
 var testDependencies = Dependencies{OpenConfig: func(path string, defaults config.Settings) config.Repository {

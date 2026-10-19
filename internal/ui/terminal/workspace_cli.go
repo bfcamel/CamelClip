@@ -4,6 +4,7 @@ package terminal
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"golang.org/x/term"
 )
 
@@ -35,7 +36,7 @@ type catalogFlags struct {
 
 func parseCatalogFlags(args []string) (catalogFlags, []string, error) {
 	o := catalogFlags{}
-	set := flag.NewFlagSet("clipnaro", flag.ContinueOnError)
+	set := flag.NewFlagSet("camelclip", flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	set.BoolVar(&o.help, "help", false, "")
 	set.BoolVar(&o.help, "h", false, "")
@@ -118,7 +119,7 @@ func masterPassword(fd int) ([]byte, error) {
 		if e != nil {
 			return nil, e
 		}
-		return []byte(strings.TrimRight(string(data), "\r\n")), nil
+		return bytes.TrimRight(data, "\r\n"), nil
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return nil, errors.New("S3 requires a TTY password or --password-fd (no password in command arguments)")
@@ -232,6 +233,9 @@ func queueCLI(ctx context.Context, p *jobPool, pos []string, f catalogFlags, o o
 		}
 		return nil
 	case "add":
+		if len(pos) < 2 {
+			return &usageError{"queue add requires at least one URL"}
+		}
 		results := []application.ActionResult{}
 		for _, url := range pos[1:] {
 			r := request(o)
@@ -652,16 +656,16 @@ func ttyLine(label, fallback string) (string, error) {
 func printWorkspaceHelp() {
 	fmt.Println(`
 Workspace:
-  clipnaro queue list --json
-  clipnaro queue priority JOB_ID low|normal|high
-  clipnaro queue reorder JOB_ID up|down|first|last
-  clipnaro queue pause|resume|retry|cancel JOB_ID
-  clipnaro library list|search|scan|import|refresh|show|open|reveal
-  clipnaro storage profiles list|add|edit|keys|test|test-write|delete
-  clipnaro storage upload ASSET_ID --profile ID[,ID] [--json]
-  clipnaro storage uploads list|retry|cancel|cleanup
-  clipnaro storage unlock
-  clipnaro storage reset --yes
+  camelclip queue list --json
+  camelclip queue priority JOB_ID low|normal|high
+  camelclip queue reorder JOB_ID up|down|first|last
+  camelclip queue pause|resume|retry|cancel JOB_ID
+  camelclip library list|search|scan|import|refresh|show|open|reveal
+  camelclip storage profiles list|add|edit|keys|test|test-write|delete
+  camelclip storage upload ASSET_ID --profile ID[,ID] [--json]
+  camelclip storage uploads list|retry|cancel|cleanup
+  camelclip storage unlock
+  camelclip storage reset --yes
 Secret input: TTY prompts or --password-fd N / --credentials-fd N (N >= 3).
 S3 uploads use a separate pool. Secrets stay encrypted in local SQLite.`)
 }

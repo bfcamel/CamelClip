@@ -11,7 +11,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -26,7 +26,7 @@ func derive(s core.VaultState, password []byte) ([]byte, error) {
 		return nil, errors.New("unsupported vault parameters")
 	}
 	if !utf8.Valid(password) || utf8.RuneCount(password) < 10 || len(password) > 1024 {
-		return nil, errors.New("master password must contain 10–1024 bytes")
+		return nil, errors.New("master password must contain at least 10 Unicode characters and at most 1024 bytes")
 	}
 	return argon2.IDKey(password, s.Salt, s.Iterations, s.Memory, s.Parallel, 32), nil
 }
@@ -43,7 +43,7 @@ func seal(key []byte, id string, plain []byte) (core.SealedSecret, error) {
 	if _, e = rand.Read(n); e != nil {
 		return core.SealedSecret{}, e
 	}
-	return core.SealedSecret{Version: 1, Nonce: n, Blob: a.Seal(nil, n, plain, []byte("Clipnaro/v1/"+id))}, nil
+	return core.SealedSecret{Version: 1, Nonce: n, Blob: a.Seal(nil, n, plain, []byte("CamelClip/v1/"+id))}, nil
 }
 func open(key []byte, id string, s core.SealedSecret) ([]byte, error) {
 	if s.Version != 1 {
@@ -57,7 +57,7 @@ func open(key []byte, id string, s core.SealedSecret) ([]byte, error) {
 	if e != nil || len(s.Nonce) != a.NonceSize() {
 		return nil, errors.New("invalid encrypted record")
 	}
-	data, e := a.Open(nil, s.Nonce, s.Blob, []byte("Clipnaro/v1/"+id))
+	data, e := a.Open(nil, s.Nonce, s.Blob, []byte("CamelClip/v1/"+id))
 	if e != nil {
 		return nil, errors.New("incorrect password or damaged encrypted record")
 	}
@@ -73,7 +73,7 @@ func (v *Vault) Initialize(password []byte) (core.VaultState, error) {
 		return s, e
 	}
 	defer clear(key)
-	s.Check, e = seal(key, "vault-check", []byte("Clipnaro vault"))
+	s.Check, e = seal(key, "vault-check", []byte("CamelClip vault"))
 	if e != nil {
 		return s, e
 	}

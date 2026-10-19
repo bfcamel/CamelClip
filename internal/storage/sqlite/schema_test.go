@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"github.com/bfcamel/video-downloader/internal/application"
+	"github.com/bfcamel/CamelClip/internal/application"
 	"path/filepath"
 	"testing"
 )

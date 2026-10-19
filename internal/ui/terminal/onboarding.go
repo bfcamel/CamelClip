@@ -15,7 +15,7 @@ func firstRun(ctx context.Context, m *menu, o *options, path, system, home strin
 // bypass the wizard; browser access remains an explicit choice.
 func setup(ctx context.Context, m *menu, o *options, path, system, home string, check func(context.Context, string, options) error) error {
 	candidate := *o
-	screen(m, "Welcome to Clipnaro / Добро пожаловать", candidate, "")
+	screen(m, "Welcome to CamelClip / Добро пожаловать", candidate, "")
 	preferred := candidate.Lang
 	if preferred == "auto" || preferred == "" {
 		preferred = system
@@ -56,7 +56,7 @@ func setup(ctx context.Context, m *menu, o *options, path, system, home string, 
 			return errCanceled
 		}
 		fmt.Fprintf(m.out, "\n%s\n", tr("v/a — добавить видео/аудио · Tab — сменить панель · s — настройки · q — выход"))
-		label := tr("Сохранить и открыть Clipnaro")
+		label := tr("Сохранить и открыть CamelClip")
 		if checkErr != nil {
 			fmt.Fprintln(m.out, tr("Есть проблемы с зависимостями или хранилищем. Их можно исправить и повторить проверку."))
 			label = tr("Сохранить и открыть — исправлю позже")

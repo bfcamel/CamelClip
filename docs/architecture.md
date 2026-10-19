@@ -1,10 +1,10 @@
 # Architecture and extension contracts
 
-Clipnaro separates policy, process execution, persistence and presentation. The binary in `cmd/clipnaro` is the composition root: it constructs adapters in `internal/bootstrap` and injects typed ports into the terminal frontend. Constructors are the only place that know the concrete implementation of every module.
+CamelClip separates policy, process execution, persistence and presentation. The binary in `cmd/camelclip` is the composition root: it constructs adapters in `internal/bootstrap` and injects typed ports into the terminal frontend. Constructors are the only place that know the concrete implementation of every module.
 
 ```mermaid
 flowchart TD
-    Main[cmd/clipnaro] --> Wiring[bootstrap]
+    Main[cmd/camelclip] --> Wiring[bootstrap]
     Wiring --> Terminal[terminal frontend]
     Wiring --> Backend[yt-dlp / FFmpeg adapter]
     Wiring --> DB[SQLite repository]
@@ -63,7 +63,7 @@ The terminal frontend selects `platform_darwin.go` or `platform_linux.go` at bui
 
 ## Resource scheduling and monitoring
 
-Network fetching and CPU work have independent FIFO permits. Metadata inspection is separately bounded to five tasks. Download permits are released after yt-dlp exits, before a job waits for processing. FFmpeg merging, extraction, conversion and full decode verification share the processing permit. Automatic processing concurrency is max(integer CPU count / 4, 2); download concurrency defaults to five. Lowering limits never interrupts existing children.
+Network fetching and CPU work have independent permits ordered by job priority and position. Metadata inspection is separately bounded to five tasks. Download permits are released after yt-dlp exits, before a job waits for processing. FFmpeg merging, extraction, conversion and full decode verification share the processing permit. Automatic processing concurrency is max(integer CPU count / 4, 2); download concurrency defaults to five. Lowering limits never interrupts existing children.
 
 A configured global rate budget is divided by maximum download concurrency and passed to each new yt-dlp process, combined with the per-job cap using the smaller nonzero value. This intentionally leaves bandwidth unused when fewer jobs run. Changes affect new processes; running children retain their original limits. This is a conservative allocation policy, not an instantaneous traffic shaper. CLI overrides are transient. Rates use bytes/second, optionally KiB/s or MiB/s, with zero meaning unlimited.
 

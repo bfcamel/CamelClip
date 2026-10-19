@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 type options = core.Request
@@ -79,8 +79,8 @@ func (w *eventWriter) Write(data []byte) (int, error) {
 		}
 		line := safeText(w.pending[:i])
 		w.pending = w.pending[i+1:]
-		if strings.HasPrefix(line, "CLIPNARO_PROGRESS ") {
-			w.measure(strings.TrimPrefix(line, "CLIPNARO_PROGRESS "))
+		if strings.HasPrefix(line, "CAMELCLIP_PROGRESS ") {
+			w.measure(strings.TrimPrefix(line, "CAMELCLIP_PROGRESS "))
 			continue
 		}
 		if w.observer != nil && line != "" {

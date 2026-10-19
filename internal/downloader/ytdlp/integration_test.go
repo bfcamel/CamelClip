@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,7 +67,7 @@ func TestCompatibilityAndIntegrity(t *testing.T) {
 }
 func TestVerifiedDownloadPublication(t *testing.T) {
 	source := makeFixture(t)
-	t.Setenv("CLIPNARO_TEST_FIXTURE", source)
+	t.Setenv("CAMELCLIP_TEST_FIXTURE", source)
 	dir := t.TempDir()
 	downloader := filepath.Join(dir, "downloader")
 	script := `#!/bin/sh
@@ -78,7 +78,7 @@ while [ "$#" -gt 0 ]; do
  *) shift;;
  esac
 done
-cp "$CLIPNARO_TEST_FIXTURE" "$dest/clip.mp4"
+cp "$CAMELCLIP_TEST_FIXTURE" "$dest/clip.mp4"
 printf '"%s"\n' "$dest/clip.mp4" > "$manifest"
 `
 	if err := os.WriteFile(downloader, []byte(script), 0700); err != nil {
@@ -104,7 +104,7 @@ printf '"%s"\n' "$dest/clip.mp4" > "$manifest"
 	if !bytes.Equal(original, after) {
 		t.Fatal("existing file overwritten")
 	}
-	t.Setenv("CLIPNARO_TEST_FIXTURE", filepath.Join(dir, "broken"))
+	t.Setenv("CAMELCLIP_TEST_FIXTURE", filepath.Join(dir, "broken"))
 	os.WriteFile(filepath.Join(dir, "broken"), []byte("bad"), 0600)
 	o.Out = filepath.Join(dir, "bad-out")
 	if verifiedDownload(context.Background(), downloader, o, &log) == nil {
@@ -227,8 +227,8 @@ func TestSeparateTracksAreMergedBeforeVerifiedPublication(t *testing.T) {
 			t.Fatalf("split fixture: %v %s", err, output)
 		}
 	}
-	t.Setenv("CLIPNARO_TEST_VIDEO", video)
-	t.Setenv("CLIPNARO_TEST_AUDIO", audio)
+	t.Setenv("CAMELCLIP_TEST_VIDEO", video)
+	t.Setenv("CAMELCLIP_TEST_AUDIO", audio)
 	downloader := filepath.Join(dir, "downloader")
 	script := `#!/bin/sh
 while [ "$#" -gt 0 ]; do
@@ -238,8 +238,8 @@ while [ "$#" -gt 0 ]; do
  *) shift;;
  esac
 done
-cp "$CLIPNARO_TEST_VIDEO" "$dest/video.mp4"
-cp "$CLIPNARO_TEST_AUDIO" "$dest/audio.opus"
+cp "$CAMELCLIP_TEST_VIDEO" "$dest/video.mp4"
+cp "$CAMELCLIP_TEST_AUDIO" "$dest/audio.opus"
 printf '"%s"\n"%s"\n' "$dest/video.mp4" "$dest/audio.opus" > "$manifest"
 `
 	if err := os.WriteFile(downloader, []byte(script), 0700); err != nil {

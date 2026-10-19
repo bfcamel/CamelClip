@@ -1,6 +1,6 @@
-# Clipnaro 0.12.0 candidate
+# CamelClip 0.12.0 candidate
 
-Clipnaro adds a persistent media library, priority/pause/bulk queue controls, local CPU/RAM monitoring and optional S3 uploads independent of downloading and processing.
+CamelClip adds a persistent media library, priority/pause/bulk queue controls, local CPU/RAM monitoring and optional S3 uploads independent of downloading and processing.
 
 Use 1–4 to switch jobs, library, uploads and profiles; c opens all logical CPUs and RAM. S3 credentials are encrypted in local SQLite and require a master-password unlock each session. Auto-upload defaults to off. See [workspace and S3 documentation](s3.md) for commands, safety guarantees and current limits.
 

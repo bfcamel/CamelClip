@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 func TestFailuresNeverPublishUnverifiedFiles(t *testing.T) {
@@ -32,24 +32,24 @@ while [ "$#" -gt 0 ]; do
  *) shift;;
  esac
 done
-cp "$CLIPNARO_TEST_FIXTURE" "$dest/clip.mp4"
+cp "$CAMELCLIP_TEST_FIXTURE" "$dest/clip.mp4"
 printf '"%s"\n' "$dest/clip.mp4" > "$manifest"
-if [ "$CLIPNARO_FAIL_STAGE" = downloading ]; then echo 'ERROR: connection reset' >&2; exit 1; fi
+if [ "$CAMELCLIP_FAIL_STAGE" = downloading ]; then echo 'ERROR: connection reset' >&2; exit 1; fi
 `
 	os.WriteFile(downloader, []byte(script), 0700)
 	wrapper := `#!/bin/sh
 stage=processing
 for arg in "$@"; do [ "$arg" != null ] || stage=verifying; done
-if [ "$stage" = "$CLIPNARO_FAIL_STAGE" ]; then echo 'No space left on device' >&2; exit 1; fi
-exec "$CLIPNARO_REAL_FFMPEG" "$@"
+if [ "$stage" = "$CAMELCLIP_FAIL_STAGE" ]; then echo 'No space left on device' >&2; exit 1; fi
+exec "$CAMELCLIP_REAL_FFMPEG" "$@"
 `
 	os.WriteFile(filepath.Join(tools, "ffmpeg"), []byte(wrapper), 0700)
-	t.Setenv("CLIPNARO_REAL_FFMPEG", ffmpeg)
-	t.Setenv("CLIPNARO_TEST_FIXTURE", fixture)
+	t.Setenv("CAMELCLIP_REAL_FFMPEG", ffmpeg)
+	t.Setenv("CAMELCLIP_TEST_FIXTURE", fixture)
 	t.Setenv("PATH", tools+string(os.PathListSeparator)+os.Getenv("PATH"))
 	for _, stage := range []string{"downloading", "processing", "verifying"} {
 		t.Run(stage, func(t *testing.T) {
-			t.Setenv("CLIPNARO_FAIL_STAGE", stage)
+			t.Setenv("CAMELCLIP_FAIL_STAGE", stage)
 			request := defaults()
 			request.Out = t.TempDir()
 			request.Duration = 1
@@ -62,7 +62,7 @@ exec "$CLIPNARO_REAL_FFMPEG" "$@"
 				t.Fatal("unverified file published", files)
 			}
 			// Staging survives the error and can be retried successfully.
-			t.Setenv("CLIPNARO_FAIL_STAGE", "")
+			t.Setenv("CAMELCLIP_FAIL_STAGE", "")
 			if _, err := engine.Download(context.Background(), request, nil); err != nil {
 				t.Fatal("retry failed", err)
 			}
@@ -77,10 +77,10 @@ func TestCancelTerminatesDescendants(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "survived")
 	ready := filepath.Join(dir, "ready")
-	t.Setenv("CLIPNARO_CHILD_MARKER", marker)
-	t.Setenv("CLIPNARO_CHILD_READY", ready)
+	t.Setenv("CAMELCLIP_CHILD_MARKER", marker)
+	t.Setenv("CAMELCLIP_CHILD_READY", ready)
 	path := filepath.Join(dir, "downloader")
-	script := "#!/bin/sh\n(sleep 1; echo survived > \"$CLIPNARO_CHILD_MARKER\") &\necho ready > \"$CLIPNARO_CHILD_READY\"\nwait\n"
+	script := "#!/bin/sh\n(sleep 1; echo survived > \"$CAMELCLIP_CHILD_MARKER\") &\necho ready > \"$CAMELCLIP_CHILD_READY\"\nwait\n"
 	os.WriteFile(path, []byte(script), 0700)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -112,14 +112,14 @@ func TestCancelTerminatesDescendants(t *testing.T) {
 }
 func TestInvalidExistingFileIsPreserved(t *testing.T) {
 	fixture := makeFixture(t)
-	t.Setenv("CLIPNARO_TEST_FIXTURE", fixture)
+	t.Setenv("CAMELCLIP_TEST_FIXTURE", fixture)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "downloader")
 	os.WriteFile(path, []byte(`#!/bin/sh
 while [ "$#" -gt 0 ]; do
  case "$1" in --paths) dest="$2"; shift 2;; --print-to-file) manifest="$3"; shift 3;; *) shift;; esac
 done
-cp "$CLIPNARO_TEST_FIXTURE" "$dest/clip.mp4"
+cp "$CAMELCLIP_TEST_FIXTURE" "$dest/clip.mp4"
 printf '"%s"\n' "$dest/clip.mp4" > "$manifest"
 `), 0700)
 	r := defaults()

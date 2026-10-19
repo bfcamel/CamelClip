@@ -3,7 +3,7 @@
 
 package terminal
 
-import "github.com/bfcamel/video-downloader/internal/core"
+import "github.com/bfcamel/CamelClip/internal/core"
 
 var videoCodec = func(o options) string { return core.VideoCodec(request(o)) }
 var videoContainer = func(o options) string { return core.VideoContainer(request(o)) }

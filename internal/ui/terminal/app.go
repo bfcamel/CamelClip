@@ -29,8 +29,8 @@ func run(deps Dependencies) error {
 	if err != nil {
 		return err
 	}
-	configPath := filepath.Join(configDir, "Clipnaro", "settings.json")
-	if override := os.Getenv("CLIPNARO_CONFIG_DIR"); override != "" {
+	configPath := filepath.Join(configDir, "CamelClip", "settings.json")
+	if override := os.Getenv("CAMELCLIP_CONFIG_DIR"); override != "" {
 		configPath = filepath.Join(override, "settings.json")
 	}
 	o := defaultOptions(home)
@@ -53,7 +53,7 @@ func run(deps Dependencies) error {
 	}
 	switch request.command {
 	case "version":
-		fmt.Println("clipnaro " + version)
+		fmt.Println("camelclip " + version)
 		return nil
 	case "setup":
 		m := newMenu()

@@ -20,7 +20,7 @@ func TestLinuxDownloadsDirectory(t *testing.T) {
 		{`XDG_DOWNLOAD_DIR="/srv/shared downloads"`, "/srv/shared downloads"},
 		{`XDG_DOWNLOAD_DIR="$HOME"`, home},
 		{`XDG_DOWNLOAD_DIR="relative/path"`, filepath.Join(home, "Downloads")},
-		{`XDG_DOWNLOAD_DIR="$(touch /tmp/clipnaro-should-not-exist)"`, filepath.Join(home, "Downloads")},
+		{`XDG_DOWNLOAD_DIR="$(touch /tmp/camelclip-should-not-exist)"`, filepath.Join(home, "Downloads")},
 		{`XDG_DOWNLOAD_DIR="$OTHER/path"`, filepath.Join(home, "Downloads")},
 		{`XDG_DOWNLOAD_DIR=unquoted`, filepath.Join(home, "Downloads")},
 		{`XDG_DESKTOP_DIR="$HOME/Desktop"`, filepath.Join(home, "Downloads")},
@@ -37,9 +37,9 @@ func TestLinuxDownloadsDirectory(t *testing.T) {
 func TestLinuxOpenFileAndReveal(t *testing.T) {
 	bin := t.TempDir()
 	record := filepath.Join(bin, "args")
-	t.Setenv("CLIPNARO_OPEN_RECORD", record)
+	t.Setenv("CAMELCLIP_OPEN_RECORD", record)
 	t.Setenv("PATH", bin)
-	if err := os.WriteFile(filepath.Join(bin, "xdg-open"), []byte("#!/bin/sh\nprintf '%s\\n' \"$#\" \"$1\" > \"$CLIPNARO_OPEN_RECORD\"\n"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "xdg-open"), []byte("#!/bin/sh\nprintf '%s\\n' \"$#\" \"$1\" > \"$CAMELCLIP_OPEN_RECORD\"\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "-movie $(literal).mp4")

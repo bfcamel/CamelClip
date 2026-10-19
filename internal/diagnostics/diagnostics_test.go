@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bfcamel/video-downloader/internal/config"
+	"github.com/bfcamel/CamelClip/internal/config"
 )
 
 func testSettings(dir string) config.Settings {

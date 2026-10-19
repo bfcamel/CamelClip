@@ -5,7 +5,7 @@ body:
     id: version
     attributes:
       label: Application version
-      description: Output of clipnaro version.
+      description: Output of camelclip version.
     validations:
       required: true
   - type: input
@@ -26,5 +26,5 @@ body:
     id: diagnostics
     attributes:
       label: Offline diagnostic report
-      description: Paste clipnaro doctor --json output. Never attach cookies or the queue database.
+      description: Paste camelclip doctor --json output. Never attach cookies or the queue database.
       render: json

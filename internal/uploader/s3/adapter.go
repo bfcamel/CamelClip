@@ -26,7 +26,7 @@ import (
 	sdk "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 type Adapter struct{}
@@ -82,6 +82,8 @@ func failure(err error) error {
 func client(p core.S3Profile, c core.Credentials) *sdk.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	// Limit waiting for response headers, not the duration of a streamed upload.
+	transport.ResponseHeaderTimeout = 2 * time.Minute
 	if endpoint, e := url.Parse(p.Endpoint); e == nil && endpoint.Scheme == "http" && endpoint.Hostname() == "localhost" {
 		transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 			_, port, e := net.SplitHostPort(address)
@@ -91,7 +93,7 @@ func client(p core.S3Profile, c core.Credentials) *sdk.Client {
 			return (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort("127.0.0.1", port))
 		}
 	}
-	cfg := aws.Config{Region: p.Region, Credentials: credentials.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, c.SessionToken), HTTPClient: &http.Client{Transport: transport, Timeout: 2 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, RetryMaxAttempts: 3, RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired, ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired}
+	cfg := aws.Config{Region: p.Region, Credentials: credentials.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, c.SessionToken), HTTPClient: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, RetryMaxAttempts: 3, RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired, ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired}
 	return sdk.NewFromConfig(cfg, func(o *sdk.Options) {
 		if p.Endpoint != "" {
 			o.BaseEndpoint = aws.String(p.Endpoint)
@@ -108,8 +110,8 @@ func (Adapter) Test(ctx context.Context, p core.S3Profile, c core.Credentials, w
 		_, e := cl.HeadBucket(ctx, &sdk.HeadBucketInput{Bucket: aws.String(p.Bucket)})
 		return failure(e)
 	}
-	key := path.Join(strings.Trim(p.Prefix, "/"), "clipnaro-test-"+core.NewID())
-	_, e := cl.PutObject(ctx, &sdk.PutObjectInput{Bucket: aws.String(p.Bucket), Key: aws.String(key), Body: strings.NewReader("Clipnaro write check"), IfNoneMatch: aws.String("*")})
+	key := path.Join(strings.Trim(p.Prefix, "/"), "camelclip-test-"+core.NewID())
+	_, e := cl.PutObject(ctx, &sdk.PutObjectInput{Bucket: aws.String(p.Bucket), Key: aws.String(key), Body: strings.NewReader("CamelClip write check"), IfNoneMatch: aws.String("*")})
 	if e != nil {
 		return failure(e)
 	}

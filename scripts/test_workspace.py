@@ -46,9 +46,9 @@ class Handler(BaseHTTPRequestHandler):
         with lock: objects.pop(self.path, None)
         self.send_response(204); self.end_headers()
 
-with tempfile.TemporaryDirectory(prefix='clipnaro-workspace-') as directory:
+with tempfile.TemporaryDirectory(prefix='camelclip-workspace-') as directory:
     root = Path(directory)
-    env = dict(os.environ, HOME=str(root), CLIPNARO_CONFIG_DIR=str(root/'config'), LANG='en_US.UTF-8')
+    env = dict(os.environ, HOME=str(root), CAMELCLIP_CONFIG_DIR=str(root/'config'), LANG='en_US.UTF-8')
     def run(args, secrets=(), success=True):
         descriptors=[]; expanded=list(args)
         try:

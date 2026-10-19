@@ -4,8 +4,8 @@ package terminal
 
 import (
 	"fmt"
-	"github.com/bfcamel/video-downloader/internal/application"
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/application"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"strings"
 	"time"
 )
@@ -224,7 +224,7 @@ func (u *panelUI) render() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CLIPNARO "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+"  c: CPU/RAM", cyan)
+	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+"  c: CPU/RAM", cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), normal)

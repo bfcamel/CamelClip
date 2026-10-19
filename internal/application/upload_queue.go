@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bfcamel/video-downloader/internal/core"
+	"github.com/bfcamel/CamelClip/internal/core"
 )
 
 type CloudService struct {

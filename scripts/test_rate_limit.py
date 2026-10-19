@@ -56,7 +56,7 @@ def measure(server, count):
     executable = shutil.which('yt-dlp')
     assert executable, 'yt-dlp required'
     children = []
-    with tempfile.TemporaryDirectory(prefix='clipnaro-rate-') as directory:
+    with tempfile.TemporaryDirectory(prefix='camelclip-rate-') as directory:
         try:
             for i in range(count):
                 children.append(subprocess.Popen([
