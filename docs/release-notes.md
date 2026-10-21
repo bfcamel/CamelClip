@@ -1,11 +1,13 @@
-# CamelClip 0.12.0 candidate
+# CamelClip 0.12.1
 
-CamelClip adds a persistent media library, priority/pause/bulk queue controls, local CPU/RAM monitoring and optional S3 uploads independent of downloading and processing.
+Patch update for queue recovery and metadata reliability:
 
-Use 1–4 to switch jobs, library, uploads and profiles; c opens all logical CPUs and RAM. S3 credentials are encrypted in local SQLite and require a master-password unlock each session. Auto-upload defaults to off. See [workspace and S3 documentation](s3.md) for commands, safety guarantees and current limits.
+- Resume downloads after disk/staging capacity returns, including jobs without an existing worker.
+- Start explicitly selected S3 uploads even when older unrelated jobs fill the queue.
+- Use current verified S3 profile capabilities for unchanged destinations.
+- Return a nonzero CLI exit status for partial queue failures while preserving complete JSON results.
+- Retry temporary metadata failures and preserve missing-file status.
 
-Schema 1/2 upgrades to schema 3 preserve queue history and settings. Back up before upgrading; older binaries cannot read schema 3. Removing history does not remove assets or files. Imported/existing files can be scanned or refreshed, and missing files remain distinguishable from completed downloads.
+No settings or database migration is required when upgrading from 0.12.0. macOS/Linux arm64/amd64 remain the supported build targets. Windows support is unchanged. See [the changelog](../CHANGELOG.md) and [workspace documentation](s3.md).
 
-S3 validation uses a local API emulator and does not access real cloud accounts. Each custom endpoint requires an explicit conditional-write test before upload. A read-only bucket test does not prove write permission. Remote verification reports size and full-content checksum separately. Multipart retry starts from the beginning after cleanup; durable continuation of individual parts is not implemented. Remote media deletion is not exposed.
-
-This is an unpublished candidate, not a published 1.0 release. macOS/Linux arm64/amd64 remain the build targets. Intel execution on the development Mac and Linux amd64 under an arm64 VM use emulation; production-provider configurations need separate acceptance testing.
+S3 validation uses a local API emulator; production cloud accounts and real site authentication require separate acceptance testing. Versioning this patch does not publish GitHub release assets.

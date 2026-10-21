@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — queue recovery fixes
+## 0.12.1 — 2026-10-21
 
 - Resume downloads blocked by disk/staging limits even when no worker was created yet.
 - Filter explicitly selected S3 jobs before pagination so older unrelated jobs cannot starve CLI uploads.
