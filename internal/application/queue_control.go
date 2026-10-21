@@ -238,6 +238,10 @@ func (s *Service) maintain() {
 				j := &s.jobs[i]
 				if containsState(j.State, WaitingDownload, WaitingDisk) && !s.resources.running(j.ID) {
 					next := WaitingDownload
+					if s.cancels[j.ID] == nil {
+						// No worker was created while disk capacity was unavailable.
+						next = Ready
+					}
 					if s.diskBlockedLocked(j.Request.Out) {
 						next = WaitingDisk
 					}

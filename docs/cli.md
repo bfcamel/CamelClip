@@ -37,3 +37,7 @@ Queue actions accept comma-separated job IDs. Bulk results can contain per-item 
 Library list/search flags include `--limit`, `--offset`, `--kind`, `--status`, `--container`, `--min-height`, `--sort`, `--since`, `--until`. `--json` is supported for relevant listing/detail/transfer commands; not every action emits JSON. Consult [S3 documentation](s3.md) for profile flags, private password descriptors, upload verification and confirmation requirements.
 
 `storage unlock` applies only to the current foreground process. It cannot unlock a later command. `storage upload` unlocks and executes its own selected upload jobs. Secrets must be entered at a hidden TTY prompt or supplied through a private descriptor, never command arguments.
+
+### Queue action exit status
+
+`queue add` and bulk queue actions print the complete JSON result array, including successful items. They exit nonzero if any item contains an `error`; scripts must not treat partial success as total success. Successful items are retained and are not rolled back.

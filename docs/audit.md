@@ -18,8 +18,7 @@ All product names, executable names, module imports, repository URLs, environmen
 
 ## Remaining findings / limits
 
-- **P2 — bulk CLI exit status:** queue add/action results include per-item errors in JSON, but item failures can still leave process exit status zero. Scripts must inspect each result's `Error` field; a future change should return nonzero after emitting the complete result list when any item fails. See `queueCLI` in `internal/ui/terminal/workspace_cli.go`.
-- **P2 — background metadata retry:** `LibraryService.Enrich` clears `NeedsProbe` after any probe failure, including a transient missing tool, and may write its older asset snapshot over the missing status set by `Refresh`. Manual refresh/scan can recover. Follow-up should preserve the refreshed record and distinguish transient failures from permanent ones.
+- The bulk CLI exit-status and background metadata findings below have been corrected by the 2026-10-21 follow-up.
 - Workspace CLI has a separate parser: general `--lang` and download flags are not accepted, and the command group must come first. This is documented; parser unification is outside this rename.
 - Secret bytes are cleared where practical, but Go string copies and garbage collection prevent a guarantee that every secret copy is immediately erased. Existing documentation states this limitation.
 - Native validation is macOS/arm64. The other three targets are cross-built; this does not establish native Linux/Intel desktop behavior.
@@ -38,3 +37,9 @@ See `docs/licensing.md` for the separate distribution/license audit. Exact local
 - `govulncheck`: no known vulnerabilities in called symbols or imported packages. Module-only finding [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932) concerns unused `golang.org/x/crypto/openpgp`; CamelClip uses Argon2id and does not import OpenPGP.
 
 The S3 timeout correction was reviewed and exercised by the normal transfer/cancellation tests; a wall-clock transfer longer than two minutes was not run. External production downloads/cloud accounts were not exercised in this audit.
+
+## Follow-up — 2026-10-21
+
+Corrected disk recovery for jobs blocked before worker creation; selected S3 job filtering now happens before the SQL limit; unchanged S3 destinations receive current verified profile capabilities. Queue add/bulk actions emit the complete result array and return failure if any item has an `error` field. Metadata enrichment retains failed probes for delayed retries, rotates through pending pages, and no longer overwrites missing-file status with a stale snapshot. Missing files stop automatic probing until a later explicit refresh/scan discovers them.
+
+Regression tests exercise these state transitions with temporary files, SQLite and fake download/upload/probe backends. No Windows support, dependency changes or database migration are introduced. Production cloud credentials and real site downloads are outside this validation scope.

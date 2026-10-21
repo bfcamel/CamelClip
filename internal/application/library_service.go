@@ -55,7 +55,10 @@ func (l *LibraryService) Refresh(ctx context.Context, id string) (core.Asset, er
 	if e != nil {
 		if os.IsNotExist(e) {
 			old.Status = "missing"
-			_, _ = l.repo.PutAsset(ctx, old)
+			old.NeedsProbe = false
+			if _, saveErr := l.repo.PutAsset(ctx, old); saveErr != nil {
+				return old, saveErr
+			}
 		}
 		return old, e
 	}
@@ -249,20 +252,32 @@ func (l *LibraryService) Enrich(parent context.Context) {
 		defer l.wg.Done()
 		tick := time.NewTicker(2 * time.Second)
 		defer tick.Stop()
+		offset := 0
+		retryAt := map[string]time.Time{}
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				page, e := l.repo.Assets(ctx, core.AssetQuery{NeedsProbe: true, Limit: 2})
+				page, e := l.repo.Assets(ctx, core.AssetQuery{NeedsProbe: true, Limit: 2, Offset: offset})
 				if e != nil {
 					continue
 				}
 				for _, a := range page.Items {
-					if _, e = l.Refresh(ctx, a.ID); e != nil {
-						a.NeedsProbe = false
-						_, _ = l.repo.PutAsset(ctx, a)
+					if time.Now().Before(retryAt[a.ID]) {
+						continue
 					}
+					if _, e = l.Refresh(ctx, a.ID); e != nil && !os.IsNotExist(e) {
+						// Probe failures may be transient. Do not overwrite Refresh's
+						// updated record with this older snapshot.
+						retryAt[a.ID] = time.Now().Add(30 * time.Second)
+					} else {
+						delete(retryAt, a.ID)
+					}
+				}
+				offset += len(page.Items)
+				if offset >= page.Total {
+					offset = 0
 				}
 			}
 		}

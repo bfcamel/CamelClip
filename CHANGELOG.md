@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased — CamelClip rename and audit
+## Unreleased — queue recovery fixes
+
+- Resume downloads blocked by disk/staging limits even when no worker was created yet.
+- Filter explicitly selected S3 jobs before pagination so older unrelated jobs cannot starve CLI uploads.
+- Refresh verified S3 profile capabilities for queued jobs without accepting destination changes.
+- Return a nonzero CLI status after reporting all queue action results when any item fails.
+- Preserve missing-file status and retry failed background metadata probes with a delay and fair page traversal.
+- Add regression coverage for disk recovery, selected upload backlogs, profile checks, partial CLI failures and library recovery.
+
+### CamelClip rename and earlier audit
 
 - Rename executable, module, TUI branding, paths, variables and build artifacts to CamelClip/camelclip. No legacy aliases or data migration.
 - Add explicit `camelclip tui`.
