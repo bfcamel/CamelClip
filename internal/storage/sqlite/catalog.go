@@ -522,8 +522,23 @@ func (r *Repository) RecoverUploads(ctx context.Context) error {
 	_, e := r.db.ExecContext(ctx, `UPDATE s3_upload_jobs SET state='waiting_unlock',record=json_set(record,'$.state','waiting_unlock') WHERE state IN ('uploading','remote_check','canceling')`)
 	return e
 }
-func (r *Repository) PendingUploads(ctx context.Context, limit int) ([]core.UploadJob, error) {
-	rows, e := r.db.QueryContext(ctx, `SELECT u.record FROM s3_upload_jobs u JOIN s3_profiles p ON p.id=u.profile_id WHERE u.state IN ('queued','waiting_unlock','waiting_slot','paused') AND json_extract(p.record,'$.enabled')=1 AND COALESCE(julianday(json_extract(u.record,'$.next_attempt')),0)<=julianday('now') ORDER BY u.rowid LIMIT ?`, min(max(limit, 1), 128))
+func (r *Repository) PendingUploads(ctx context.Context, limit int, allowed []string) ([]core.UploadJob, error) {
+	query := `SELECT u.record FROM s3_upload_jobs u JOIN s3_profiles p ON p.id=u.profile_id WHERE u.state IN ('queued','waiting_unlock','waiting_slot','paused') AND json_extract(p.record,'$.enabled')=1 AND COALESCE(julianday(json_extract(u.record,'$.next_attempt')),0)<=julianday('now')`
+	args := []any{}
+	if allowed != nil {
+		if len(allowed) == 0 {
+			return []core.UploadJob{}, nil
+		}
+		// JSON keeps the number of SQL parameters bounded for large selections.
+		ids, err := json.Marshal(allowed)
+		if err != nil {
+			return nil, err
+		}
+		query += " AND u.id IN (SELECT value FROM json_each(?))"
+		args = append(args, string(ids))
+	}
+	args = append(args, min(max(limit, 1), 128))
+	rows, e := r.db.QueryContext(ctx, query+" ORDER BY u.rowid LIMIT ?", args...)
 	if e != nil {
 		return nil, e
 	}

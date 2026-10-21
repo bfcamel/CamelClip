@@ -29,7 +29,7 @@ type ProfileRepository interface {
 }
 type UploadRepository interface {
 	RecoverUploads(context.Context) error
-	PendingUploads(context.Context, int) ([]core.UploadJob, error)
+	PendingUploads(context.Context, int, []string) ([]core.UploadJob, error)
 	Uploads(context.Context, int, int) ([]core.UploadJob, error)
 	Upload(context.Context, string) (core.UploadJob, error)
 	SaveUpload(context.Context, core.UploadJob) error

@@ -247,7 +247,7 @@ func queueCLI(ctx context.Context, p *jobPool, pos []string, f catalogFlags, o o
 			}
 			results = append(results, result)
 		}
-		return emitJSON(results)
+		return emitActionResults(results)
 	}
 	if len(pos) < 2 {
 		return &usageError{"job ID required"}
@@ -289,9 +289,20 @@ func queueCLI(ctx context.Context, p *jobPool, pos []string, f catalogFlags, o o
 		if pos[0] == "remove" && !f.yes {
 			return errors.New("history removal requires --yes; local files are kept")
 		}
-		return emitJSON(p.service.BulkAction(ids, pos[0]))
+		return emitActionResults(p.service.BulkAction(ids, pos[0]))
 	}
 	return &usageError{"unknown queue action"}
+}
+func emitActionResults(results []application.ActionResult) error {
+	if err := emitJSON(results); err != nil {
+		return err
+	}
+	for _, result := range results {
+		if result.Error != "" {
+			return errors.New("one or more queue actions failed; see JSON results")
+		}
+	}
+	return nil
 }
 func libraryCLI(ctx context.Context, w *application.Workspace, pos []string, f catalogFlags, o options) error {
 	switch pos[0] {

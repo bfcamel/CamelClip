@@ -389,7 +389,14 @@ func (s *CloudService) schedule() {
 	if s.vault.Locked() {
 		return
 	}
-	jobs, e := s.uploads.PendingUploads(s.ctx, s.options.Objects*2)
+	var allowed []string
+	if s.allowed != nil {
+		allowed = make([]string, 0, len(s.allowed))
+		for id := range s.allowed {
+			allowed = append(allowed, id)
+		}
+	}
+	jobs, e := s.uploads.PendingUploads(s.ctx, s.options.Objects*2, allowed)
 	if e != nil {
 		s.failure = e
 		return
@@ -422,6 +429,9 @@ func (s *CloudService) schedule() {
 			if e != nil {
 				j.State = "waiting_unlock"
 			} else {
+				// Destination equality was checked above. Refresh verified capabilities
+				// without silently accepting a different upload destination.
+				j.Profile = p
 				j.State = "uploading"
 				j.Updated = time.Now()
 				if e = s.uploads.SaveUpload(s.ctx, j); e != nil {
