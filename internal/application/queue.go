@@ -236,7 +236,10 @@ func (s *Service) availableLocked() error {
 	if s.failure != nil {
 		return s.failure
 	}
-	if s.closing || s.ctx.Err() != nil {
+	if s.closing {
+		return ErrClosed
+	}
+	if s.ctx.Err() != nil {
 		return core.ErrCanceled
 	}
 	return nil

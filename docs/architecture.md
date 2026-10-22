@@ -96,3 +96,9 @@ A future server needs its own executable, state directory and explicit service l
 Publication collisions require content identity, not just matching duration and codecs. A different existing file produces a conflict and preserves staged output. The publication ledger identifies each job/path pair, so a later attempt producing a different path is indexed independently; schema 4 preserves schema 3 publication history.
 
 Monitoring separates execution identity/count from the automatic retry budget. Explicit retry clears current output, metadata, timing and diagnostics, resets automatic retries, and retains cumulative execution history. Published assets survive attempt resets.
+
+## Service lifetime and cloud cleanup
+
+Library and cloud operations have serialized admission, a cancellation context and a join barrier. Shutdown rejects new calls and joins admitted calls before releasing shared storage. Enrichment startup is idempotent. Queue limit/policy mutations reject a closed service. Cloud fatal failures are exposed by Err, reads used by wait loops, and Close; Workspace.Close joins component errors.
+
+Explicit multipart cleanup reserves its job against scheduling and retry, performs remote work outside the service mutex, then merges only the matching multipart checkpoint into the current record. A concurrent cancellation is preserved. Vault locking cancels and joins tracked credential-bearing network tests and cleanup operations as well as upload workers.

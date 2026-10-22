@@ -19,6 +19,13 @@ import (
 )
 
 type CloudService struct {
+	life             *lifetime
+	closeOnce        sync.Once
+	closeErr         error
+	lockMu           sync.Mutex
+	cleanups         map[string]bool
+	network          map[string]context.CancelFunc
+	operations       sync.WaitGroup
 	ctx              context.Context
 	cancel           context.CancelFunc
 	profiles         ProfileRepository
@@ -40,7 +47,7 @@ type CloudService struct {
 
 func NewCloud(parent context.Context, p ProfileRepository, u UploadRepository, a AssetRepository, vault core.CredentialVault, factory func() core.CredentialVault, backend core.Uploader) *CloudService {
 	ctx, cancel := context.WithCancel(parent)
-	s := &CloudService{ctx: ctx, cancel: cancel, profiles: p, uploads: u, assets: a, vault: vault, factory: factory, backend: backend, options: core.UploadOptions{Objects: 2, Parts: 2}, active: map[string]context.CancelFunc{}, progress: map[string]core.Metrics{}}
+	s := &CloudService{life: newLifetime(ctx), cleanups: map[string]bool{}, network: map[string]context.CancelFunc{}, ctx: ctx, cancel: cancel, profiles: p, uploads: u, assets: a, vault: vault, factory: factory, backend: backend, options: core.UploadOptions{Objects: 2, Parts: 2}, active: map[string]context.CancelFunc{}, progress: map[string]core.Metrics{}}
 	s.failure = s.uploads.RecoverUploads(parent)
 	s.wg.Add(1)
 	go s.loop()
@@ -58,13 +65,29 @@ func (s *CloudService) SetOptions(o core.UploadOptions) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closing || s.ctx.Err() != nil {
+		return ErrClosed
+	}
+	if s.failure != nil {
+		return s.failure
+	}
 	s.options = o
 	return nil
 }
 func (s *CloudService) Profiles(ctx context.Context) ([]core.S3Profile, error) {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
 	return s.profiles.Profiles(ctx)
 }
 func (s *CloudService) Unlock(ctx context.Context, password []byte) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, e := s.profiles.VaultState(ctx)
@@ -74,6 +97,11 @@ func (s *CloudService) Unlock(ctx context.Context, password []byte) error {
 	return s.vault.Unlock(state, password)
 }
 func (s *CloudService) Initialize(ctx context.Context, password []byte) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, e := s.profiles.VaultState(ctx); e == nil {
@@ -95,6 +123,11 @@ func (s *CloudService) Initialize(ctx context.Context, password []byte) error {
 	return nil
 }
 func (s *CloudService) Rotate(ctx context.Context, oldPassword, newPassword []byte) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.active) > 0 {
@@ -144,19 +177,30 @@ func (s *CloudService) Rotate(ctx context.Context, oldPassword, newPassword []by
 	return nil
 }
 func (s *CloudService) Lock() {
+	s.lockMu.Lock()
+	defer s.lockMu.Unlock()
 	s.mu.Lock()
 	s.locking = true
+	for _, cancel := range s.network {
+		cancel()
+	}
 	for _, cancel := range s.active {
 		cancel()
 	}
 	s.mu.Unlock()
 	s.workers.Wait()
+	s.operations.Wait()
 	s.mu.Lock()
 	s.vault.Lock()
 	s.locking = false
 	s.mu.Unlock()
 }
 func (s *CloudService) SaveProfile(ctx context.Context, p core.S3Profile, c *core.Credentials) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e := core.ValidateProfile(p); e != nil {
@@ -179,11 +223,21 @@ func (s *CloudService) SaveProfile(ctx context.Context, p core.S3Profile, c *cor
 	return s.profiles.SaveProfile(ctx, p, sealed)
 }
 func (s *CloudService) DeleteProfile(ctx context.Context, id string) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.profiles.DeleteProfile(ctx, id)
 }
 func (s *CloudService) Reset(ctx context.Context, confirmed bool) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	if !confirmed {
 		return errors.New("explicit reset confirmation required")
 	}
@@ -200,6 +254,11 @@ func (s *CloudService) credentials(ctx context.Context, id string) (core.Credent
 	return s.vault.Open(id, secret)
 }
 func (s *CloudService) Test(ctx context.Context, id string, write bool) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	p, e := s.profiles.Profile(ctx, id)
 	if e != nil {
@@ -207,6 +266,14 @@ func (s *CloudService) Test(ctx context.Context, id string, write bool) error {
 		return e
 	}
 	c, e := s.credentials(ctx, id)
+	if e == nil && s.locking {
+		e = errors.New("vault is locking")
+	}
+	if e == nil {
+		var finish func()
+		ctx, finish = s.networkOperationLocked(ctx)
+		defer finish()
+	}
 	s.mu.Unlock()
 	if e != nil {
 		return e
@@ -232,6 +299,11 @@ func (s *CloudService) Test(ctx context.Context, id string, write bool) error {
 	return nil
 }
 func (s *CloudService) Enqueue(ctx context.Context, assetID string, profileIDs []string) ([]core.UploadJob, error) {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, e := s.assets.Asset(ctx, assetID)
@@ -268,8 +340,16 @@ func (s *CloudService) Enqueue(ctx context.Context, assetID string, profileIDs [
 	return jobs, nil
 }
 func (s *CloudService) List(ctx context.Context, limit, offset int) ([]core.UploadJob, error) {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.failure != nil {
+		return nil, s.failure
+	}
 	items, e := s.uploads.Uploads(ctx, limit, offset)
 	for i := range items {
 		if m, ok := s.progress[items[i].ID]; ok {
@@ -279,9 +359,14 @@ func (s *CloudService) List(ctx context.Context, limit, offset int) ([]core.Uplo
 	return items, e
 }
 func (s *CloudService) Retry(ctx context.Context, id string, acceptDestination bool) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.active[id] != nil {
+	if s.active[id] != nil || s.cleanups[id] {
 		return errors.New("upload is active")
 	}
 	j, e := s.uploads.Upload(ctx, id)
@@ -321,6 +406,11 @@ func (s *CloudService) Retry(ctx context.Context, id string, acceptDestination b
 	return s.uploads.SaveUpload(ctx, j)
 }
 func (s *CloudService) Cancel(ctx context.Context, id string) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	j, e := s.uploads.Upload(ctx, id)
@@ -340,17 +430,32 @@ func (s *CloudService) Cancel(ctx context.Context, id string) error {
 	return s.uploads.SaveUpload(ctx, j)
 }
 func (s *CloudService) Cleanup(ctx context.Context, id string) error {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	s.mu.Lock()
 	j, e := s.uploads.Upload(ctx, id)
 	if e != nil {
 		s.mu.Unlock()
 		return e
 	}
-	if s.active[id] != nil {
+	if s.active[id] != nil || s.cleanups[id] {
 		s.mu.Unlock()
 		return errors.New("upload is active")
 	}
 	c, e := s.credentials(ctx, j.ProfileID)
+	if e == nil && s.locking {
+		e = errors.New("vault is locking")
+	}
+	if e == nil {
+		s.cleanups[id] = true
+		var finish func()
+		ctx, finish = s.networkOperationLocked(ctx)
+		defer finish()
+		defer func() { s.mu.Lock(); delete(s.cleanups, id); s.mu.Unlock() }()
+	}
 	s.mu.Unlock()
 	if e != nil {
 		return e
@@ -361,8 +466,17 @@ func (s *CloudService) Cleanup(ctx context.Context, id string) error {
 	if e = s.backend.Cleanup(ctx, j.Profile, c, j.Key, j.MultipartID); e != nil {
 		return e
 	}
-	j.MultipartID = ""
-	return s.uploads.SaveUpload(ctx, j)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current, e := s.uploads.Upload(ctx, id)
+	if e != nil {
+		return e
+	}
+	if current.MultipartID != j.MultipartID {
+		return errors.New("multipart checkpoint changed during cleanup")
+	}
+	current.MultipartID = ""
+	return s.uploads.SaveUpload(ctx, current)
 }
 func destinationEqual(a, b core.S3Profile) bool {
 	return a.Endpoint == b.Endpoint && a.Region == b.Region && a.Bucket == b.Bucket && a.Prefix == b.Prefix && a.Style == b.Style && a.KeyTemplate == b.KeyTemplate
@@ -405,7 +519,7 @@ func (s *CloudService) schedule() {
 		if s.allowed != nil && !s.allowed[j.ID] {
 			continue
 		}
-		if j.Terminal() || s.active[j.ID] != nil || j.State == "blocked_profile_changed" || j.State == "source_missing" || j.State == "conflict" || time.Now().Before(j.NextAttempt) {
+		if j.Terminal() || s.active[j.ID] != nil || s.cleanups[j.ID] || j.State == "blocked_profile_changed" || j.State == "source_missing" || j.State == "conflict" || time.Now().Before(j.NextAttempt) {
 			continue
 		}
 		p, e := s.profiles.Profile(s.ctx, j.ProfileID)
@@ -617,7 +731,7 @@ func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Cre
 	delete(s.active, j.ID)
 	delete(s.progress, j.ID)
 	j.Updated = time.Now()
-	if err == nil {
+	if err == nil && ctx.Err() == nil {
 		j.State = "done"
 		j.Verification = result.Verification
 		j.ETag = result.ETag
@@ -676,20 +790,46 @@ func (s *CloudService) Stats() (int, *float64, error) {
 	}
 	return len(s.active), nil, s.failure
 }
-func (s *CloudService) Close() {
-	s.mu.Lock()
-	s.closing = true
-	s.cancel()
-	for _, cancel := range s.active {
-		cancel()
-	}
-	s.mu.Unlock()
-	s.wg.Wait()
-	s.workers.Wait()
-	s.vault.Lock()
+func (s *CloudService) Close() error {
+	s.closeOnce.Do(func() {
+		s.life.stop()
+		s.mu.Lock()
+		s.closing = true
+		s.cancel()
+		for _, cancel := range s.active {
+			cancel()
+		}
+		s.mu.Unlock()
+		s.wg.Wait()
+		s.workers.Wait()
+		s.life.wait()
+		s.lockMu.Lock()
+		defer s.lockMu.Unlock()
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.vault.Lock()
+		s.closeErr = s.failure
+	})
+	return s.closeErr
+}
+
+func (s *CloudService) Err() error { s.mu.Lock(); defer s.mu.Unlock(); return s.failure }
+
+// Called with mu held; Lock prevents admission before waiting on operations.
+func (s *CloudService) networkOperationLocked(parent context.Context) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(parent)
+	id := core.NewID()
+	s.network[id] = cancel
+	s.operations.Add(1)
+	return ctx, func() { cancel(); s.mu.Lock(); delete(s.network, id); s.mu.Unlock(); s.operations.Done() }
 }
 
 func (s *CloudService) HasVault(ctx context.Context) bool {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return false
+	}
+	defer done()
 	_, e := s.profiles.VaultState(ctx)
 	return e == nil
 }
@@ -708,8 +848,16 @@ func (s *CloudService) Restrict(ids []string) {
 }
 
 func (s *CloudService) Get(ctx context.Context, id string) (core.UploadJob, error) {
+	ctx, done, err := s.life.begin(ctx)
+	if err != nil {
+		return core.UploadJob{}, err
+	}
+	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.failure != nil {
+		return core.UploadJob{}, s.failure
+	}
 	j, e := s.uploads.Upload(ctx, id)
 	if m, ok := s.progress[id]; ok {
 		j.Metrics = core.CloneMetrics(m)

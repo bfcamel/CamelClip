@@ -22,6 +22,11 @@ func (s *Service) SetLimits(l core.Limits) error {
 	if err := l.Validate(); err != nil {
 		return err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.availableLocked(); err != nil {
+		return err
+	}
 	s.resources.update(l)
 	return nil
 }

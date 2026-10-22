@@ -42,6 +42,9 @@ func (s *Service) SetPolicy(p QueuePolicy) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.availableLocked(); err != nil {
+		return err
+	}
 	s.policy = p
 	s.scheduleLocked()
 	return nil
