@@ -170,15 +170,15 @@ func DestinationKey(p S3Profile, a Asset) string {
 }
 
 type UploadJob struct {
-	ID                         string    `json:"id"`
-	AssetID                    string    `json:"asset_id"`
-	ProfileID                  string    `json:"profile_id"`
-	Profile                    S3Profile `json:"destination"`
-	Key                        string    `json:"key"`
-	State                      string    `json:"state"`
-	ErrorCode                  string    `json:"error_code,omitempty"`
-	Error                      string    `json:"error,omitempty"`
-	Attempts                   int       `json:"attempts"`
+	ID                         string      `json:"id"`
+	AssetID                    string      `json:"asset_id"`
+	ProfileID                  string      `json:"profile_id"`
+	Profile                    S3Profile   `json:"destination"`
+	Key                        string      `json:"key"`
+	State                      UploadState `json:"state"`
+	ErrorCode                  string      `json:"error_code,omitempty"`
+	Error                      string      `json:"error,omitempty"`
+	Attempts                   int         `json:"attempts"`
 	Created, Updated, Finished time.Time
 	NextAttempt                time.Time `json:"next_attempt"`
 	Size                       int64     `json:"size"`
@@ -191,9 +191,38 @@ type UploadJob struct {
 	Auto                       bool    `json:"automatic"`
 }
 
-func (j UploadJob) Terminal() bool {
-	return j.State == "done" || j.State == "failed" || j.State == "canceled"
+type UploadState string
+
+const (
+	UploadQueued         UploadState = "queued"
+	UploadWaitingUnlock  UploadState = "waiting_unlock"
+	UploadWaitingSlot    UploadState = "waiting_slot"
+	UploadPaused         UploadState = "paused"
+	UploadRunning        UploadState = "uploading"
+	UploadRemoteCheck    UploadState = "remote_check"
+	UploadCanceling      UploadState = "canceling"
+	UploadCanceled       UploadState = "canceled"
+	UploadDone           UploadState = "done"
+	UploadFailed         UploadState = "failed"
+	UploadConflict       UploadState = "conflict"
+	UploadSourceMissing  UploadState = "source_missing"
+	UploadProfileChanged UploadState = "blocked_profile_changed"
+)
+
+func (s UploadState) Valid() bool {
+	switch s {
+	case UploadQueued, UploadWaitingUnlock, UploadWaitingSlot, UploadPaused, UploadRunning, UploadRemoteCheck, UploadCanceling, UploadCanceled, UploadDone, UploadFailed, UploadConflict, UploadSourceMissing, UploadProfileChanged:
+		return true
+	}
+	return false
 }
+func (s UploadState) Terminal() bool {
+	return s == UploadDone || s == UploadFailed || s == UploadCanceled
+}
+func (s UploadState) NeedsAttention() bool {
+	return s == UploadConflict || s == UploadSourceMissing || s == UploadProfileChanged
+}
+func (j UploadJob) Terminal() bool { return j.State.Terminal() }
 
 type UploadOptions struct {
 	Objects, Parts int
@@ -216,6 +245,11 @@ type UploadSource interface {
 	io.ReadSeeker
 	io.ReaderAt
 }
+
+// Uploader serializes callbacks per Upload and joins them before returning.
+// Callbacks must return promptly and must not reenter their owning service.
+// Successful uploads return a verified object of the requested size; cancellation
+// must stop all parts and report whether multipart cleanup is still required.
 type Uploader interface {
 	Test(context.Context, S3Profile, Credentials, bool) error
 	Upload(context.Context, S3Profile, Credentials, string, UploadSource, int64, string, int, int64, func(UploadEvent)) (RemoteObject, error)

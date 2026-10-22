@@ -56,3 +56,30 @@ func Validate(s Settings) error {
 	}
 	return core.Validate(core.Request{URL: "https://example.com/video", Mode: s.Mode, Quality: s.Quality, Audio: s.Audio, Out: s.Out, Cookies: s.Browser, Codec: s.Codec, Container: s.Container})
 }
+
+// Defaults owns resource and media defaults shared by every local frontend.
+func Defaults(out string) Settings {
+	return Settings{Language: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: out, MaxDownloads: 5, MaxUploads: 2, UploadParts: 2, StagingFiles: 64, StagingBytes: 20 << 30, MinFreeBytes: 512 << 20}
+}
+
+// Normalize resolves documented zero resource defaults before validation/storage.
+func Normalize(s Settings) (Settings, error) {
+	if s.MaxDownloads == 0 {
+		s.MaxDownloads = 5
+	}
+	if s.MaxUploads == 0 {
+		s.MaxUploads = 2
+	}
+	if s.UploadParts == 0 {
+		s.UploadParts = 2
+	}
+	if err := Validate(s); err != nil {
+		return s, err
+	}
+	r, err := core.NormalizeRequest(core.Request{URL: "https://example.com", Mode: s.Mode, Quality: s.Quality, Audio: s.Audio, Out: s.Out, Cookies: s.Browser, Codec: s.Codec, Container: s.Container})
+	if err != nil {
+		return s, err
+	}
+	s.Out = r.Out
+	return s, nil
+}

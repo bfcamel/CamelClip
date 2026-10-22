@@ -250,7 +250,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			reply(w, nil, e)
 			return
 		}
-		if e := config.Validate(v); e != nil {
+		var normalizeErr error
+		v, normalizeErr = config.Normalize(v)
+		if e := normalizeErr; e != nil {
 			reply(w, nil, e)
 			return
 		}
@@ -356,7 +358,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 	case "choose":
 		err = ws.Queue.Choose(id, a.Value)
 	case "retry":
-		err = ws.Queue.Retry(id, s.settings.Browser)
+		err = ws.Queue.RetryWithOptions(id, application.RetryOptions{Browser: &s.settings.Browser})
 	case "cancel":
 		err = ws.Queue.Cancel(id)
 	case "remove":
@@ -375,19 +377,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		if a.Value == "remove" && !a.Confirm {
 			err = errors.New("confirmation required")
 		} else {
-			if a.Value == "retry" {
-				results := []application.ActionResult{}
-				for _, id := range a.IDs {
-					entry := application.ActionResult{ID: id}
-					if e := ws.Queue.Retry(id, s.settings.Browser); e != nil {
-						entry.Error = e.Error()
-					}
-					results = append(results, entry)
-				}
-				result = results
-			} else {
-				result = ws.Queue.BulkAction(a.IDs, a.Value)
-			}
+			result = ws.Queue.BulkActionWithOptions(a.IDs, a.Value, application.RetryOptions{Browser: &s.settings.Browser})
 		}
 	case "scan":
 		path := a.Path

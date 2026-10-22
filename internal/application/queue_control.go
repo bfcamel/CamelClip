@@ -4,6 +4,7 @@ package application
 
 import (
 	"errors"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -149,6 +150,9 @@ func containsState(s State, values ...State) bool {
 	return false
 }
 func (s *Service) BulkAction(ids []int, action string) []ActionResult {
+	return s.BulkActionWithOptions(ids, action, RetryOptions{})
+}
+func (s *Service) BulkActionWithOptions(ids []int, action string, options RetryOptions) []ActionResult {
 	result := make([]ActionResult, 0, len(ids))
 	seen := map[int]bool{}
 	for _, id := range ids {
@@ -165,7 +169,7 @@ func (s *Service) BulkAction(ids []int, action string) []ActionResult {
 		case "cancel":
 			err = s.Cancel(id)
 		case "retry":
-			err = s.Retry(id, "")
+			err = s.RetryWithOptions(id, options)
 		case "remove":
 			err = s.Remove(id)
 		case "low":
@@ -286,18 +290,8 @@ func (s *Service) diskBlockedLocked(out string) bool {
 	}
 	return false
 }
-func retryable(err error) bool {
-	if err == nil {
-		return false
-	}
-	t := strings.ToLower(err.Error())
-	for _, v := range []string{"timeout", "timed out", "connection reset", "connection refused", "temporary", "429", "502", "503", "504", "unexpected eof"} {
-		if strings.Contains(t, v) {
-			return true
-		}
-	}
-	return false
-}
+func retryable(err error) bool { return core.Retryable(err) }
+
 func retryDelay(attempt int) time.Duration {
 	return time.Duration((1<<min(attempt, 8)))*time.Second + time.Duration(rand.IntN(1000))*time.Millisecond
 }

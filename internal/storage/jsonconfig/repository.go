@@ -27,7 +27,7 @@ func (f File) Load(ctx context.Context) (config.Settings, error) {
 	}
 	data, err := os.ReadFile(f.Path)
 	if os.IsNotExist(err) {
-		return f.Defaults, nil
+		return config.Normalize(f.Defaults)
 	}
 	if err != nil {
 		return f.Defaults, err
@@ -39,21 +39,17 @@ func (f File) Load(ctx context.Context) (config.Settings, error) {
 	if err = json.Unmarshal(data, &s); err != nil {
 		return f.Defaults, err
 	}
-	var fields map[string]json.RawMessage
-	if err = json.Unmarshal(data, &fields); err != nil {
-		return f.Defaults, err
-	}
-	if _, exists := fields["max_concurrent_downloads"]; exists && s.MaxDownloads == 0 {
-		return f.Defaults, fmt.Errorf("max_concurrent_downloads must be 1..32")
-	}
-	if err = config.Validate(s); err != nil {
+	s, err = config.Normalize(s)
+	if err != nil {
 		return f.Defaults, err
 	}
 	return s, nil
 }
 func (f File) Save(ctx context.Context, s config.Settings) error {
-	if s.MaxDownloads == 0 {
-		s.MaxDownloads = 5
+	var err error
+	s, err = config.Normalize(s)
+	if err != nil {
+		return err
 	}
 	if _, err := f.Load(ctx); err != nil {
 		return fmt.Errorf("existing settings are invalid; back up and correct the file before saving: %w", err)

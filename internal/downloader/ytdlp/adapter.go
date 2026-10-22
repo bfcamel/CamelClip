@@ -120,7 +120,7 @@ func (e *Engine) Download(ctx context.Context, r core.Request, observer core.Obs
 	if ctx.Err() != nil {
 		return result, core.ErrCanceled
 	}
-	return result, err
+	return result, backendFailure(err)
 }
 func (e *Engine) Formats(ctx context.Context, r core.Request, observer core.Observer) error {
 	if err := core.Validate(r); err != nil {
@@ -207,4 +207,22 @@ func (w *eventWriter) measure(line string) {
 		detail = strconv.FormatFloat(*m.Percent, 'f', 0, 64) + "%"
 	}
 	w.observer(core.Event{Kind: core.Progress, Stage: core.Downloading, Metrics: &m, Detail: detail})
+}
+
+func backendFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	if core.CodeOf(err) != core.CodeBackend {
+		return err
+	}
+	text := strings.ToLower(err.Error())
+	temporary := false
+	for _, fragment := range []string{"timeout", "timed out", "connection reset", "connection refused", "temporary", "429", "502", "503", "504", "unexpected eof"} {
+		if strings.Contains(text, fragment) {
+			temporary = true
+			break
+		}
+	}
+	return &core.Failure{Code: core.CodeBackend, Message: err.Error(), Temporary: temporary, Cause: err}
 }
