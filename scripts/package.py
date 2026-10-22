@@ -24,14 +24,15 @@ def package():
         raise SystemExit('Release tag must match the application version: v' + version)
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     epoch = int(os.environ.get('SOURCE_DATE_EPOCH') or subprocess.check_output(['git', 'show', '-s', '--format=%ct', 'HEAD'], cwd=ROOT, text=True))
-    out = ROOT / 'dist'
+    out = ROOT / 'dist' / 'terminal'
     archives = []
     for system in ('macos', 'linux'):
         for arch in ('arm64', 'amd64'):
             name = f'camelclip_{version}_{system}_{arch}'
             binary = out / f'camelclip-{system}-{arch}'
-            files = {n: ((ROOT / n).read_bytes(), 0o755 if n.endswith('.sh') else 0o644) for n in ('README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.txt', 'CHANGELOG.md', 'install.sh')}
-            files.update({str(p.relative_to(ROOT)): (p.read_bytes(), 0o644) for p in (ROOT / 'docs').glob('*.md')})
+            files = {n: ((ROOT / n).read_bytes(), 0o755 if n.endswith('.sh') else 0o644) for n in ('README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.txt', 'CHANGELOG.md', 'install.sh', 'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md')}
+            files.update({str(p.relative_to(ROOT)): (p.read_bytes(), 0o644) for p in (ROOT / 'docs').rglob('*.md')})
+            files['internal/ui/gui/web/logo.png'] = ((ROOT / 'internal/ui/gui/web/logo.png').read_bytes(), 0o644)
             files['camelclip'] = (binary.read_bytes(), 0o755)
             if system == 'macos':
                 files['Start.command'] = ((ROOT / 'Start.command').read_bytes(), 0o755)

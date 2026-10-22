@@ -5,7 +5,18 @@ body:
     id: version
     attributes:
       label: Application version
-      description: Output of camelclip version.
+      description: Release tag, installer filename, or camelclip version output.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected interface or component
+      options:
+        - GUI
+        - TUI
+        - CLI
+        - Installer or updater
     validations:
       required: true
   - type: input

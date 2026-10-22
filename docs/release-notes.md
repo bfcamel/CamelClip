@@ -1,20 +1,23 @@
-# CamelClip 0.13.0 — installer preview
+# CamelClip 0.13.1 — English-only setup and project polish
 
-Public preliminary release with the graphical workspace, camel-player branding and selectable GUI/TUI/CLI installers. TUI/CLI remain available; GUI uses the same local services and exclusive workspace lock. No new settings or database migration is introduced by the installer.
+This preliminary release makes all installer messages and public project descriptions English-only. English and Russian remain available inside the application.
 
-## Downloads
+## Changes
 
-- macOS Apple Silicon / Intel: open the matching `camelclip_setup_0.13.0_macos_<arch>.pkg` and select GUI, TUI and/or CLI.
-- Linux arm64 / amd64: extract `camelclip_setup_0.13.0_linux_<arch>.tar.gz`, enter the directory and run `./setup.sh`; for automation use `./setup.sh --components gui,tui,cli --yes`.
-- macOS user-scoped archives are also provided; they do not require a system-wide package installation.
-- Verify the downloaded files against `SHA256SUMS`.
+- English-only terminal setup menus, confirmations, dependency reports, macOS package screens and legacy Finder launcher.
+- A shorter README with direct platform downloads, interface selection, prerequisites and documentation links.
+- Consolidated architecture, installation, contribution and release documentation; dated validation records moved to history.
+- Clean build directories: intermediate payloads in `dist/build/`, versioned installer artifacts in `dist/installers/<version>/`, and optional terminal-only archives in `dist/terminal/`.
+- A public-content check prevents non-English installer/publication text and broken local documentation links from returning.
 
-See [installer instructions](installers.md) for updating, component removal, paths and prerequisites.
+## Installation
+
+Use the matching macOS `.pkg`, or extract the Linux/user-scoped macOS archive and run `./setup.sh`. Select GUI, TUI, CLI, or any combination. See [installer instructions](installers.md) for updates and removal.
+
+No application settings or database migration is introduced by this patch. Program removal retains settings, history, media and encrypted profiles. Published `v0.13.0` assets remain unchanged; installer language changes are distributed as a new version.
 
 ## Preview limitations
 
-These installers are experimental, unsigned and not notarized by Apple. System-wide `.pkg` installation has not been accepted on a clean macOS system; native Linux and Intel runtime/desktop acceptance are pending. Linux GUI opens in a browser. The server component is not available. This preview is for evaluation, not a claim of production readiness.
+Packages/apps are unsigned and not notarized by Apple. Full system-wide macOS installation, native Linux/Intel runtime and desktop acceptance remain pending. Linux GUI opens in a browser. External yt-dlp, FFmpeg/ffprobe and, where required, Deno are not bundled. The server component is not available. This is an evaluation preview, not a production-readiness claim.
 
-Install yt-dlp, FFmpeg/ffprobe and, for relevant sites, Deno separately. Setup reports missing tools and does not silently install them or Homebrew. Existing `~/.local/bin/camelclip` can take precedence over a newly installed system command; check your PATH.
-
-All seven component combinations, user-scoped native macOS installs/removals in temporary prefixes, archive integrity, ownership checks and read-only native Installer choices are tested. Cross-builds are not native acceptance tests. Settings, media, history and encrypted profiles are retained on removal. Each file is published atomically; multi-file installation is not crash-atomic. Review [recorded validation](installer-validation.md) before use.
+See [testing and acceptance](testing.md) for automated coverage and outstanding checks.

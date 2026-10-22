@@ -1,46 +1,59 @@
-# Local release process
+# Release workflow
 
-Tests, builds and packaging run on the maintainer's machine. GitHub hosts source and release files; GitHub Actions and scheduled dependency bots are not part of this process.
+Releases are built locally. GitHub hosts the source and downloadable assets; publishing a tag does not trigger a build. All public release titles, descriptions, notes and installer text are English-only. Application localization remains independent.
 
-## Validate a candidate
+## 1. Prepare source
 
-Install Go 1.26+, Python 3, FFmpeg and ffprobe. Use a clean checkout and run:
+1. Update `internal/ui/terminal/cli.go`, `CHANGELOG.md`, `docs/release-notes.md`, and versioned download links in README/install documentation.
+2. Run `python3 scripts/check_public_content.py`, format Go, and validate the focused changes.
+3. Merge the release source and create a clean checkout of its exact commit. Do not build public packages from a modified working tree.
+4. Export `RELEASE_COMMIT` as the full source SHA and `SOURCE_DATE_EPOCH` as that commit's timestamp. Those values identify the release payload; they do not independently prove provenance.
+
+## 2. Validate and build
+
+Requirements: Go 1.26+, Python 3, yt-dlp, FFmpeg/ffprobe and, for relevant media workflows, Deno. macOS builds need Swift and the macOS SDK.
 
 ```sh
+python3 scripts/check_public_content.py
 test -z "$(gofmt -l cmd internal)"
-go test -race -count=1 -timeout=5m ./...
+go test -race -p 1 -count=1 -timeout=5m ./...
 go vet ./...
-go mod download all
-python3 scripts/notices.py
-go build -o camelclip ./cmd/camelclip
-python3 scripts/smoke.py ./camelclip
+sh scripts/build_installers.sh
+python3 scripts/test_installers.py
+```
+
+Use read-only macOS choice validation for the host architecture:
+
+```sh
+python3 scripts/test_installer_choices.py dist/installers/<version>/camelclip_setup_<version>_macos_<arch>.pkg
+```
+
+The installer release has **six payloads**: macOS arm64/amd64 `.pkg` files and four macOS/Linux user-setup archives, plus `SHA256SUMS`. Only files for that version belong in its checksum inventory. Debug Distribution XML and intermediate payload binaries are not release assets.
+
+The legacy terminal-only build remains available separately:
+
+```sh
 sh build.sh
 python3 scripts/package.py
 python3 scripts/test_packages.py
 ```
 
-`build.sh` cross-builds macOS/Linux for arm64/amd64. Cross-compilation alone is not a runtime test. Run smoke tests on each supported OS, record the OS/tool versions and distinguish native hardware from emulation. Media tests must run with FFmpeg installed; skipped media tests are not a successful release validation. External-site access checks remain manual and use content the tester can access.
+Its four archives and checksum file live in `dist/terminal/`; do not mix them with installer checksums.
 
-## Prepare and publish
+## 3. Record acceptance honestly
 
-1. Update the application version, CHANGELOG.md and docs/release-notes.md. Record the validation results for the candidate.
-2. Commit to main, validate that exact clean commit using the commands above, and push it. If anything changes, repeat the relevant checks and rebuild packages. Record the full commit and validation results with the candidate.
-3. Upload the four archives and SHA256SUMS to a draft GitHub release targeting that exact commit. Inspect the contents and test installation/upgrade from an extracted archive in an isolated account or machine.
-4. Publish only after the recorded checks and manual acceptance are complete. Give the release a unique matching tag, such as `v0.10.0`. Mark 0.x and release candidates as prereleases. A tag push by itself does not build or publish anything.
+Follow the [test and platform acceptance matrix](testing.md). Run media checks with their dependencies installed. Cross-builds and package inspection do not establish Linux desktop, Intel runtime or system-wide macOS installation acceptance. Tests must use isolated accounts/directories and disposable credentials.
 
-Unpublished drafts may be updated. Published tags and assets must never be moved or replaced; fixes require a new version. Keep the previous binary and a configuration backup for compatible rollback. Never downgrade an incompatible SQLite schema.
+For public macOS distribution, sign inner executables/app and outer package with the appropriate identities, then notarize. `INSTALLER_SIGN_ID` signs the outer package only. Credentials never belong in Git. Current previews are unsigned/not notarized and must say so explicitly; do not instruct users to disable OS security checks.
 
-Each archive contains the executable, installer, README, changelog, Apache license/notices and BUILD.json with the full source commit. SHA256SUMS covers exactly the four versioned archives. Packaging normalizes timestamps, ownership and file order; repeated packaging with the same inputs/toolchain is checked locally. This does not claim independently reproducible Go builds across toolchains.
+## 4. Upload, verify and publish
 
-```sh
-# Linux
-sha256sum -c SHA256SUMS
-# macOS
-shasum -a 256 -c SHA256SUMS
-```
+1. Create a draft release targeting the exact validated source SHA with a unique version tag. Mark 0.x and evaluation builds as prereleases.
+2. Upload six payloads and `SHA256SUMS`. Verify remote names, sizes and server SHA-256 digests against the local build.
+3. Review the English description, platform instructions, source SHA, remaining acceptance gaps, dependency requirements and known limitations.
+4. Publish only after the required acceptance is complete. An explicitly authorized experimental preview may be published with outstanding checks clearly documented; never describe it as production-ready.
+5. Verify that the public tag points to the expected source commit and every download is available.
 
-Checksums detect corruption, not publisher identity. Current builds are unsigned and macOS binaries are not notarized. External yt-dlp, FFmpeg and Deno are not bundled. Dependency updates are reviewed and tested manually.
+Published tags and assets must never be replaced or moved. Text descriptions may be corrected without changing files. Installer language or code changes require a new version. Keep old releases for reproducibility and mark superseded previews in their descriptions instead of deleting their history.
 
-## Component setup packages
-
-Build the GUI/TUI/CLI installers separately with `sh scripts/build_installers.sh`, then run `python3 scripts/test_installers.py`. See [component installer release and acceptance instructions](installers.md). These add native macOS packages and prebuilt user-setup archives; the original four terminal-only archives are retained for compatibility. Use the installer's own `dist/installers/SHA256SUMS`. Public release signing/notarization and native platform installation acceptance are separate steps; building a .pkg is not proof of them.
+Checksums detect corruption, not publisher identity. Do not downgrade an incompatible SQLite schema when rolling back executable files. Preserve user data throughout installation, maintenance and release testing.

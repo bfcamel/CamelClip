@@ -21,7 +21,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ROOT=Path(__file__).resolve().parent.parent
-OUT=ROOT/'dist/installers'
+from package_setup import OUT
 host_os='darwin' if platform.system()=='Darwin' else 'linux'
 host_arch='arm64' if platform.machine() in ('arm64','aarch64') else 'amd64'
 
@@ -49,6 +49,7 @@ for archive in archives:
             tar.extractall(tmp)
         source=next(p.parent for p in tmp.glob('*/manifest.json'))
         manifest=json.loads((source/'manifest.json').read_text())
+        assert not any('\u0400' <= c <= '\u04ff' for c in (source/'README.txt').read_text())
         assert manifest['schema']==1
         components={c['id']:c for c in manifest['components']}
         assert set(components)=={'manager','terminal','gui','tui','cli'}
@@ -102,7 +103,7 @@ for archive in archives:
                     run([manager,'--uninstall','--yes'],env=env)
                 assert not records(prefix)
                 assert (config/'settings.json').read_text()=='untouched test preferences'
-        # Exercise the actual bilingual menu through a terminal, not piped input.
+        # Exercise the English-only menu through a terminal, not piped input.
         prefix=tmp/'interactive-menu'
         master,slave=pty.openpty()
         try:
@@ -118,6 +119,7 @@ for archive in archives:
                     except OSError: break
             process.wait(timeout=10)
             assert process.returncode==0,output.decode(errors='replace')
+            assert not any('\u0400' <= c <= '\u04ff' for c in output.decode(errors='replace')), 'Installer output must be English-only'
             assert set(records(prefix))=={'manager','terminal','tui','cli'}
             run([prefix/'bin/camelclip-setup','--uninstall','--yes'],env=env)
         finally:
@@ -141,6 +143,8 @@ if host_os=='darwin':
             root=Path(tmp)/'expanded'
             run(['pkgutil','--expand-full',package,root])
             dist=ET.parse(root/'Distribution').getroot()
+            texts=[(root/'Distribution').read_text()]+[p.read_text() for p in (root/'Resources').rglob('*.html')]
+            assert all(not any('\u0400' <= c <= '\u04ff' for c in text) for text in texts), 'Package screens must be English-only'
             assert {c.attrib['id'] for c in dist.findall('choice')}=={'manager','terminal','gui','tui','cli'}
             assert dist.find('options').attrib['customize']=='always'
             for name in ['manager','terminal','gui','tui','cli']:

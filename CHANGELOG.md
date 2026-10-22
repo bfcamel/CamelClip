@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.1 — 2026-10-22 (preview)
+
+- Make installer, package and launcher messages English-only while preserving application localization.
+- Rewrite README and contributor/release guidance; consolidate current documentation and archive dated reports.
+- Organize intermediate builds, versioned installers and legacy terminal archives under dedicated output directories.
+- Add public English-content and documentation-link checks.
+- Preserve published v0.13.0 assets; distribute setup language changes under a new version.
+
 ## 0.13.0 — 2026-10-22 (preview)
 
 - Add the graphical workspace alongside the existing TUI and CLI, with the shared exclusive workspace lock.

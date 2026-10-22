@@ -9,7 +9,7 @@ import sys
 import tarfile
 from package import ROOT, source_version
 
-out = ROOT / 'dist'
+out = ROOT / 'dist' / 'terminal'
 checksums = (out / 'SHA256SUMS').read_text()
 expected = {f'camelclip_{source_version()}_{os}_{arch}.tar.gz' for os in ('macos', 'linux') for arch in ('arm64', 'amd64')}
 seen = set()

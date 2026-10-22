@@ -18,9 +18,10 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'dist' / 'installers'
 IDENTIFIER = 'com.bfcamel.camelclip'
 VERSION = re.search(r'const version = "([^"]+)"', (ROOT/'internal/ui/terminal/cli.go').read_text()).group(1)
+OUT = ROOT / 'dist' / 'installers' / VERSION
+BUILD = ROOT / 'dist' / 'build'
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -156,8 +157,8 @@ exit 0
                 args+=['--component-plist',str(plist)]
             args.append(str(packages/(name+'.pkg')))
             subprocess.run(args,check=True)
-        (resources/'welcome.html').write_text('''<html><body><h1>CamelClip</h1><p>Choose GUI, TUI and/or CLI. / Выберите GUI, TUI и/или CLI.</p><p>GUI is the graphical application. TUI opens a terminal workspace. CLI installs shell commands. Terminal files are shared automatically.</p><p>Existing components left unchecked are kept, not removed. Use camelclip-setup for explicit removal.</p><p>Close CamelClip before installing. User settings and media are retained.</p><p>This development package is unsigned. It does not download dependencies or start services.</p></body></html>''')
-        (resources/'conclusion.html').write_text('''<html><body><h1>Installation complete / Установка завершена</h1><p>GUI: /Applications/CamelClip.app<br>TUI: /Applications/CamelClip TUI.command or camelclip-tui<br>CLI: camelclip help</p><p>Dependency report: /Library/Application Support/CamelClip/installation/dependencies.txt</p><p>Install missing yt-dlp, ffmpeg/ffprobe and Deno before downloading. Setup never installs Homebrew or third-party tools.</p><p>Manage: camelclip-setup --status<br>Remove: sudo camelclip-setup --remove gui --yes<br>Uninstall: sudo camelclip-setup --uninstall --yes</p><p>Existing ~/.local/bin/camelclip may take precedence in your PATH. Review `command -v camelclip` if you used an older installer.</p></body></html>''')
+        (resources/'welcome.html').write_text('''<html><body><h1>CamelClip</h1><p>Choose GUI, TUI and/or CLI.</p><p>GUI is the graphical application. TUI opens a terminal workspace. CLI installs shell commands. Terminal files are shared automatically.</p><p>Existing components left unchecked are kept, not removed. Use camelclip-setup for explicit removal.</p><p>Close CamelClip before installing. User settings and media are retained.</p><p>This development package is unsigned. It does not download dependencies or start services.</p></body></html>''')
+        (resources/'conclusion.html').write_text('''<html><body><h1>Installation complete</h1><p>GUI: /Applications/CamelClip.app<br>TUI: /Applications/CamelClip TUI.command or camelclip-tui<br>CLI: camelclip help</p><p>Dependency report: /Library/Application Support/CamelClip/installation/dependencies.txt</p><p>Install missing yt-dlp, ffmpeg/ffprobe and Deno before downloading. Setup never installs Homebrew or third-party tools.</p><p>Manage: camelclip-setup --status<br>Remove: sudo camelclip-setup --remove gui --yes<br>Uninstall: sudo camelclip-setup --uninstall --yes</p><p>Existing ~/.local/bin/camelclip may take precedence in your PATH. Review `command -v camelclip` if you used an older installer.</p></body></html>''')
         (resources/'license.txt').write_bytes((ROOT/'LICENSE').read_bytes())
         dist=ET.Element('installer-gui-script',{'minSpecVersion':'2'})
         ET.SubElement(dist,'title').text='CamelClip '+VERSION
@@ -179,7 +180,7 @@ exit 0
         outline=ET.SubElement(dist,'choices-outline')
         for id in ['manager','terminal','gui','tui','cli']: ET.SubElement(outline,'line',{'choice':id})
         for id in ['manager','terminal','gui','tui','cli']:
-            attrs=dict(id=id,title={'manager':'Shared setup and notices','terminal':'Shared terminal runtime','gui':'GUI — Graphical application / Графический интерфейс','tui':'TUI — Terminal workspace / Терминальный интерфейс','cli':'CLI — Shell commands / Команды терминала'}[id],description={'gui':'Install CamelClip.app in Applications.','tui':'Install terminal workspace launchers.','cli':'Install the camelclip command.','manager':'Shared maintenance utility and license notices.','terminal':'One runtime shared by CLI and TUI.'}[id])
+            attrs=dict(id=id,title={'manager':'Shared setup and notices','terminal':'Shared terminal runtime','gui':'GUI — Graphical application','tui':'TUI — Terminal workspace','cli':'CLI — Shell commands'}[id],description={'gui':'Install CamelClip.app in Applications.','tui':'Install terminal workspace launchers.','cli':'Install the camelclip command.','manager':'Shared maintenance utility and license notices.','terminal':'One runtime shared by CLI and TUI.'}[id])
             if id in ['manager','terminal']:
                 attrs.update(visible='false',enabled='false',selected='choices.gui.selected || choices.tui.selected || choices.cli.selected' if id=='manager' else 'choices.tui.selected || choices.cli.selected')
             else: attrs['start_selected']=f"defaultChoice('{id}')"
@@ -204,14 +205,14 @@ def main():
     # Never reuse an old payload tree: it may contain removed release files.
     with tempfile.TemporaryDirectory(prefix='camelclip-setup-package-') as tmp:
         stage=Path(tmp)/directory.name
-        binaries={key:ROOT/'dist'/f'{name}-{label}-{arch}' for key,name in [('terminal','camelclip'),('gui','camelclip-gui'),('setup','camelclip-setup')]}
-        app=ROOT/'dist'/f'CamelClip-macos-{arch}.app' if system=='darwin' else None
+        binaries={key:BUILD/f'{name}-{label}-{arch}' for key,name in [('terminal','camelclip'),('gui','camelclip-gui'),('setup','camelclip-setup')]}
+        app=BUILD/f'CamelClip-macos-{arch}.app' if system=='darwin' else None
         manifest=component_manifest(stage,system,arch,binaries,app,os.environ.get('RELEASE_COMMIT','development-local'))
         archive(stage,Path(str(directory)+'.tar.gz'),int(os.environ.get('SOURCE_DATE_EPOCH','0')))
         if args.pkg:
             if system!='darwin': parser.error('--pkg requires --os darwin')
             mac_package(stage,manifest,arch,Path(str(directory)+'.pkg'))
-    artifacts=[p for p in OUT.iterdir() if p.suffix=='.pkg' or p.name.endswith('.tar.gz')]
+    artifacts=[p for p in OUT.glob(f'camelclip_setup_{VERSION}_*') if p.suffix=='.pkg' or p.name.endswith('.tar.gz')]
     (OUT/'SHA256SUMS').write_text(''.join(digest(p.read_bytes())+'  '+p.name+'\n' for p in sorted(artifacts)))
     print('Packaged',directory.name)
 

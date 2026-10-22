@@ -1,155 +1,116 @@
+<p align="center">
+  <img src="internal/ui/gui/web/logo.png" width="104" height="104" alt="CamelClip logo">
+</p>
+
 # CamelClip
 
-A local terminal video and audio downloader for macOS and Linux, written in Go. Uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for supported sites and FFmpeg/ffprobe for processing and verification. Apache-2.0 licensed.
+**A local video and audio workspace for macOS and Linux — GUI, TUI and CLI.**
 
-## Getting started
+Download with yt-dlp, process and verify with FFmpeg, organize a persistent media library, and optionally upload to S3-compatible storage. Written in Go and licensed under Apache-2.0.
 
-This is a pre-release development project. Build from source using the commands below if no release archive is available. The executable is `camelclip`; `camelclip tui` opens the terminal interface. On macOS, double-click `Start.command` in the installed application folder.
+[Download the preview](https://github.com/bfcamel/CamelClip/releases/tag/v0.13.1) · [Installation](docs/installers.md) · [CLI reference](docs/cli.md) · [Contributing](CONTRIBUTING.md)
 
+## Download and install
 
-Install yt-dlp, FFmpeg/ffprobe and a supported JavaScript runtime such as Deno. YouTube also needs yt-dlp's [EJS components](https://github.com/yt-dlp/yt-dlp/wiki/EJS). Dependencies must be on PATH.
+Choose your operating system and architecture. Each installer lets you select **GUI**, **TUI**, **CLI**, or any combination.
 
-On macOS:
+| Platform | Recommended download |
+| --- | --- |
+| macOS — Apple Silicon | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_macos_arm64.pkg) |
+| macOS — Intel | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_macos_amd64.pkg) |
+| Linux — x86_64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_linux_amd64.tar.gz) |
+| Linux — ARM64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_linux_arm64.tar.gz) |
+
+macOS user-scoped archives and [SHA256SUMS](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/SHA256SUMS) are available on the release page. Installer text and project documentation are English-only; the application supports English and Russian.
+
+**Preview status:** builds are unsigned and not notarized by Apple. Native Linux/Intel acceptance and system-wide macOS installation acceptance remain pending. See [platform support](docs/support.md) before use. Windows and a server edition are not available.
+
+### macOS
+
+Open the `.pkg`, select components, and follow the installer. GUI is installed to `/Applications/CamelClip.app`. TUI has a Finder launcher and the `camelclip-tui` command; CLI provides `camelclip`.
+
+### Linux
+
+Extract the setup archive, enter the extracted directory, and run:
+
+```sh
+./setup.sh                                # Interactive component menu
+./setup.sh --components gui,tui,cli --yes  # Install all components
+```
+
+Installation is user-scoped by default and does not require `sudo`. Add `~/.local/bin` to PATH if your shell does not already include it. Linux GUI opens in your default browser.
+
+See [installer instructions](docs/installers.md) for custom prefixes, updates, component removal and the legacy terminal-only installer.
+
+### Runtime dependencies
+
+Install **yt-dlp** and **FFmpeg/ffprobe**. Deno and yt-dlp's EJS support are needed for relevant YouTube workflows. Dependencies must be on PATH; installers report missing tools and never silently install third-party software.
+
+On macOS with Homebrew:
 
 ```sh
 brew install yt-dlp ffmpeg deno
 ```
 
-On Linux, install FFmpeg and optionally xdg-utils from your distribution (for example `sudo apt install ffmpeg xdg-utils` on Debian/Ubuntu). Use current [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) and [Deno](https://docs.deno.com/runtime/getting_started/installation/) distributions. Distribution yt-dlp packages may lag behind site changes.
+On Linux, use your distribution for FFmpeg and desktop tools, and follow the official [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) and [Deno](https://docs.deno.com/runtime/getting_started/installation/) installation instructions. Site behavior and account access can change independently of CamelClip.
 
-Extract the package for your OS/architecture, then:
+## Choose your interface
+
+| Interface | Best for | Launch |
+| --- | --- | --- |
+| GUI | A graphical workspace for downloads, library and S3 | Open CamelClip on macOS; `camelclip-gui` on Linux |
+| TUI | Keyboard-driven use in a terminal or SSH session | `camelclip-tui` or `camelclip tui` |
+| CLI | Explicit commands and scripts | `camelclip help` |
+
+The interfaces share settings, queue/history, the library and the encrypted S3 vault. One process owns a local workspace at a time; a second GUI/TUI session reports the existing lock. Installing multiple interfaces does not start them automatically.
+
+## What CamelClip does
+
+- **Download video and audio:** batch URLs, quality selection, video codecs/containers and audio extraction.
+- **Control the queue:** separate download/processing limits, fixed-share rate budgets, priorities, pending pause, cancellation, retry and bulk actions.
+- **Keep a local library:** search, filters, metadata refresh, folder scanning, playback and explicit file management.
+- **Verify before publication:** staged downloads, stream/duration checks, full FFmpeg decode and publication without overwriting existing media.
+- **Use optional S3 storage:** encrypted local credentials, independent upload slots, destination preview and verification status.
+- **Inspect health:** offline dependency/storage diagnostics, job history, logs and CPU/RAM monitoring.
+
+## CLI quick start
 
 ```sh
-sh install.sh --add-to-path
-# Open a new terminal.
-camelclip
-```
-
-On first interactive launch, setup asks for language, output directory, video profile and optional browser access, then checks dependencies/storage. You can retry the checks or open the app and fix dependencies later. Settings are saved only after confirmation. CLI help, version, config and download commands never start the wizard. Existing saved settings bypass it.
-
-The installer uses `~/.local/bin/camelclip`. `--add-to-path` updates `~/.zprofile` for macOS/zsh, `~/.bashrc` for Linux bash, or `~/.profile` for Linux sh. Other shells need manual PATH setup. Use `--bin-dir /absolute/path` for a custom location and `--force` to replace an installed binary. To uninstall, remove the binary and the startup line marked `# CamelClip CLI`; media and application data are retained.
-
-## Component installers
-
-Prebuilt setup packages let you choose GUI, TUI and CLI. On macOS, open the matching `.pkg`; on Linux, extract the setup archive and run `./setup.sh` for the menu, or `./setup.sh --components gui,tui,cli --yes`. Installation, updates, removal and build instructions are in [Component installers](docs/installers.md). Build all installer targets on macOS with `sh scripts/build_installers.sh`.
-
-## Graphical interface
-
-A separate GUI is available alongside TUI/CLI. On macOS, run `sh scripts/build_gui.sh`, then open `dist/CamelClip.app`. The native window uses the same workspace and exclusive instance lock as TUI. On Linux, the GUI opens in the default browser. See [GUI launch, build and validation](docs/gui.md).
-
-## Commands
-
-```sh
-camelclip tui                              # Interactive setup/dashboard
-camelclip                                  # Same interface
-camelclip download 'VIDEO_URL'
 camelclip download 'VIDEO_URL' --quality 1080
 camelclip audio 'VIDEO_URL' --audio-format mp3
-camelclip formats 'VIDEO_URL'
 camelclip download --list links.txt
-camelclip download 'VIDEO_URL' --video-codec vp9 --video-format webm
-camelclip download 'VIDEO_URL' --cookies-browser firefox:default-release
-camelclip setup                             # Run guided setup again
-camelclip config                            # Effective settings as JSON
-camelclip doctor                            # Offline checks and guidance
-camelclip doctor --json > doctor.json        # Shareable diagnostic report
-camelclip version
-camelclip help download
+camelclip queue list --json
+camelclip library list --json
+camelclip doctor
 ```
 
-Use an explicit command for downloads. URLs are positional; multiple URLs or a text list (one URL per line, `#` comments accepted) are supported. Flags may appear before/after URLs. `--` ends flag parsing. `download` always selects video; `audio` selects audio regardless of saved mode. `--lang auto|en|ru` selects the UI language.
+`download` selects video and `audio` selects audio regardless of saved defaults. Each job captures its settings when submitted. Supported video codecs are H.264, HEVC, VP9 and AV1; containers are MP4, MKV and compatible WebM profiles. Audio formats include MP3, M4A, Opus, FLAC, WAV and best available. See [complete command and rate-limit details](docs/cli.md).
 
-Video codecs: `h264` (default), `hevc`, `vp9`, `av1`. Containers: `mp4` (default), `mkv`; `webm` for VP9/AV1 only. Video audio uses AAC, or Opus for WebM. Audio-only formats: `mp3`, `m4a`, `opus`, `flac`, `wav`, `best`. Each queued job captures its own settings; changing preferences affects new jobs.
+## Your files and settings
 
-## Terminal workspace
+Application data lives in `~/Library/Application Support/CamelClip/` on macOS and `${XDG_CONFIG_HOME:-$HOME/.config}/CamelClip/` on Linux. `CAMELCLIP_CONFIG_DIR` selects an isolated workspace. Downloads default to the system Downloads folder under `CamelClip`.
 
-The current workspace has four panels: jobs (`1`), library (`2`), uploads (`3`), and S3 profiles (`4`). CPU/RAM is available with `c`. The shortcuts below describe the jobs panel; library and S3 keys differ. See [the complete workspace controls](docs/s3.md).
+Settings and queue/history are stored separately. Removing history does not delete media; physical file deletion is a separate confirmed action. Uninstalling program components retains settings, history, encrypted profiles and downloaded media. Browser cookies are disabled unless explicitly selected. Review logs before sharing them because they can contain paths and URLs.
 
-- **Jobs:** inspection, quality selection, download, processing and verification. Enter selects quality or opens details; `x` cancels, `r` retries and `d` removes finished history without deleting files.
-- **Event log:** recent progress and errors.
+## Build and contribute
 
-`Tab` / `Shift+Tab` switch status tabs; arrows or `j`/`k` select jobs. `a` adds video or audio, `v` quickly adds video, `/` searches titles and URLs, `Enter` opens details, `?` shows help. `s` opens Settings, `f` opens the download folder, `o` reveals the selected completed file, `l` opens the log, and `q` exits. `x` cancels, `r` retries, and `d` removes history only after confirmation. In nested settings, Esc/left/Backspace returns to the parent. The layout adapts from 40 × 10 to wide windows with details and logs. Numbered menus are used when terminal controls are unavailable. English and Russian are supported. Downloads continue while browsing settings.
-
-Download and processing limits are independent: five network transfers and `max(cpu_count / 4, 2)` processing tasks by default (integer division). Processing includes merging, audio extraction, conversion and full verification. Configure these in Settings or override for one CLI invocation with `--max-downloads 1..32` and `--max-processing auto|1..32`.
-
-### Limit download speed / Ограничение скорости скачивания
-
-In the terminal interface, press `s` to open Settings. Set **Rate budget: fixed shares, new downloads** (Russian: **Бюджет скорости: фиксированные доли, новые загрузки**) for the total download budget, or **Per-job rate: new downloads** (**Предел на задание: новые загрузки**) for each download. Enter a value such as `2MiB/s` or `512KiB/s` and confirm with Enter. These settings are saved for subsequent launches. Enter `0` to disable the corresponding limit.
-
-В терминальном интерфейсе нажмите `s` → выберите **«Бюджет скорости: фиксированные доли, новые загрузки»** для общего бюджета или **«Предел на задание: новые загрузки»** для ограничения каждого файла → введите, например, `2MiB/s` или `512KiB/s` → нажмите Enter. Значение сохраняется в настройках. `0` отключает соответствующее ограничение.
-
-For a single CLI invocation / Для одного запуска из командной строки:
+Building requires Go 1.26+ and Python 3; macOS GUI/package builds also need Xcode Command Line Tools. Runtime users do not need a compiler or Python.
 
 ```sh
-# Total budget of 2 MiB/s across downloads / Общий бюджет 2 МиБ/с
-camelclip download --list links.txt --rate-limit 2MiB/s
-
-# Cap each file at 512 KiB/s / Не более 512 КиБ/с на файл
-camelclip download 'VIDEO_URL' --job-rate-limit 512KiB/s
-
-# One download can use the full 2 MiB/s budget / Весь бюджет одному файлу
-camelclip download 'VIDEO_URL' --max-downloads 1 --rate-limit 2MiB/s
-
-# Disable both limits for this invocation / Отключить оба ограничения на этот запуск
-camelclip download 'VIDEO_URL' --rate-limit 0 --job-rate-limit 0
-```
-
-Rates are **bytes per second**, not bits: `1MiB/s` = 1,048,576 B/s (about 8.39 Mbit/s). The global budget is divided into fixed shares based on the configured maximum downloads; unused shares are not redistributed. For example, `--rate-limit 5MiB/s --max-downloads 5` gives each download at most `1MiB/s`, even if only one is active. When both limits are set, the smaller nonzero per-job limit or global share applies. Changes affect newly launched network processes; running transfers keep their existing limits. CLI overrides do not overwrite saved preferences. S3 upload speed has a separate setting.
-
-Скорость задаётся в **байтах в секунду**, а не в битах. Общий бюджет делится на настроенный максимум одновременных скачиваний: при бюджете `5MiB/s` и пяти слотах каждый файл получает не более `1MiB/s`, даже если скачивается только один. Свободные доли не перераспределяются. Если заданы оба ограничения, действует меньшее ненулевое значение: доля общего бюджета или предел на файл. Новые значения применяются к новым сетевым процессам; уже работающие сохраняют прежние ограничения. Параметры CLI действуют только на текущий запуск. Скорость отправки в S3 настраивается отдельно.
-
-Progress percentages belong to separate stages. Missing totals/speed/ETA display as an em dash; speeds older than three seconds are marked stale. Queue schema upgrades preserve existing history transactionally.
-
-## Storage and integrity
-
-Preferences (`settings.json`) and queue/history (`queue.sqlite3`) are separate:
-
-- macOS: `~/Library/Application Support/CamelClip/`
-- Linux: `${XDG_CONFIG_HOME:-$HOME/.config}/CamelClip/`
-- Override: `CAMELCLIP_CONFIG_DIR=/absolute/path`
-
-The default output is `~/Downloads/CamelClip`; Linux respects localized `XDG_DOWNLOAD_DIR`. Browser cookies are disabled by default and only read when explicitly selected. Firefox/Chrome profile selectors use yt-dlp syntax. Safari is macOS-only; Flatpak/Snap browser profiles may require explicit paths. Cookies cannot grant access your account lacks.
-
-Queue writes are transactional and one session owns the queue at a time. Interrupted active work is restored on restart; processing/verification may restart from the beginning. Failed jobs can be retried; manually canceled jobs stay canceled. Corrupt databases are reported, never silently reset.
-
-Files remain in hidden request-specific staging directories while downloading, converting and verifying. Missing fragments abort the download. FFprobe checks streams/duration and FFmpeg fully decodes the result before atomic publication. Existing files are never overwritten. A failed job retains staged data for retry. A subprocess-held staging lock prevents simultaneous writers after an abrupt parent exit; cancellation terminates the process group.
-
-Doctor checks tools, selected encoders, writable storage, free space, settings and SQLite integrity. It does not read cookies or test site authentication. JSON reports exclude URLs, private paths, profile selectors and raw dependency output. Normal download logs may contain paths/URLs; review them before sharing.
-
-## Build and validate
-
-Go 1.26+ and Python 3 are needed for building/packaging; CGO is not required for the application. FFmpeg/ffprobe are required for media tests.
-
-```sh
-go test -race -count=1 -timeout=5m ./...
+go test -race -p 1 -count=1 -timeout=5m ./...
 go vet ./...
-go build -o camelclip ./cmd/camelclip
-python3 scripts/smoke.py ./camelclip
-sh build.sh
-python3 scripts/package.py
-python3 scripts/test_packages.py
+sh scripts/build_gui.sh          # Local macOS app: dist/CamelClip.app
+sh scripts/build_installers.sh   # All installer targets; run on macOS
+python3 scripts/test_installers.py
 ```
 
-`dist/` contains `camelclip-{macos,linux}-{arm64,amd64}`, versioned archives and SHA256SUMS. On macOS, `Start.command` launches the terminal interface. Verify checksums with `shasum -a 256 -c SHA256SUMS` (macOS) or `sha256sum -c SHA256SUMS` (Linux). Builds are unsigned; macOS binaries are not notarized. Published release files must never be replaced.
+Generated files stay under `dist/`: `build/` for intermediate installer payloads, `installers/<version>/` for distributable packages, and `terminal/` for optional terminal-only release archives. See [contributor instructions](CONTRIBUTING.md) and the [release workflow](docs/releases.md).
 
-## Naming and application data
+## Documentation
 
-CamelClip uses only `camelclip`, `CAMELCLIP_CONFIG_DIR`, and the CamelClip directories listed above. Earlier development builds are not migrated or aliased. Existing settings, queues, media and encrypted vaults under a different product name are not read or deleted. Configure a new S3 vault/profile for CamelClip; do not copy an older encrypted vault into it.
-
-## Project documentation
-
-- [CLI reference](docs/cli.md)
-- [Code audit](docs/audit.md), [License inventory and distribution](docs/licensing.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Supported environments](docs/support.md)
-- [Architecture and adding a GUI](docs/architecture.md)
-- [Failure tests](docs/testing.md)
-- [Local release process](docs/releases.md)
-- [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [Community conduct](CODE_OF_CONDUCT.md)
-- [Changelog](CHANGELOG.md), [License](LICENSE), [Notices](NOTICE), [Third-party licenses](THIRD_PARTY_LICENSES.txt)
-
-Windows is not currently supported. The GUI is documented in [docs/gui.md](docs/gui.md). Site access depends on yt-dlp, the current site behavior and your account/network. No hosted automation is required for local checks or release packaging.
-
-## Queue, library and S3 workspace
-
-Use `1`–`4` for jobs/library/uploads/profiles and `c` for every logical CPU and system RAM. Queue ordering, pending pause, group actions, a persistent media index and locally encrypted S3 destinations are available in TUI and CLI. S3 is optional, uses separate slots and never changes a successful local download into a failure. [Controls, commands, secret handling and transfer guarantees](docs/s3.md).
+- [Installation and removal](docs/installers.md) · [Graphical interface](docs/gui.md)
+- [CLI reference](docs/cli.md) · [Queue, library and S3](docs/s3.md)
+- [Troubleshooting](docs/troubleshooting.md) · [Platform support](docs/support.md)
+- [Architecture](docs/architecture.md) · [Testing and acceptance](docs/testing.md)
+- [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Community guidelines](CODE_OF_CONDUCT.md)
+- [License](LICENSE) · [Distribution licensing](docs/licensing.md) · [Third-party notices](THIRD_PARTY_LICENSES.txt)

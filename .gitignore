@@ -6,3 +6,10 @@
 
 __pycache__/
 /camelclip-linux-*
+
+# Local release metadata and language/tool caches
+/BUILD.json
+/camelclip-gui
+/camelclip-setup
+.pytest_cache/
+*.pyc
