@@ -110,3 +110,11 @@ Downloader and uploader callbacks are serialized and must finish before their op
 Core.Failure carries a stable code, cause and retryability; application retry policy does not parse diagnostic text. Text classification of yt-dlp failures belongs to the yt-dlp adapter. UploadState owns valid, terminal and needs-attention categories. Existing JSON state values remain unchanged.
 
 RetryWithOptions and BulkActionWithOptions distinguish preserving browser authentication (nil), replacing it, and clearing it (pointer to an empty string). Legacy Retry remains compatible. Frontends share the bulk implementation and current-browser policy. Config owns defaults and canonical normalization, including zero resource defaults and absolute output paths. Bootstrap.OpenQueue honors the requested metadata worker count.
+
+## Incremental queue persistence
+
+SQLite implements the optional IncrementalRepository port. Queue saves contain only dirty jobs and explicit removals; unmentioned history is retained. Changed jobs, publication reconciliation, source records and automatic uploads still commit in one transaction. Restored state is flushed once, and shutdown flushes resumable active state. Repositories implementing only Save(Snapshot) remain supported. Persistence calls receive a ten-second context deadline and errors stop scheduling.
+
+Queue uses an ID index and exposes JobsPage(offset, limit), capped at 200 immutable jobs per read, alongside the compatible Jobs snapshot API.
+
+A local macOS arm64 benchmark with 1,000 stored jobs and one modified row (10 iterations) measured approximately 39.4 ms / 4.49 MB allocated per full snapshot versus 0.236 ms / 5.23 KB per incremental transaction. This measures persistence overhead on one machine, not an end-to-end throughput guarantee. Run `go test ./internal/storage/sqlite -run '^$' -bench 'BenchmarkQueue(Snapshot|Incremental)1000' -benchtime=10x` to reproduce.
