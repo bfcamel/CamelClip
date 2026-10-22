@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS s3_profile_secrets(profile_id TEXT PRIMARY KEY REFERE
 CREATE TABLE IF NOT EXISTS s3_secret_store(id INTEGER PRIMARY KEY CHECK(id=1),record BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS s3_upload_jobs(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL,profile_id TEXT NOT NULL,state TEXT NOT NULL,identity TEXT NOT NULL UNIQUE,record TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS uploads_state ON s3_upload_jobs(profile_id,state);
-CREATE TABLE IF NOT EXISTS publication_outbox(job_id INTEGER PRIMARY KEY,asset_id TEXT NOT NULL,path TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS publication_outbox(job_id INTEGER NOT NULL,asset_id TEXT NOT NULL,path TEXT NOT NULL,PRIMARY KEY(job_id,path));
 `
 
 func encode(v any) (string, error) { b, e := json.Marshal(v); return string(b), e }
@@ -467,7 +467,7 @@ func (r *Repository) EnqueueUpload(ctx context.Context, j core.UploadJob) (core.
 // Publication and automatic upload creation are part of the queue's transaction.
 func reconcilePublishedTx(ctx context.Context, tx *sql.Tx, path string, title string, url string, jobID int, mode string, duration float64) error {
 	var done int
-	if e := tx.QueryRowContext(ctx, "SELECT 1 FROM publication_outbox WHERE job_id=?", jobID).Scan(&done); e == nil {
+	if e := tx.QueryRowContext(ctx, "SELECT 1 FROM publication_outbox WHERE job_id=? AND path=?", jobID, path).Scan(&done); e == nil {
 		return nil
 	}
 	var id string

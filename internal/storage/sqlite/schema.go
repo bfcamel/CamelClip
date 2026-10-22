@@ -41,10 +41,24 @@ func (r *Repository) schema(ctx context.Context, version int) error {
 			return err
 		}
 	}
+	if version == 3 {
+		// Retain all previously committed publications while widening their identity.
+		if _, err = tx.ExecContext(ctx, "ALTER TABLE publication_outbox RENAME TO publication_outbox_v3"); err != nil {
+			return err
+		}
+	}
 	if _, err = tx.ExecContext(ctx, catalogSchema); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=3"); err != nil {
+	if version == 3 {
+		if _, err = tx.ExecContext(ctx, "INSERT INTO publication_outbox SELECT job_id,asset_id,path FROM publication_outbox_v3"); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, "DROP TABLE publication_outbox_v3"); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=4"); err != nil {
 		return err
 	}
 	return tx.Commit()

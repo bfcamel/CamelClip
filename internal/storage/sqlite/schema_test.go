@@ -48,7 +48,7 @@ func TestVersionOneQueueMigratesWithoutLosingHistory(t *testing.T) {
 	}
 	var version int
 	repo.db.QueryRow("PRAGMA user_version").Scan(&version)
-	if version != 3 {
+	if version != 4 {
 		t.Fatal(version)
 	}
 }

@@ -265,6 +265,13 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 		if err = verifyMedia(ctx, target, o.Mode == "video", o.Duration); err != nil {
 			return fmt.Errorf("existing file is invalid; kept unchanged: %s: %w", target, err)
 		}
+		same, compareErr := sameContent(ctx, result, target)
+		if compareErr != nil {
+			return compareErr
+		}
+		if !same {
+			return fmt.Errorf("publication conflict: existing file differs; kept unchanged: %s", target)
+		}
 	}
 	if o.Mode == "video" {
 		if err = verifyVideoProfile(ctx, target, o); err != nil {
@@ -304,4 +311,48 @@ func lockDownload(ctx context.Context, lock *os.File) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+// Content identity, rather than playability, makes publication retries idempotent.
+func sameContent(ctx context.Context, a, b string) (bool, error) {
+	hash := func(path string) ([32]byte, error) {
+		var sum [32]byte
+		f, err := os.Open(path)
+		if err != nil {
+			return sum, err
+		}
+		defer f.Close()
+		st, err := f.Stat()
+		if err != nil {
+			return sum, err
+		}
+		if !st.Mode().IsRegular() {
+			return sum, errors.New("publication target is not a regular file")
+		}
+		h := sha256.New()
+		buf := make([]byte, 128*1024)
+		for {
+			if err = ctx.Err(); err != nil {
+				return sum, err
+			}
+			n, e := f.Read(buf)
+			if n > 0 {
+				h.Write(buf[:n])
+			}
+			if e == io.EOF {
+				break
+			}
+			if e != nil {
+				return sum, e
+			}
+		}
+		copy(sum[:], h.Sum(nil))
+		return sum, nil
+	}
+	x, e := hash(a)
+	if e != nil {
+		return false, e
+	}
+	y, e := hash(b)
+	return x == y, e
 }
