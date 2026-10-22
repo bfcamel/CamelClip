@@ -57,16 +57,19 @@ type Job struct {
 	History      []JobEvent
 }
 type Monitoring struct {
-	CreatedAt  time.Time
-	StartedAt  time.Time
-	UpdatedAt  time.Time
-	FinishedAt time.Time
-	Attempts   int
-	LastError  string
-	ErrorCode  string
-	Download   core.Metrics
-	Process    core.Metrics
-	Verify     core.Metrics
+	AttemptID        string
+	Executions       int
+	AutomaticRetries int
+	CreatedAt        time.Time
+	StartedAt        time.Time
+	UpdatedAt        time.Time
+	FinishedAt       time.Time
+	Attempts         int
+	LastError        string
+	ErrorCode        string
+	Download         core.Metrics
+	Process          core.Metrics
+	Verify           core.Metrics
 }
 type Snapshot struct {
 	NextID int
@@ -365,6 +368,14 @@ func (s *Service) Retry(id int, browser string) error {
 	s.jobs[i].State = Queued
 	s.jobs[i].Detail = ""
 	s.jobs[i].Info = core.MediaInfo{}
+	s.jobs[i].OutputPath = ""
+	s.jobs[i].Request.Duration = 0
+	s.jobs[i].Request.ExpectedParts = 0
+	s.jobs[i].Monitoring.AttemptID = ""
+	s.jobs[i].Monitoring.AutomaticRetries = 0
+	s.jobs[i].Monitoring.LastError = ""
+	s.jobs[i].Monitoring.ErrorCode = ""
+	s.jobs[i].Monitoring.UpdatedAt = time.Now()
 	s.jobs[i].Control.NextAttempt = time.Time{}
 	s.jobs[i].Monitoring.Attempts++
 	s.jobs[i].Monitoring.Download = core.Metrics{}
@@ -444,6 +455,10 @@ func (s *Service) scheduleLocked() {
 			continue
 		}
 		if inspecting {
+			if j.Monitoring.AttemptID == "" {
+				j.Monitoring.AttemptID = core.NewID()
+				j.Monitoring.Executions++
+			}
 			j.State = Inspecting
 			s.metadataActive++
 		} else {
@@ -535,8 +550,11 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		j.Detail = err.Error()
 		j.Monitoring.LastError = err.Error()
 		j.Monitoring.ErrorCode = "backend"
-		if retryable(err) && j.Monitoring.Attempts < s.policy.RetryAttempts {
+		if retryable(err) && j.Monitoring.AutomaticRetries < s.policy.RetryAttempts {
 			j.Monitoring.Attempts++
+			j.Monitoring.AutomaticRetries++
+			j.Monitoring.AttemptID = ""
+			j.OutputPath = ""
 			j.Control.NextAttempt = time.Now().Add(retryDelay(j.Monitoring.Attempts))
 			j.State = Queued
 			j.Detail = "Retry scheduled"
@@ -565,6 +583,8 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		}
 	} else {
 		j.State = Done
+		j.Monitoring.LastError = ""
+		j.Monitoring.ErrorCode = ""
 		n := 100.0
 		j.Monitoring.Verify.Percent = &n
 		j.OutputPath = result.Path
