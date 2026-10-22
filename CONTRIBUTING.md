@@ -1,33 +1,44 @@
-# Contributing
+# Contributing to CamelClip
 
-CamelClip is a terminal video downloader for macOS and Linux, licensed under Apache-2.0. Contributions through issues and pull requests are welcome. Windows is outside the current supported scope. The additional GUI frontend is described in [docs/gui.md](docs/gui.md).
+CamelClip is a local media workspace with GUI, TUI and CLI frontends for macOS and Linux. Contributions are licensed under Apache-2.0. Please report reproducible problems and keep changes focused.
 
-## Development
+## Public language
 
-Install Go 1.26+, FFmpeg and ffprobe, then clone the repository. yt-dlp and Deno are needed for real site downloads; automated checks use local fixtures and never need an account or cookies.
+Repository documentation, issue/PR descriptions, release notes, packaging and installer messages are written in English. The application supports English and Russian; preserve both application localizations and the tests that exercise them. Do not translate legal notices or user-provided media metadata.
+
+## Development setup
+
+Use Go 1.26+ and Python 3. Install yt-dlp, FFmpeg/ffprobe and Deno for media smoke tests. macOS GUI/package builds require Xcode Command Line Tools. Automated fixtures must not use real browser cookies, cloud credentials or remote media sites.
 
 ```sh
-go test -race -count=1 -timeout=5m ./...
+python3 scripts/check_public_content.py
+test -z "$(gofmt -l cmd internal)"
+go test -race -p 1 -count=1 -timeout=5m ./...
 go vet ./...
-go build -o camelclip ./cmd/camelclip
-python3 scripts/smoke.py ./camelclip
-sh build.sh
-python3 scripts/package.py
-python3 scripts/test_packages.py
+mkdir -p dist/build
+go build -o dist/build/camelclip ./cmd/camelclip
+python3 scripts/smoke.py dist/build/camelclip
 ```
 
-Format Go changes with `gofmt`. Tests that use media tools skip when those tools are unavailable locally; install those tools before release validation so the media tests run. `build.sh` cross-builds all four supported targets. No test should access YouTube, use your real browser profile or fill the host disk.
+Use `-p 1` for the full race suite on loaded machines: process/diagnostic fixtures have bounded timeouts. A skipped required media test is not release acceptance. See [testing](docs/testing.md) for platform-specific checks.
 
-## Architecture
+## Build outputs
 
-Read [docs/architecture.md](docs/architecture.md). Keep `core` and `application` independent of UI, concrete databases and external tools. Add frontend behavior through the existing ports. OS integration belongs in platform files, not the downloader contract. Architecture tests enforce package directions.
+- `sh scripts/build_gui.sh`: local GUI at `dist/CamelClip.app` on macOS.
+- `sh scripts/build_installers.sh`: four installer targets; run on macOS for native `.pkg` files.
+- `python3 scripts/test_installers.py`: archive integrity, ownership and isolated user-installation tests.
+- `sh build.sh`, `python3 scripts/package.py`, `python3 scripts/test_packages.py`: optional terminal-only archives in `dist/terminal/`.
 
-Add tests for observable behavior and regressions, especially cancellation, atomic publication and persistence failure. Preserve existing user files; never recover a damaged queue by silently replacing it with an empty one. New database schemas need explicit migrations and failure tests. Changes to settings and CLI flags need compatibility notes.
+Do not commit binaries, app bundles, installer packages, caches, Finder metadata or local `BUILD.json` files. Source assets such as `internal/ui/gui/web/logo.png` belong in Git; generated icons belong in build outputs.
 
-## Pull requests
+## Architecture and compatibility
 
-Describe the user-visible problem, resulting behavior, testing and any migration. Keep unrelated changes separate. By submitting a contribution, you agree to license it under Apache-2.0. Preserve third-party notices and add dependency licenses when introducing a library. Maintainers review and merge; no release schedule or response-time guarantee is implied.
+Read [architecture](docs/architecture.md). Keep `core` and `application` independent of frontend implementations, databases and external tools. Use the existing application ports and preserve dependency-direction tests. Keep installers independent of application presentation and protect installed-file ownership.
 
-For access problems, reproduce with an up-to-date yt-dlp first. Do not attach cookies, browser databases, private URLs or your queue database to an issue. See [SECURITY.md](SECURITY.md) for private reporting.
+Add behavior/regression tests for cancellation, recovery, persistence and installer changes. Preserve settings, history, encrypted vaults and media. Database changes need explicit transactional migrations and failure coverage. Never repair a corrupt queue by replacing it with an empty database. Document changes to CLI flags, settings, supported platforms and installation paths.
 
-Dependency updates are reviewed manually: inspect upstream release notes, update go.mod/go.sum and third-party notices where needed, then run the local checks.
+## Pull requests and releases
+
+Describe the user-visible problem, resulting behavior, relevant tests and compatibility impact. Mention verification limits; cross-compilation is not native acceptance. Keep titles and descriptions in English. Maintainers review and merge; published tags and binary assets are immutable. Follow the [release checklist](docs/releases.md) for new distributions.
+
+Do not put credentials, private URLs, browser databases or queue databases in issues or PRs. See [security reporting](SECURITY.md) for sensitive findings. Preserve third-party notices and review redistribution licenses before adding dependencies or bundled executables.

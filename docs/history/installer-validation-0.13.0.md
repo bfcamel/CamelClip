@@ -1,4 +1,6 @@
-# Installer validation — 2026-10-22
+> Historical snapshot. Current acceptance limits are maintained in [testing](../testing.md).
+
+# Installer validation snapshot — 0.13.0 (2026-10-22)
 
 Public preview candidate: CamelClip 0.13.0. Release artifacts must be rebuilt from the final merged source commit. No earlier published assets are replaced.
 
@@ -11,7 +13,7 @@ Public preview candidate: CamelClip 0.13.0. Release artifacts must be rebuilt fr
 | Four prebuilt user-setup archives, per-file hashes and executable architecture | Passed |
 | Native macOS arm64 user-scoped installation in temporary prefixes | Passed for all seven combinations |
 | Native installed CLI execution, repeated install, add/remove/uninstall, preserved test data | Passed |
-| Interactive bilingual menu through a real PTY | Passed |
+| Historical bilingual menu through a real PTY | Passed |
 | Both macOS .pkg payloads and component ownership records | Expanded and inspected; passed |
 | macOS Installer default selection and seven dependency combinations | Read-only evaluation passed |
 | System-wide .pkg installation into /Applications and /usr/local | Not performed; requires isolated system/account acceptance |
@@ -21,4 +23,4 @@ Public preview candidate: CamelClip 0.13.0. Release artifacts must be rebuilt fr
 
 User installation tests used temporary configuration/prefix directories and disposable fixture preferences. No real browser profiles, vault credentials, queue databases or downloaded user media were accessed by installer tests. macOS choice validation used only `-showChoicesXML` and `-showChoicesAfterApplyingChangesXML`; neither installs a package.
 
-Build all targets with `sh scripts/build_installers.sh`. See [installer instructions](installers.md) for verification commands and release requirements.
+Build all targets with `sh scripts/build_installers.sh`. See [installer instructions](../installers.md) for verification commands and release requirements.

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 set -eu
 cd "$(dirname "$0")/.."
+python3 scripts/check_public_content.py
 mkdir -p dist
 version=$(sed -n 's/^const version = "\([^"]*\)"/\1/p' internal/ui/terminal/cli.go)
 case "$(uname -s)" in
@@ -72,6 +73,7 @@ LAUNCH
 PLIST
   printf 'Built %s\n' "$app"
  ;;
- *) go build -trimpath -o dist/camelclip-gui ./cmd/camelclip-gui
-    printf 'Built dist/camelclip-gui (opens the local UI in your browser)\n' ;;
+ *) mkdir -p dist/build
+    go build -trimpath -o dist/build/camelclip-gui ./cmd/camelclip-gui
+    printf 'Built dist/build/camelclip-gui (opens the local UI in your browser)\n' ;;
 esac

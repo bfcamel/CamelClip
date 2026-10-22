@@ -33,3 +33,21 @@ With yt-dlp installed, the local HTTP integration test downloads and verifies vi
 `python3 scripts/test_workspace.py ./camelclip` starts a temporary loopback-only S3 API server and a real FFmpeg fixture. It exercises CLI library import/exclusion/reimport, private descriptor password/credential input, read-only and conditional-write tests, upload verification and deduplication. It checks database/WAL bytes for test secrets and confirms index removal keeps the file. No real keys/accounts are used.
 
 Go tests cover priority and disk-pressure permit ordering, 10,000 paginated assets with Unicode search, published-asset/source retention, publication/automatic-upload idempotency, AEAD record binding/tampering, wrong-password unlock, atomic password rotation, per-session locking, independent two-object S3 concurrency, failed-profile isolation and recovery of acknowledged remote objects. S3 adapter tests stream both single and multipart files and reject endpoints that ignore conditional writes. Metrics tests cover initial unknown CPU, delta/reset counters and every core in a scrollable resource panel. Secret entry fields are checked against rendered output.
+
+## Component setup and public content
+
+`python3 scripts/check_public_content.py` checks English-only public documentation/installer sources and relative documentation links. It intentionally does not scan application localization fixtures or third-party legal text. `go test -race ./internal/installer` covers all seven choices, ownership, path safety, checksum rejection, workspace locks, preservation and failed-upgrade rollback.
+
+After building all installer targets, `python3 scripts/test_installers.py` validates all archive hashes and executable architectures, runs seven native user-scoped install/reinstall/add/remove/uninstall combinations, exercises the English terminal menu through a PTY, launches native CLI, and inspects both macOS package payloads. It uses temporary prefixes/configuration and disposable files. macOS Installer choice evaluation is read-only with `scripts/test_installer_choices.py`.
+
+### Current acceptance limits
+
+| Area | Current evidence | Remaining acceptance |
+| --- | --- | --- |
+| macOS arm64 application/installer | Race suite, native CLI/user installs, archive tests and read-only package choice evaluation | System-wide installation on a clean system/account |
+| macOS Intel | Cross-build and artifact inspection | Native runtime and installer acceptance |
+| Linux arm64/amd64 | Cross-build, ELF/manifest checks and common installer unit tests | Native setup, browser/desktop integration and runtime acceptance |
+| Public distribution | Versioned artifacts and checked hashes | Apple signing and notarization |
+| S3 | Local API emulator | Production provider/account-specific acceptance |
+
+Past reports are retained under `docs/history/` for context only. They are not a statement that current release binaries passed native acceptance on those platforms. Run the full suite with `-p 1` when the machine is loaded to reduce process-fixture timing noise.

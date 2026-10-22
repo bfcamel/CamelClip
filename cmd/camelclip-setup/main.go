@@ -82,14 +82,14 @@ func run() error {
 		if info == nil || info.Mode()&os.ModeCharDevice == 0 {
 			return fmt.Errorf("noninteractive setup requires --components, --remove, or --uninstall (and --yes)")
 		}
-		fmt.Println("CamelClip Setup / Установка CamelClip")
-		fmt.Println("1  GUI — graphical application / графический интерфейс")
-		fmt.Println("2  TUI + CLI — terminal workspace and commands / терминал и команды")
-		fmt.Println("3  GUI + TUI + CLI — everything / всё")
-		fmt.Println("4  Custom / свой выбор: gui,tui,cli")
-		fmt.Println("5  Update installed components / обновить установленные")
-		fmt.Println("6  Remove components / удалить компоненты")
-		fmt.Println("0  Cancel / отмена")
+		fmt.Println("CamelClip Setup")
+		fmt.Println("1  GUI - graphical application")
+		fmt.Println("2  TUI + CLI - terminal workspace and commands")
+		fmt.Println("3  GUI + TUI + CLI - all components")
+		fmt.Println("4  Custom selection: gui,tui,cli")
+		fmt.Println("5  Update installed components")
+		fmt.Println("6  Remove components")
+		fmt.Println("0  Cancel")
 		fmt.Print("> ")
 		choice, _ := in.ReadString('\n')
 		switch strings.TrimSpace(choice) {
@@ -109,7 +109,7 @@ func run() error {
 				return fmt.Errorf("nothing installed yet")
 			}
 		case "6":
-			fmt.Print("Remove / удалить (gui,tui,cli or all) > ")
+			fmt.Print("Remove (gui,tui,cli or all) > ")
 			v, _ := in.ReadString('\n')
 			v = strings.TrimSpace(v)
 			if v == "all" {
@@ -157,7 +157,7 @@ func run() error {
 			}
 		}
 		if len(missing) > 0 {
-			fmt.Println("Missing tools / Не найдены:", strings.Join(missing, ", "))
+			fmt.Println("Missing tools:", strings.Join(missing, ", "))
 			fmt.Println("Install these with your system package manager. Deno is recommended for YouTube. Setup does not install third-party tools.")
 			if *require {
 				return fmt.Errorf("dependency check failed")
@@ -187,7 +187,7 @@ func run() error {
 	}
 	fmt.Println("Settings, download history, encrypted profiles and media will be retained.")
 	if !*yes {
-		fmt.Print("Continue / Продолжить? [y/N] ")
+		fmt.Print("Continue? [y/N] ")
 		v, _ := in.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(v)) != "y" {
 			return fmt.Errorf("canceled; use --yes for unattended setup")
@@ -196,7 +196,7 @@ func run() error {
 	if e = installer.Apply(layout, installer.Options{Source: *source, Components: add, Remove: del, Uninstall: *uninstall, ConfigDir: *configDir}); e != nil {
 		return e
 	}
-	fmt.Println("Done / Готово.")
+	fmt.Println("Done.")
 	if len(add) > 0 {
 		fmt.Println("Launch:", filepath.Join(layout.Prefix, "bin"), "— camelclip-gui / camelclip-tui / camelclip (according to selected components). Ensure this bin directory is in PATH.")
 	}

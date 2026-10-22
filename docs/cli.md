@@ -1,6 +1,6 @@
 # CamelClip CLI reference
 
-Verified against `internal/ui/terminal/cli.go` and `workspace_cli.go` on 2026-10-19.
+The CLI shares the application services with GUI and TUI. Run `camelclip help` for command-specific help.
 
 ## Launch and diagnostics
 
@@ -18,7 +18,7 @@ Verified against `internal/ui/terminal/cli.go` and `workspace_cli.go` on 2026-10
 
 ## Downloads
 
-`download URL...`, `audio URL...`, `formats URL...` accept positional URLs and `--list FILE`. Flags may precede or follow URLs; `--` ends option parsing. Download options: `--quality`, `--audio-format`, `--out`, `--cookies-browser`, `--video-codec`, `--video-format`. Limits: `--max-downloads`, `--max-processing`, `--rate-limit`, `--job-rate-limit`. `--lang auto|en|ru` selects the language. See README for values and fixed-share rate behavior.
+`download URL...`, `audio URL...`, `formats URL...` accept positional URLs and `--list FILE`. Flags may precede or follow URLs; `--` ends option parsing. Download options: `--quality`, `--audio-format`, `--out`, `--cookies-browser`, `--video-codec`, `--video-format`. Limits: `--max-downloads`, `--max-processing`, `--rate-limit`, `--job-rate-limit`. `--lang auto|en|ru` selects the language. See the format and rate reference below.
 
 CLI overrides apply to that process and do not save preferences. Download/audio/formats require URLs or a list. `tui` does not accept URLs.
 
@@ -32,7 +32,7 @@ These commands use a separate parser. Put `queue`, `library` or `storage` first.
 | `library` | `list`, `search TEXT`, `scan [DIR] [--recursive]`, `import FILE`, `refresh ID`, `remove ID --yes`, `delete-file ID --yes`, `show`, `open`, `reveal` |
 | `storage` | `profiles`, `uploads`, `upload ASSET_ID --profile ID[,ID]`, `unlock`, `change-password`, `reset --yes` |
 
-Queue actions accept comma-separated job IDs. Bulk results can contain per-item `Error` values even when the command exits zero; automation must inspect the result array. `queue add` only persists new work; open the TUI to execute it. `queue list` does not start downloads. `library remove` excludes an index entry without deleting its file; `delete-file` is a separate destructive action.
+Queue actions accept comma-separated job IDs. Bulk results include per-item errors; actions exit nonzero on partial failure. Automation should inspect the full result array. `queue add` only persists new work; open the TUI to execute it. `queue list` does not start downloads. `library remove` excludes an index entry without deleting its file; `delete-file` is a separate destructive action.
 
 Library list/search flags include `--limit`, `--offset`, `--kind`, `--status`, `--container`, `--min-height`, `--sort`, `--since`, `--until`. `--json` is supported for relevant listing/detail/transfer commands; not every action emits JSON. Consult [S3 documentation](s3.md) for profile flags, private password descriptors, upload verification and confirmation requirements.
 
@@ -41,3 +41,20 @@ Library list/search flags include `--limit`, `--offset`, `--kind`, `--status`, `
 ### Queue action exit status
 
 `queue add` and bulk queue actions print the complete JSON result array, including successful items. They exit nonzero if any item contains an `error`; scripts must not treat partial success as total success. Successful items are retained and are not rolled back.
+
+## Formats and rate limits
+
+Video codecs: `h264` (default), `hevc`, `vp9`, `av1`. Containers: `mp4` (default), `mkv`, and `webm` for VP9/AV1. Audio-only formats: `mp3`, `m4a`, `opus`, `flac`, `wav`, `best`. Each queued request captures its own settings.
+
+Download and processing slots are independent. Defaults are five downloads and `max(cpu_count / 4, 2)` processing tasks. Override with `--max-downloads 1..32` and `--max-processing auto|1..32`.
+
+```sh
+camelclip download --list links.txt --rate-limit 2MiB/s
+camelclip download 'VIDEO_URL' --job-rate-limit 512KiB/s
+camelclip download 'VIDEO_URL' --max-downloads 1 --rate-limit 2MiB/s
+camelclip download 'VIDEO_URL' --rate-limit 0 --job-rate-limit 0
+```
+
+Rates are bytes/second; `1MiB/s` is 1,048,576 B/s. Zero disables a limit. The global budget uses fixed shares based on maximum download concurrency, so unused shares are not redistributed. With both limits configured, the smaller nonzero global share or per-job cap applies. Changes affect new processes; running transfers keep their existing limits. CLI overrides do not change saved preferences. S3 upload rates are separate.
+
+TUI Settings expose the same total-budget and per-job controls. The application supports English and Russian UI labels; CLI documentation is English-only.

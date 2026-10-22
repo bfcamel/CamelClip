@@ -6,8 +6,8 @@ CamelClip now has prebuilt component installers for macOS and Linux. Choose GUI,
 
 Open the package matching your Mac:
 
-- Apple Silicon: `camelclip_setup_0.13.0_macos_arm64.pkg`
-- Intel: `camelclip_setup_0.13.0_macos_amd64.pkg`
+- Apple Silicon: `camelclip_setup_0.13.1_macos_arm64.pkg`
+- Intel: `camelclip_setup_0.13.1_macos_amd64.pkg`
 
 The standard Installer automatically presents component choices. GUI is selected for a clean install; existing installed selections are restored on later runs. Shared terminal files are selected automatically when TUI or CLI is chosen. GUI is installed as `/Applications/CamelClip.app`, TUI as `/Applications/CamelClip TUI.command` and `camelclip-tui`, CLI as `/usr/local/bin/camelclip`. Setup/maintenance is `/usr/local/bin/camelclip-setup`.
 
@@ -27,13 +27,13 @@ These are local unsigned development packages. Public distribution still require
 
 ## Linux: interactive or unattended user setup
 
-Download/extract the matching `camelclip_setup_0.13.0_linux_amd64.tar.gz` or `camelclip_setup_0.13.0_linux_arm64.tar.gz`, enter the extracted directory and run:
+Download/extract the matching `camelclip_setup_0.13.1_linux_amd64.tar.gz` or `camelclip_setup_0.13.1_linux_arm64.tar.gz`, enter the extracted directory and run:
 
 ```sh
 ./setup.sh
 ```
 
-The menu offers GUI, TUI+CLI, all components, custom selection, update of installed components and removal. Prompts include English and Russian. For automation:
+The menu offers GUI, TUI+CLI, all components, custom selection, update of installed components and removal. All installer prompts are in English. For automation:
 
 ```sh
 ./setup.sh --components gui,tui,cli --yes
@@ -90,13 +90,17 @@ sh scripts/build_installers.sh                  # all four targets; run on macOS
 sh scripts/build_installers.sh linux amd64     # one target
 sh scripts/build_installers.sh darwin arm64    # Mac package and user archive
 python3 scripts/test_installers.py             # after all four builds
-python3 scripts/test_installer_choices.py dist/installers/camelclip_setup_0.13.0_macos_arm64.pkg  # read-only native choice evaluation
+python3 scripts/test_installer_choices.py dist/installers/0.13.1/camelclip_setup_0.13.1_macos_arm64.pkg  # read-only native choice evaluation
 ```
 
-Outputs are in `dist/installers/`: two macOS `.pkg` files, four user-setup `.tar.gz` archives and `SHA256SUMS`. Debug Distribution XML files are also emitted. Existing terminal-only release packaging and `install.sh` remain available for compatibility.
+Outputs are in `dist/installers/0.13.1/`: two macOS `.pkg` files, four user-setup `.tar.gz` archives and `SHA256SUMS`. Debug Distribution XML files are also emitted. Existing terminal-only release packaging and `install.sh` remain available for compatibility.
 
 Each user archive has a schema-1 manifest with stable component IDs, OS/architecture, version/commit and every payload file's hash, size, destination and mode. Builds outside a clean release checkout default to `development-local`; release builders supply `RELEASE_COMMIT` and `SOURCE_DATE_EPOCH` after validating their exact source revision. Packaging does not claim to validate source provenance automatically.
 
 Verify `SHA256SUMS` before extraction. Checksums detect corruption, not publisher identity; obtain packages/manifests from a trusted source. Published versioned assets must not be overwritten.
 
 Tests cover all seven choices, native launcher execution, reinstall/add/remove/uninstall, prefix quoting, modified/unowned files, symlink rejection, wrong architecture, corrupt payloads, workspace lock and rollback. Package tests inspect both native Mac payloads without installing them. Cross-built Linux and Intel payload checks do not replace acceptance testing on those operating systems/hardware.
+
+## Installer language and source layout
+
+Setup, distribution metadata and project documentation use English. English and Russian localization remain in the application only. Source components are in `cmd/camelclip-setup` and `internal/installer`; package assembly is in `scripts/package_setup.py`. Intermediate binaries/app bundles are generated under `dist/build/`, and downloadable artifacts are grouped under `dist/installers/<version>/`.

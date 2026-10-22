@@ -7,7 +7,7 @@ The GUI is an additional frontend for the same CamelClip workspace. TUI and CLI 
 The locally built application is `dist/CamelClip.app`. Double-click it in Finder, or run from the project directory:
 
 ```sh
-open /Applications/CamelClip/dist/CamelClip.app
+open dist/CamelClip.app
 ```
 
 Close any running CamelClip TUI/GUI first. The existing exclusive database lock prevents a second owner; startup shows the error in a macOS alert. Startup details are retained in `~/Library/Logs/CamelClip/gui-startup.log`.
@@ -31,11 +31,12 @@ Go and Python 3 are required; macOS additionally requires Xcode Command Line Too
 ## Browser mode / Linux
 
 ```sh
-go build -o camelclip-gui ./cmd/camelclip-gui
-./camelclip-gui --browser
+mkdir -p dist/build
+go build -o dist/build/camelclip-gui ./cmd/camelclip-gui
+./dist/build/camelclip-gui --browser
 ```
 
-Linux's build script produces `dist/camelclip-gui` and uses the default browser. Keep the process running and choose Quit inside the UI when finished; closing a browser tab alone does not terminate the backend. File/folder paths can be entered manually; macOS's native host also provides system pickers.
+The installer build places Linux GUI binaries in `dist/build/`; the user installer exposes `camelclip-gui` and uses the default browser. Keep the process running and choose Quit inside the UI when finished; closing a browser tab alone does not terminate the backend. File/folder paths can be entered manually; macOS's native host also provides system pickers.
 
 The server listens only on a random IPv4 loopback port and uses a random per-process session token. API requests check the session token, Host and Origin. Nothing is hosted externally. `--no-open` prints the private local launch URL for debugging; do not share it. `CAMELCLIP_CONFIG_DIR` permits an isolated workspace, just as with TUI.
 

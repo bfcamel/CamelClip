@@ -46,6 +46,7 @@ else
   case "$(uname -m)" in arm64|aarch64) arch=arm64 ;; x86_64|amd64) arch=amd64 ;; *) printf 'Unsupported architecture\n' >&2; exit 1 ;; esac
   binary="camelclip-$platform-$arch"
   if [ -f "$binary" ]; then cp "$binary" "$scratch/camelclip"
+  elif [ -f "dist/terminal/$binary" ]; then cp "dist/terminal/$binary" "$scratch/camelclip"
   elif [ -f "dist/$binary" ]; then cp "dist/$binary" "$scratch/camelclip"
   elif [ -f camelclip ]; then cp camelclip "$scratch/camelclip"
   else printf 'Install Go to build from source, or use a compiled release.\n' >&2; exit 1
