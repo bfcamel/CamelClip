@@ -14,12 +14,8 @@ import (
 	"time"
 )
 
-type QueuePolicy struct {
-	RetryAttempts int   `json:"retry_attempts"`
-	PendingFiles  int   `json:"max_staging_files"`
-	PendingBytes  int64 `json:"max_staging_bytes"`
-	MinFreeBytes  int64 `json:"min_free_bytes"`
-}
+// QueuePolicy remains an alias for source compatibility with existing callers.
+type QueuePolicy = core.QueuePolicy
 type JobControl struct {
 	DiskBlocked bool      `json:"-"`
 	Priority    int       `json:"priority"` // -1 low, 0 normal, 1 high
@@ -38,8 +34,8 @@ type JobEvent struct {
 }
 
 func (s *Service) SetPolicy(p QueuePolicy) error {
-	if p.RetryAttempts < 0 || p.RetryAttempts > 10 || p.PendingFiles < 0 || p.PendingBytes < 0 || p.MinFreeBytes < 0 {
-		return errors.New("invalid queue policy")
+	if err := p.Validate(); err != nil {
+		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

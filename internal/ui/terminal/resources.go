@@ -119,16 +119,5 @@ func resourceDisplay(o options, key string) string {
 
 var extraResourceKeys = []string{"uploads", "upload-parts", "retry-attempts", "staging-files", "staging-bytes", "min-free", "upload-rate"}
 
-func queuePolicy(o options) application.QueuePolicy {
-	return application.QueuePolicy{RetryAttempts: o.RetryAttempts, PendingFiles: o.StagingFiles, PendingBytes: o.StagingBytes, MinFreeBytes: o.MinFreeBytes}
-}
-func uploadOptions(o options) core.UploadOptions {
-	objects, parts := o.MaxUploads, o.UploadParts
-	if objects == 0 {
-		objects = 2
-	}
-	if parts == 0 {
-		parts = 2
-	}
-	return core.UploadOptions{Objects: objects, Parts: parts, RetryAttempts: o.RetryAttempts, RateBPS: o.UploadRateBPS}
-}
+func queuePolicy(o options) application.QueuePolicy { return settingsFor(o).QueuePolicy() }
+func uploadOptions(o options) core.UploadOptions    { return settingsFor(o).UploadOptions() }

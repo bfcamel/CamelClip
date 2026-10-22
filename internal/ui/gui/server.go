@@ -94,17 +94,10 @@ func (s *Server) apply(v config.Settings) error {
 	if err := s.workspace.Queue.SetLimits(v.Limits()); err != nil {
 		return err
 	}
-	if err := s.workspace.Queue.SetPolicy(application.QueuePolicy{RetryAttempts: v.RetryAttempts, PendingFiles: v.StagingFiles, PendingBytes: v.StagingBytes, MinFreeBytes: v.MinFreeBytes}); err != nil {
+	if err := s.workspace.Queue.SetPolicy(v.QueuePolicy()); err != nil {
 		return err
 	}
-	objects, parts := v.MaxUploads, v.UploadParts
-	if objects == 0 {
-		objects = 2
-	}
-	if parts == 0 {
-		parts = 2
-	}
-	return s.workspace.Cloud.SetOptions(core.UploadOptions{Objects: objects, Parts: parts, RetryAttempts: v.RetryAttempts, RateBPS: v.UploadRateBPS})
+	return s.workspace.Cloud.SetOptions(v.UploadOptions())
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

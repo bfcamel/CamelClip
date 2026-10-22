@@ -619,72 +619,14 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		} else {
 			r.RateLimitBPS = core.DownloadRate(ctx, r.RateLimitBPS)
 
-			var callbacks sync.Mutex
-			accepting := true
-			stage := core.Downloading
-			published := ""
-			var violation error
-			callback := func(e core.Event) {
-				callbacks.Lock()
-				defer callbacks.Unlock()
-				if !accepting || violation != nil {
-					return
-				}
-				switch e.Kind {
-				case core.StageChanged:
-					if core.StageOrder(e.Stage) == 0 || core.StageOrder(e.Stage) < core.StageOrder(stage) {
-						violation = core.ContractError("adapter emitted an invalid stage transition")
-						return
-					}
-					stage = e.Stage
-				case core.Progress:
-					if core.StageOrder(e.Stage) == 0 {
-						violation = core.ContractError("adapter emitted progress for an unknown stage")
-						return
-					}
-					if e.Metrics != nil {
-						violation = core.ValidateMetrics(*e.Metrics)
-						if violation != nil {
-							return
-						}
-					}
-				case core.Published:
-					violation = core.ValidateResult(r, core.Result{Path: e.Path})
-					if violation != nil {
-						return
-					}
-					if published != "" && published != e.Path {
-						violation = core.ContractError("adapter published multiple results")
-						return
-					}
-					published = e.Path
-				case core.Log:
-				default:
-					violation = core.ContractError("adapter emitted an unknown event")
-					return
-				}
+			result, err = downloadWithContract(ctx, s.backend, r, func(e core.Event) {
 				if e.Kind == core.StageChanged {
 					if gateErr := resource.Enter(ctx, e.Stage); gateErr != nil {
 						return
 					}
 				}
 				s.observe(id, e)
-			}
-			func() {
-				defer func() { callbacks.Lock(); accepting = false; callbacks.Unlock() }()
-				result, err = s.backend.Download(ctx, r, callback)
-			}()
-			callbacks.Lock()
-			accepting = false
-			if violation != nil {
-				err = violation
-			} else if err == nil {
-				err = core.ValidateResult(r, result)
-				if err == nil && published != "" && result.Path != published {
-					err = core.ContractError("adapter result differs from its published path")
-				}
-			}
-			callbacks.Unlock()
+			})
 
 		}
 	}()

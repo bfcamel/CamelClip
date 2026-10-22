@@ -51,3 +51,13 @@ After building all installer targets, `python3 scripts/test_installers.py` valid
 | S3 | Local API emulator | Production provider/account-specific acceptance |
 
 Past reports are retained under `docs/history/` for context only. They are not a statement that current release binaries passed native acceptance on those platforms. Run the full suite with `-p 1` when the machine is loaded to reduce process-fixture timing noise.
+
+## Required pull-request validation
+
+The [CI workflow](../.github/workflows/ci.yml) runs on pull requests to `main`, pushes to `main`, merge queues and manual dispatch. The stable `Required` check aggregates every job and fails if any dependency fails, is canceled or is skipped. Main branch protection requires this check and an up-to-date branch before merging.
+
+- Quality: Go formatting, module verification, vet, whitespace checks, English public content and GUI progress fixtures.
+- Native tests: full serial race suite on Linux x86-64 and the native macOS runner architecture, with FFmpeg/ffprobe and a pinned yt-dlp installed; GUI, playlist and workspace/S3 smoke tests use temporary local fixtures.
+- Packaging: macOS builds all four platform/architecture archives and both native packages, validates hashes and seven component choices, and exercises native macOS installation maintenance. Linux downloads the same CI artifacts and exercises native Linux installation maintenance.
+
+Workflow permissions are read-only. Official Actions are pinned to commit hashes. Installer validation artifacts expire after seven days; the workflow never publishes tags, modifies GitHub Releases or deploys to a user's computer. macOS Intel/Linux ARM64 runtime acceptance, system-wide installation and Apple signing remain outside this workflow.
