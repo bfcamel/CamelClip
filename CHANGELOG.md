@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0 — 2026-10-22 (preview)
+
+- Add the graphical workspace alongside the existing TUI and CLI, with the shared exclusive workspace lock.
+- Use the transparent camel-player logo in the GUI and macOS Finder/Dock icon.
+- Add selectable GUI/TUI/CLI user installers and native macOS component packages for arm64/amd64.
+- Preserve installed choices during updates; add explicit component removal, payload/ownership verification and ordinary write-failure rollback.
+- Include installation manifests, maintenance commands, desktop launchers, dependency reporting and isolated installer tests.
+- Preview limits: unsigned/not notarized; system-wide macOS install and native Linux/Intel acceptance remain pending. External media dependencies are not bundled.
+
 ## 0.12.1 — 2026-10-21
 
 - Resume downloads blocked by disk/staging limits even when no worker was created yet.

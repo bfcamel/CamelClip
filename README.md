@@ -29,6 +29,10 @@ On first interactive launch, setup asks for language, output directory, video pr
 
 The installer uses `~/.local/bin/camelclip`. `--add-to-path` updates `~/.zprofile` for macOS/zsh, `~/.bashrc` for Linux bash, or `~/.profile` for Linux sh. Other shells need manual PATH setup. Use `--bin-dir /absolute/path` for a custom location and `--force` to replace an installed binary. To uninstall, remove the binary and the startup line marked `# CamelClip CLI`; media and application data are retained.
 
+## Component installers
+
+Prebuilt setup packages let you choose GUI, TUI and CLI. On macOS, open the matching `.pkg`; on Linux, extract the setup archive and run `./setup.sh` for the menu, or `./setup.sh --components gui,tui,cli --yes`. Installation, updates, removal and build instructions are in [Component installers](docs/installers.md). Build all installer targets on macOS with `sh scripts/build_installers.sh`.
+
 ## Graphical interface
 
 A separate GUI is available alongside TUI/CLI. On macOS, run `sh scripts/build_gui.sh`, then open `dist/CamelClip.app`. The native window uses the same workspace and exclusive instance lock as TUI. On Linux, the GUI opens in the default browser. See [GUI launch, build and validation](docs/gui.md).

@@ -4,9 +4,12 @@
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p dist
+version=$(sed -n 's/^const version = "\([^"]*\)"/\1/p' internal/ui/terminal/cli.go)
 case "$(uname -s)" in
  Darwin)
-  app="dist/CamelClip.app"
+  app="${CAMELCLIP_APP_PATH:-dist/CamelClip.app}"
+  arch="${CAMELCLIP_ARCH:-$(uname -m)}"
+  case "$arch" in arm64) swiftarch=arm64 ;; amd64|x86_64) arch=amd64; swiftarch=x86_64 ;; *) printf 'Unsupported architecture\n' >&2; exit 1 ;; esac
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
   iconwork=$(mktemp -d "${TMPDIR:-/tmp}/camelclip-icon.XXXXXX")
   trap 'rm -rf "$iconwork"' EXIT HUP INT TERM
@@ -29,8 +32,8 @@ for tag, size, scale in representations:
 body = b"".join(chunks)
 pathlib.Path(sys.argv[2]).write_bytes(b"icns" + struct.pack(">I", len(body) + 8) + body)
 ICNS
-  go build -trimpath -o "$app/Contents/MacOS/camelclip-gui" ./cmd/camelclip-gui
-  swiftc -O -module-cache-path "${TMPDIR:-/tmp}/camelclip-swift-cache" scripts/gui/Window.swift -o "$app/Contents/MacOS/CamelClipWindow"
+  CGO_ENABLED=0 GOARCH="$arch" go build -trimpath -o "$app/Contents/MacOS/camelclip-gui" ./cmd/camelclip-gui
+  swiftc -O -target "$swiftarch-apple-macos12.0" -module-cache-path "${TMPDIR:-/tmp}/camelclip-swift-cache" scripts/gui/Window.swift -o "$app/Contents/MacOS/CamelClipWindow"
   cat > "$app/Contents/MacOS/CamelClip" <<'LAUNCH'
 #!/bin/sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -51,7 +54,7 @@ fi
 exit "$status"
 LAUNCH
   chmod +x "$app/Contents/MacOS/CamelClip"
-  cat > "$app/Contents/Info.plist" <<'PLIST'
+  cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -62,7 +65,7 @@ LAUNCH
 <key>CFBundleDisplayName</key><string>CamelClip</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>0.12.1</string>
+<key>CFBundleShortVersionString</key><string>$version</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 </dict></plist>

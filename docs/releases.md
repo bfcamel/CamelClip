@@ -40,3 +40,7 @@ shasum -a 256 -c SHA256SUMS
 ```
 
 Checksums detect corruption, not publisher identity. Current builds are unsigned and macOS binaries are not notarized. External yt-dlp, FFmpeg and Deno are not bundled. Dependency updates are reviewed and tested manually.
+
+## Component setup packages
+
+Build the GUI/TUI/CLI installers separately with `sh scripts/build_installers.sh`, then run `python3 scripts/test_installers.py`. See [component installer release and acceptance instructions](installers.md). These add native macOS packages and prebuilt user-setup archives; the original four terminal-only archives are retained for compatibility. Use the installer's own `dist/installers/SHA256SUMS`. Public release signing/notarization and native platform installation acceptance are separate steps; building a .pkg is not proof of them.
