@@ -3,6 +3,7 @@
 package application
 
 import (
+	"errors"
 	"sync"
 )
 
@@ -18,7 +19,7 @@ type Workspace struct {
 func (w *Workspace) Close() error {
 	w.once.Do(func() {
 		if w.Cloud != nil {
-			w.Cloud.Close()
+			w.err = errors.Join(w.err, w.Cloud.Close())
 		}
 		if w.Library != nil {
 			w.Library.Close()
@@ -26,7 +27,9 @@ func (w *Workspace) Close() error {
 		if w.Monitor != nil {
 			w.Monitor.Close()
 		}
-		w.err = w.Queue.Close()
+		if w.Queue != nil {
+			w.err = errors.Join(w.err, w.Queue.Close())
+		}
 	})
 	return w.err
 }

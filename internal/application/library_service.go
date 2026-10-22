@@ -16,6 +16,8 @@ import (
 )
 
 type LibraryService struct {
+	life             *lifetime
+	closing          bool
 	repo             AssetRepository
 	probe            core.MediaProber
 	slots            chan struct{}
@@ -28,15 +30,25 @@ type LibraryService struct {
 }
 
 func NewLibrary(repo AssetRepository, probe core.MediaProber) *LibraryService {
-	return &LibraryService{repo: repo, probe: probe, slots: make(chan struct{}, 2)}
+	return &LibraryService{life: newLifetime(context.Background()), repo: repo, probe: probe, slots: make(chan struct{}, 2)}
 }
 func (l *LibraryService) List(ctx context.Context, q core.AssetQuery) (core.AssetPage, error) {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return core.AssetPage{}, err
+	}
+	defer done()
 	if q.Limit == 0 {
 		q.Limit = 50
 	}
 	return l.repo.Assets(ctx, q)
 }
 func (l *LibraryService) Get(ctx context.Context, id string) (core.Asset, error) {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return core.Asset{}, err
+	}
+	defer done()
 	return l.repo.Asset(ctx, id)
 }
 func mediaPath(path string) bool {
@@ -47,6 +59,11 @@ func mediaPath(path string) bool {
 	return false
 }
 func (l *LibraryService) Refresh(ctx context.Context, id string) (core.Asset, error) {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return core.Asset{}, err
+	}
+	defer done()
 	old, e := l.repo.Asset(ctx, id)
 	if e != nil {
 		return old, e
@@ -81,6 +98,11 @@ func (l *LibraryService) inspect(ctx context.Context, path string) (core.Asset, 
 	return l.probe.Probe(ctx, path)
 }
 func (l *LibraryService) Import(ctx context.Context, path string) (core.Asset, error) {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return core.Asset{}, err
+	}
+	defer done()
 	path, e := filepath.Abs(path)
 	if e != nil {
 		return core.Asset{}, e
@@ -98,9 +120,19 @@ func (l *LibraryService) Import(ctx context.Context, path string) (core.Asset, e
 	return l.repo.PutAsset(ctx, a)
 }
 func (l *LibraryService) Forget(ctx context.Context, id string) error {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	return l.repo.ForgetAsset(ctx, id)
 }
 func (l *LibraryService) DeleteFile(ctx context.Context, id string, confirmed bool) error {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer done()
 	if !confirmed {
 		return errors.New("explicit file deletion confirmation required")
 	}
@@ -126,6 +158,11 @@ func (l *LibraryService) DeleteFile(ctx context.Context, id string, confirmed bo
 	return e
 }
 func (l *LibraryService) Scan(ctx context.Context, root string, recursive bool) (core.ScanReport, error) {
+	ctx, done, err := l.life.begin(ctx)
+	if err != nil {
+		return core.ScanReport{}, err
+	}
+	defer done()
 	report := core.ScanReport{}
 	started := time.Now()
 	root, e := filepath.Abs(root)
@@ -202,16 +239,25 @@ func (l *LibraryService) Scan(ctx context.Context, root string, recursive bool) 
 func (l *LibraryService) StartScan(parent context.Context, root string, recursive bool) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.closing {
+		return ErrClosed
+	}
 	if l.scanning {
 		return errors.New("library scan is already running")
 	}
-	ctx, cancel := context.WithCancel(parent)
+	ctx, done, err := l.life.begin(parent)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(ctx)
 	l.cancel = cancel
 	l.scanning = true
 	l.report = core.ScanReport{}
 	l.wg.Add(1)
 	go func() {
 		defer l.wg.Done()
+		defer done()
+		defer cancel()
 		r, e := l.Scan(ctx, root, recursive)
 		if e != nil {
 			r.Errors = append(r.Errors, e.Error())
@@ -231,7 +277,9 @@ func (l *LibraryService) ScanStatus() (bool, core.ScanReport) {
 	return l.scanning, r
 }
 func (l *LibraryService) Close() {
+	l.life.stop()
 	l.mu.Lock()
+	l.closing = true
 	if l.enrichmentCancel != nil {
 		l.enrichmentCancel()
 	}
@@ -240,15 +288,27 @@ func (l *LibraryService) Close() {
 	}
 	l.mu.Unlock()
 	l.wg.Wait()
+	l.life.wait()
 }
 
 func (l *LibraryService) Enrich(parent context.Context) {
-	ctx, cancel := context.WithCancel(parent)
 	l.mu.Lock()
+	if l.closing || l.enrichmentCancel != nil {
+		l.mu.Unlock()
+		return
+	}
+	ctx, done, err := l.life.begin(parent)
+	if err != nil {
+		l.mu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(ctx)
 	l.enrichmentCancel = cancel
-	l.mu.Unlock()
 	l.wg.Add(1)
+	l.mu.Unlock()
 	go func() {
+		defer done()
+		defer cancel()
 		defer l.wg.Done()
 		tick := time.NewTicker(2 * time.Second)
 		defer tick.Stop()
