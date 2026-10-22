@@ -31,6 +31,14 @@ The service depends only on `core.Downloader` and `application.Repository`. It c
 
 The event channel is a bounded, single-consumer notification stream. Slow observers may miss progress notifications; `Jobs()` is the authoritative snapshot. Frontends must resynchronize after events and periodically while running. `Close()` cancels/reaps workers, persists resumable state and closes storage. Each service has one frontend consumer; a GUI supporting multiple views should fan out snapshots/events in its own presentation layer.
 
+## Internal responsibility boundaries
+
+`CloudService` coordinates upload admission, cancellation, vault locking and shutdown. Its private `profileManager` owns credential encryption, vault initialization/rotation and atomic profile persistence; it never schedules work. Every manager call is protected by the service mutex, and vault locking still cancels and joins active network operations before removing keys. Upload source identity checks and cancellable hashing live in `upload_source.go`.
+
+The download queue delegates its adapter boundary to `downloadWithContract`: callback serialization, stage/metric/result validation and rejection of callbacks after return or panic. Queue state transitions, resource admission and persistence remain in the queue service. These components preserve the public service methods and storage schema.
+
+`core.QueuePolicy.Validate` and `core.UploadOptions.Validate` define queue and S3 resource constraints. Settings and all local frontends reuse those rules through `Settings.QueuePolicy()` and `Settings.UploadOptions()`. Persisted zero upload concurrency resolves through `UploadOptions.WithDefaults`; runtime service setters continue to require explicit positive concurrency. `application.QueuePolicy` remains a type alias for source compatibility. Validation at service/storage trust boundaries remains intentional.
+
 ## Persistence
 
 `application.Repository` atomically loads/saves a typed snapshot. The SQLite implementation owns schema versioning, locking, transactions and WAL settings. Jobs have their own rows with indexed primary IDs, URL, status, title, output path, quality-selection flag, and JSON-encoded per-job request/metadata values. Only changed rows are updated and removed IDs are deleted transactionally. Database and queue-lock files use owner-only creation permissions.

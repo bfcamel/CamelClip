@@ -4,7 +4,6 @@ package application
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/bfcamel/CamelClip/internal/core"
@@ -31,8 +29,7 @@ type CloudService struct {
 	profiles         ProfileRepository
 	uploads          UploadRepository
 	assets           AssetRepository
-	vault            core.CredentialVault
-	factory          func() core.CredentialVault
+	profileStore     *profileManager
 	backend          core.Uploader
 	mu               sync.Mutex
 	options          core.UploadOptions
@@ -47,21 +44,32 @@ type CloudService struct {
 
 func NewCloud(parent context.Context, p ProfileRepository, u UploadRepository, a AssetRepository, vault core.CredentialVault, factory func() core.CredentialVault, backend core.Uploader) *CloudService {
 	ctx, cancel := context.WithCancel(parent)
-	s := &CloudService{life: newLifetime(ctx), cleanups: map[string]bool{}, network: map[string]context.CancelFunc{}, ctx: ctx, cancel: cancel, profiles: p, uploads: u, assets: a, vault: vault, factory: factory, backend: backend, options: core.UploadOptions{Objects: 2, Parts: 2}, active: map[string]context.CancelFunc{}, progress: map[string]core.Metrics{}}
+	s := &CloudService{
+		life: newLifetime(ctx), ctx: ctx, cancel: cancel,
+		cleanups: map[string]bool{}, network: map[string]context.CancelFunc{},
+		profiles: p, uploads: u, assets: a,
+		profileStore: &profileManager{profiles: p, vault: vault, factory: factory},
+		backend:      backend, options: (core.UploadOptions{}).WithDefaults(),
+		active: map[string]context.CancelFunc{}, progress: map[string]core.Metrics{},
+	}
 	s.failure = s.uploads.RecoverUploads(parent)
 	s.wg.Add(1)
 	go s.loop()
 	return s
 }
-func (s *CloudService) Locked() bool { s.mu.Lock(); defer s.mu.Unlock(); return s.vault.Locked() }
+func (s *CloudService) Locked() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.profileStore.Locked()
+}
 func (s *CloudService) Options() core.UploadOptions {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.options
 }
 func (s *CloudService) SetOptions(o core.UploadOptions) error {
-	if o.Objects < 1 || o.Objects > 32 || o.Parts < 1 || o.Parts > 4 || o.RetryAttempts < 0 || o.RetryAttempts > 10 || o.RateBPS < 0 {
-		return errors.New("invalid upload limits")
+	if err := o.Validate(); err != nil {
+		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -90,11 +98,7 @@ func (s *CloudService) Unlock(ctx context.Context, password []byte) error {
 	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, e := s.profiles.VaultState(ctx)
-	if e != nil {
-		return errors.New("create a master password first")
-	}
-	return s.vault.Unlock(state, password)
+	return s.profileStore.Unlock(ctx, password)
 }
 func (s *CloudService) Initialize(ctx context.Context, password []byte) error {
 	ctx, done, err := s.life.begin(ctx)
@@ -104,23 +108,7 @@ func (s *CloudService) Initialize(ctx context.Context, password []byte) error {
 	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, e := s.profiles.VaultState(ctx); e == nil {
-		return errors.New("vault already exists; unlock it")
-	} else if !errors.Is(e, ErrVaultUnconfigured) {
-		return errors.New("existing vault cannot be read; restore a backup or explicitly reset credentials")
-	}
-	v := s.factory()
-	state, e := v.Initialize(password)
-	if e != nil {
-		return e
-	}
-	if e = s.profiles.SetVault(ctx, state, nil); e != nil {
-		v.Lock()
-		return e
-	}
-	s.vault.Lock()
-	s.vault = v
-	return nil
+	return s.profileStore.Initialize(ctx, password)
 }
 func (s *CloudService) Rotate(ctx context.Context, oldPassword, newPassword []byte) error {
 	ctx, done, err := s.life.begin(ctx)
@@ -133,48 +121,7 @@ func (s *CloudService) Rotate(ctx context.Context, oldPassword, newPassword []by
 	if len(s.active) > 0 {
 		return errors.New("wait for active uploads before rotating password")
 	}
-	state, e := s.profiles.VaultState(ctx)
-	if e != nil {
-		return e
-	}
-	if e = s.vault.Unlock(state, oldPassword); e != nil {
-		return e
-	}
-	profiles, e := s.profiles.Profiles(ctx)
-	if e != nil {
-		return e
-	}
-	candidate := s.factory()
-	next, e := candidate.Initialize(newPassword)
-	if e != nil {
-		return e
-	}
-	encrypted := map[string]core.SealedSecret{}
-	for _, p := range profiles {
-		secret, e := s.profiles.Secret(ctx, p.ID)
-		if e != nil {
-			candidate.Lock()
-			return e
-		}
-		plain, e := s.vault.Open(p.ID, secret)
-		if e != nil {
-			candidate.Lock()
-			return e
-		}
-		sealed, e := candidate.Seal(p.ID, plain)
-		if e != nil {
-			candidate.Lock()
-			return e
-		}
-		encrypted[p.ID] = sealed
-	}
-	if e = s.profiles.SetVault(ctx, next, encrypted); e != nil {
-		candidate.Lock()
-		return e
-	}
-	s.vault.Lock()
-	s.vault = candidate
-	return nil
+	return s.profileStore.Rotate(ctx, oldPassword, newPassword)
 }
 func (s *CloudService) Lock() {
 	s.lockMu.Lock()
@@ -191,7 +138,7 @@ func (s *CloudService) Lock() {
 	s.workers.Wait()
 	s.operations.Wait()
 	s.mu.Lock()
-	s.vault.Lock()
+	s.profileStore.Lock()
 	s.locking = false
 	s.mu.Unlock()
 }
@@ -203,24 +150,7 @@ func (s *CloudService) SaveProfile(ctx context.Context, p core.S3Profile, c *cor
 	defer done()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if e := core.ValidateProfile(p); e != nil {
-		return e
-	}
-	if p.ID == "" {
-		p.ID = core.NewID()
-	}
-	var sealed *core.SealedSecret
-	if c != nil {
-		if c.AccessKey == "" || c.SecretKey == "" {
-			return errors.New("access key and secret key required")
-		}
-		v, e := s.vault.Seal(p.ID, *c)
-		if e != nil {
-			return e
-		}
-		sealed = &v
-	}
-	return s.profiles.SaveProfile(ctx, p, sealed)
+	return s.profileStore.SaveProfile(ctx, p, c)
 }
 func (s *CloudService) DeleteProfile(ctx context.Context, id string) error {
 	ctx, done, err := s.life.begin(ctx)
@@ -247,11 +177,7 @@ func (s *CloudService) Reset(ctx context.Context, confirmed bool) error {
 	return s.profiles.ResetProfiles(ctx)
 }
 func (s *CloudService) credentials(ctx context.Context, id string) (core.Credentials, error) {
-	secret, e := s.profiles.Secret(ctx, id)
-	if e != nil {
-		return core.Credentials{}, errors.New("credentials unavailable")
-	}
-	return s.vault.Open(id, secret)
+	return s.profileStore.credentials(ctx, id)
 }
 func (s *CloudService) Test(ctx context.Context, id string, write bool) error {
 	ctx, done, err := s.life.begin(ctx)
@@ -328,7 +254,7 @@ func (s *CloudService) Enqueue(ctx context.Context, assetID string, profileIDs [
 	jobs := []core.UploadJob{}
 	for _, p := range profiles {
 		j := core.UploadJob{ID: core.NewID(), AssetID: a.ID, ProfileID: p.ID, Profile: p, Key: core.DestinationKey(p, a), State: "queued", Created: time.Now(), Updated: time.Now(), Size: a.Size, Modified: a.Modified, SHA256: a.SHA256, Verification: "uploaded_unverified"}
-		if s.vault.Locked() {
+		if s.profileStore.Locked() {
 			j.State = "waiting_unlock"
 		}
 		j, e = s.uploads.EnqueueUpload(ctx, j)
@@ -500,7 +426,7 @@ func (s *CloudService) schedule() {
 	if s.closing || s.locking || s.failure != nil {
 		return
 	}
-	if s.vault.Locked() {
+	if s.profileStore.Locked() {
 		return
 	}
 	var allowed []string
@@ -531,7 +457,7 @@ func (s *CloudService) schedule() {
 			j.ErrorCode = "profile_changed"
 		} else if !p.Enabled {
 			j.State = "paused"
-		} else if s.vault.Locked() {
+		} else if s.profileStore.Locked() {
 			j.State = "waiting_unlock"
 		} else if len(s.active) >= s.options.Objects {
 			j.State = "waiting_slot"
@@ -568,42 +494,6 @@ func (s *CloudService) schedule() {
 			}
 		}
 	}
-}
-func sourceFile(a core.Asset, j core.UploadJob) (*os.File, error) {
-	fd, e := syscall.Open(a.Path, syscall.O_RDONLY|syscall.O_NOFOLLOW, 0)
-	if e != nil {
-		return nil, &core.Failure{Code: core.CodeSourceChanged, Message: "source_missing"}
-	}
-	f := os.NewFile(uintptr(fd), a.Path)
-	st, e := f.Stat()
-	if e != nil || !st.Mode().IsRegular() || st.Size() != j.Size || !st.ModTime().Equal(j.Modified) {
-		f.Close()
-		return nil, &core.Failure{Code: core.CodeSourceChanged, Message: "source_changed"}
-	}
-	return f, nil
-}
-func digest(ctx context.Context, f *os.File) (string, error) {
-	if _, e := f.Seek(0, io.SeekStart); e != nil {
-		return "", e
-	}
-	h := sha256.New()
-	b := make([]byte, 128*1024)
-	for {
-		if e := ctx.Err(); e != nil {
-			return "", e
-		}
-		n, e := f.Read(b)
-		if n > 0 {
-			_, _ = h.Write(b[:n])
-		}
-		if e == io.EOF {
-			break
-		}
-		if e != nil {
-			return "", e
-		}
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Credentials, o core.UploadOptions) {
 	defer s.workers.Done()
@@ -840,7 +730,7 @@ func (s *CloudService) Close() error {
 		defer s.lockMu.Unlock()
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.vault.Lock()
+		s.profileStore.Lock()
 		s.closeErr = s.failure
 	})
 	return s.closeErr

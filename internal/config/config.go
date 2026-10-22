@@ -41,9 +41,18 @@ type Repository interface {
 func (s Settings) Limits() core.Limits {
 	return core.Limits{Downloads: s.MaxDownloads, Processing: s.MaxProcessing, GlobalBPS: s.RateLimitBPS, JobBPS: s.JobRateLimitBPS}
 }
+func (s Settings) QueuePolicy() core.QueuePolicy {
+	return core.QueuePolicy{RetryAttempts: s.RetryAttempts, PendingFiles: s.StagingFiles, PendingBytes: s.StagingBytes, MinFreeBytes: s.MinFreeBytes}
+}
+func (s Settings) UploadOptions() core.UploadOptions {
+	return (core.UploadOptions{Objects: s.MaxUploads, Parts: s.UploadParts, RetryAttempts: s.RetryAttempts, RateBPS: s.UploadRateBPS}).WithDefaults()
+}
 func Validate(s Settings) error {
-	if s.MaxUploads < 0 || s.MaxUploads > 32 || s.UploadParts < 0 || s.UploadParts > 4 || s.RetryAttempts < 0 || s.RetryAttempts > 10 || s.StagingFiles < 0 || s.StagingBytes < 0 || s.MinFreeBytes < 0 || s.UploadRateBPS < 0 {
-		return fmt.Errorf("invalid queue/upload limits")
+	if err := s.QueuePolicy().Validate(); err != nil {
+		return err
+	}
+	if err := s.UploadOptions().Validate(); err != nil {
+		return err
 	}
 	if err := s.Limits().Validate(); err != nil {
 		return err
@@ -67,12 +76,8 @@ func Normalize(s Settings) (Settings, error) {
 	if s.MaxDownloads == 0 {
 		s.MaxDownloads = 5
 	}
-	if s.MaxUploads == 0 {
-		s.MaxUploads = 2
-	}
-	if s.UploadParts == 0 {
-		s.UploadParts = 2
-	}
+	uploads := s.UploadOptions()
+	s.MaxUploads, s.UploadParts = uploads.Objects, uploads.Parts
 	if err := Validate(s); err != nil {
 		return s, err
 	}

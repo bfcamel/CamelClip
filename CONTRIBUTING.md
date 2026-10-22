@@ -39,6 +39,6 @@ Add behavior/regression tests for cancellation, recovery, persistence and instal
 
 ## Pull requests and releases
 
-Describe the user-visible problem, resulting behavior, relevant tests and compatibility impact. Mention verification limits; cross-compilation is not native acceptance. Keep titles and descriptions in English. Maintainers review and merge; published tags and binary assets are immutable. Follow the [release checklist](docs/releases.md) for new distributions.
+Describe the user-visible problem, resulting behavior, relevant tests and compatibility impact. Mention verification limits; cross-compilation is not native acceptance. Keep titles and descriptions in English. The `Required` CI check must pass before merging into `main`; it includes native tests and installer validation described in [testing](docs/testing.md). Maintainers review and merge; published tags and binary assets are immutable. Follow the [release checklist](docs/releases.md) for new distributions.
 
 Do not put credentials, private URLs, browser databases or queue databases in issues or PRs. See [security reporting](SECURITY.md) for sensitive findings. Preserve third-party notices and review redistribution licenses before adding dependencies or bundled executables.
