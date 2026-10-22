@@ -73,6 +73,9 @@ func New(ctx context.Context, deps Dependencies, path string, defaults config.Se
 	}
 	if !s.firstRun {
 		w.Queue.Start()
+		if w.Playlists != nil {
+			w.Playlists.Start()
+		}
 	}
 	// Notifications have one consumer. Views always read authoritative snapshots.
 	go func() {
@@ -194,11 +197,31 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			scanning, report := ws.Library.ScanStatus()
+			playlistError := ""
+			if ws.Playlists != nil {
+				if e := ws.Playlists.Err(); e != nil {
+					playlistError = e.Error()
+				}
+			}
 			qerr := ""
 			if e := ws.Queue.Err(); e != nil {
 				qerr = e.Error()
 			}
-			reply(w, map[string]any{"jobs": ws.Queue.Jobs(), "statistics": ws.Queue.Statistics(), "profiles": profiles, "uploads": uploads, "settings": v, "firstRun": first, "locked": ws.Cloud.Locked(), "hasVault": ws.Cloud.HasVault(ctx), "system": ws.Monitor.Snapshot(), "scanning": scanning, "scanReport": report, "queueError": qerr}, nil)
+			reply(w, map[string]any{"jobs": ws.Queue.Jobs(), "statistics": ws.Queue.Statistics(), "profiles": profiles, "uploads": uploads, "settings": v, "firstRun": first, "locked": ws.Cloud.Locked(), "hasVault": ws.Cloud.HasVault(ctx), "system": ws.Monitor.Snapshot(), "scanning": scanning, "scanReport": report, "queueError": qerr, "playlistError": playlistError}, nil)
+		case "/api/playlists":
+			if ws.Playlists == nil {
+				reply(w, core.PlaylistPage{Items: []core.PlaylistSubscription{}}, nil)
+				return
+			}
+			v, e := ws.Playlists.List(ctx, 50, max(0, number(r.URL.Query().Get("offset"), 0)))
+			reply(w, v, e)
+		case "/api/playlist-items":
+			if ws.Playlists == nil {
+				reply(w, nil, errors.New("playlist service unavailable"))
+				return
+			}
+			v, e := ws.Playlists.Items(ctx, r.URL.Query().Get("id"), 50, max(0, number(r.URL.Query().Get("offset"), 0)))
+			reply(w, v, e)
 		case "/api/library":
 			q := r.URL.Query()
 			query := core.AssetQuery{Search: q.Get("search"), Kind: q.Get("kind"), Status: q.Get("status"), Container: q.Get("container"), Sort: q.Get("sort"), MinHeight: number(q.Get("height"), 0), Offset: max(0, number(q.Get("offset"), 0)), Limit: 50}
@@ -283,6 +306,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			s.settings = v
 			s.firstRun = false
 			ws.Queue.Start()
+			if ws.Playlists != nil {
+				ws.Playlists.Start()
+			}
 		}
 		reply(w, nil, e)
 		return
@@ -292,20 +318,21 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var a struct {
-		AssetIDs    []string       `json:"assetIds"`
-		Action      string         `json:"action"`
-		IDs         []int          `json:"ids"`
-		ID          string         `json:"id"`
-		URLs        []string       `json:"urls"`
-		Request     *core.Request  `json:"request"`
-		Choose      bool           `json:"choose"`
-		Value       string         `json:"value"`
-		Path        string         `json:"path"`
-		Confirm     bool           `json:"confirm"`
-		Recursive   bool           `json:"recursive"`
-		Profiles    []string       `json:"profiles"`
-		Profile     core.S3Profile `json:"profile"`
-		Credentials *struct {
+		Subscription *core.PlaylistSubscription `json:"subscription"`
+		AssetIDs     []string                   `json:"assetIds"`
+		Action       string                     `json:"action"`
+		IDs          []int                      `json:"ids"`
+		ID           string                     `json:"id"`
+		URLs         []string                   `json:"urls"`
+		Request      *core.Request              `json:"request"`
+		Choose       bool                       `json:"choose"`
+		Value        string                     `json:"value"`
+		Path         string                     `json:"path"`
+		Confirm      bool                       `json:"confirm"`
+		Recursive    bool                       `json:"recursive"`
+		Profiles     []string                   `json:"profiles"`
+		Profile      core.S3Profile             `json:"profile"`
+		Credentials  *struct {
 			AccessKey    string `json:"accessKey"`
 			SecretKey    string `json:"secretKey"`
 			SessionToken string `json:"sessionToken"`
@@ -320,7 +347,30 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 	var result any
 	var err error
 	id := number(a.ID, 0)
+	if strings.HasPrefix(a.Action, "playlist-") && ws.Playlists == nil {
+		reply(w, nil, errors.New("playlist service unavailable"))
+		return
+	}
 	switch a.Action {
+	case "playlist-save":
+		if a.Subscription == nil {
+			err = errors.New("subscription required")
+		} else {
+			result, err = ws.Playlists.Save(ctx, *a.Subscription)
+		}
+	case "playlist-sync":
+		err = ws.Playlists.Sync(ctx, a.ID)
+	case "playlist-pause", "playlist-resume":
+		err = ws.Playlists.SetEnabled(ctx, a.ID, a.Action == "playlist-resume")
+	case "playlist-backfill":
+		if !a.Confirm {
+			err = errors.New("confirmation required")
+		} else {
+			err = ws.Playlists.Backfill(ctx, a.ID)
+		}
+	case "playlist-retry":
+		err = ws.Playlists.Retry(ctx, a.ID, a.Value)
+
 	case "submit":
 		if s.firstRun {
 			err = errors.New("complete setup first")

@@ -9,6 +9,7 @@ import (
 type ErrorCode string
 
 const (
+	CodeNotReady      ErrorCode = "source_not_ready"
 	CodeBackend       ErrorCode = "backend"
 	CodeContract      ErrorCode = "adapter_contract"
 	CodeValidation    ErrorCode = "validation"

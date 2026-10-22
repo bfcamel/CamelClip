@@ -62,12 +62,16 @@ func (e *Engine) Inspect(ctx context.Context, r core.Request) (core.MediaInfo, e
 }
 
 type eventWriter struct {
-	observer core.Observer
-	pending  string
-	last     string
-	files    map[string]int64
-	totals   map[string]int64
-	parts    int
+	observer    core.Observer
+	pending     string
+	last        string
+	files       map[string]int64
+	totals      map[string]int64
+	parts       int
+	finished    map[string]bool
+	ratios      map[string]float64
+	order       []string
+	lastPercent float64
 }
 
 func (w *eventWriter) Write(data []byte) (int, error) {
@@ -168,6 +172,10 @@ func (w *eventWriter) measure(line string) {
 		Speed      json.RawMessage `json:"speed"`
 		ETA        json.RawMessage `json:"eta"`
 		Filename   string          `json:"filename"`
+		Estimate   json.RawMessage `json:"total_bytes_estimate"`
+		Fragment   json.RawMessage `json:"fragment_index"`
+		Fragments  json.RawMessage `json:"fragment_count"`
+		Status     string          `json:"status"`
 	}
 	if json.Unmarshal([]byte(line), &data) != nil || w.observer == nil {
 		return
@@ -175,6 +183,8 @@ func (w *eventWriter) measure(line string) {
 	if w.files == nil {
 		w.files = map[string]int64{}
 		w.totals = map[string]int64{}
+		w.finished = map[string]bool{}
+		w.ratios = map[string]float64{}
 	}
 	downloaded := number(data.Downloaded)
 	if downloaded == nil {
@@ -182,6 +192,9 @@ func (w *eventWriter) measure(line string) {
 	}
 	if _, exists := w.files[data.Filename]; !exists && len(w.files) >= 4 {
 		return
+	}
+	if _, ok := w.files[data.Filename]; !ok {
+		w.order = append(w.order, data.Filename)
 	}
 	w.files[data.Filename] = int64(*downloaded)
 	if total := number(data.Total); total != nil && *total > 0 {
@@ -191,17 +204,54 @@ func (w *eventWriter) measure(line string) {
 	for _, n := range w.files {
 		m.DownloadedBytes += n
 	}
-	if len(w.totals) >= w.parts && len(w.totals) == len(w.files) {
+	parts := max(max(w.parts, 1), len(w.files))
+	m.PartCount = parts
+	m.PartIndex = len(w.order)
+	ratio := 0.0
+	known := false
+	if total := number(data.Total); total != nil && *total > 0 {
+		ratio = min(1, *downloaded / *total)
+		known = true
+	} else if total := number(data.Estimate); total != nil && *total > 0 {
+		ratio = min(1, *downloaded / *total)
+		known = true
+		m.ProgressEstimated = true
+	} else if count := number(data.Fragments); count != nil && *count > 0 {
+		if index := number(data.Fragment); index != nil {
+			ratio = min(1, *index / *count)
+			known = true
+			m.ProgressEstimated = true
+		}
+	}
+	if data.Status == "finished" {
+		ratio = 1
+		known = true
+		w.finished[data.Filename] = true
+	}
+	if known {
+		w.ratios[data.Filename] = max(w.ratios[data.Filename], ratio)
+		sum := 0.0
+		for _, v := range w.ratios {
+			sum += v
+		}
+		percent := min(99.9, sum/float64(parts)*100)
+		w.lastPercent = max(w.lastPercent, percent)
+		percent = w.lastPercent
+		m.Percent = &percent
+	}
+	if len(w.totals) >= parts && len(w.totals) == len(w.files) {
 		total := int64(0)
 		for _, n := range w.totals {
 			total += n
 		}
 		m.TotalBytes = &total
-		if total > 0 {
-			percent := min(100.0, 100*float64(m.DownloadedBytes)/float64(total))
-			m.Percent = &percent
-		}
 	}
+	// Separate tracks have unknown relative sizes until both are reported. Use an
+	// explicitly approximate equal-track phase percentage rather than hiding it.
+	if parts > 1 {
+		m.ProgressEstimated = true
+	}
+
 	detail := ""
 	if m.Percent != nil {
 		detail = strconv.FormatFloat(*m.Percent, 'f', 0, 64) + "%"
@@ -217,6 +267,11 @@ func backendFailure(err error) error {
 		return err
 	}
 	text := strings.ToLower(err.Error())
+	for _, v := range []string{"premiere will begin", "live event will begin", "not yet available"} {
+		if strings.Contains(text, v) {
+			return &core.Failure{Code: core.CodeNotReady, Message: err.Error(), Cause: err}
+		}
+	}
 	temporary := false
 	for _, fragment := range []string{"timeout", "timed out", "connection reset", "connection refused", "temporary", "429", "502", "503", "504", "unexpected eof"} {
 		if strings.Contains(text, fragment) {

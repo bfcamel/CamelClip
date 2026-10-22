@@ -8,16 +8,20 @@ import (
 )
 
 type Workspace struct {
-	Queue   Queue
-	Library *LibraryService
-	Cloud   *CloudService
-	Monitor *SystemMonitor
-	once    sync.Once
-	err     error
+	Queue     Queue
+	Library   *LibraryService
+	Cloud     *CloudService
+	Monitor   *SystemMonitor
+	Playlists *PlaylistService
+	once      sync.Once
+	err       error
 }
 
 func (w *Workspace) Close() error {
 	w.once.Do(func() {
+		if w.Playlists != nil {
+			w.err = errors.Join(w.err, w.Playlists.Close())
+		}
 		if w.Cloud != nil {
 			w.err = errors.Join(w.err, w.Cloud.Close())
 		}

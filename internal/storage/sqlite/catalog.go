@@ -494,6 +494,17 @@ func reconcilePublishedTx(ctx context.Context, tx *sql.Tx, path string, title st
 	if _, e = tx.ExecContext(ctx, "INSERT INTO publication_outbox(job_id,asset_id,path) VALUES(?,?,?)", jobID, a.ID, path); e != nil {
 		return e
 	}
+	var materialization string
+	e = tx.QueryRowContext(ctx, "SELECT key FROM playlist_materializations WHERE job_id=?", jobID).Scan(&materialization)
+	if e == nil {
+		if _, e = tx.ExecContext(ctx, "UPDATE playlist_materializations SET asset_id=? WHERE key=?", a.ID, materialization); e != nil {
+			return e
+		}
+		return enqueuePlaylistDeliveriesTx(ctx, tx, materialization, a.ID)
+	}
+	if !errors.Is(e, sql.ErrNoRows) {
+		return e
+	}
 	profiles, e := profilesTx(ctx, tx)
 	if e != nil {
 		return e

@@ -98,7 +98,13 @@ func (p *jobPool) add(o options) bool {
 	p.refresh()
 	return err == nil
 }
-func (p *jobPool) schedule() { p.service.Start(); p.refresh() }
+func (p *jobPool) schedule() {
+	p.service.Start()
+	if p.workspace != nil && p.workspace.Playlists != nil {
+		p.workspace.Playlists.Start()
+	}
+	p.refresh()
+}
 func (p *jobPool) saveQueue() error {
 	if p.lastErr != nil && !errors.Is(p.lastErr, application.ErrDuplicate) {
 		return p.lastErr

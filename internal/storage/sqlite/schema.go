@@ -58,7 +58,10 @@ func (r *Repository) schema(ctx context.Context, version int) error {
 			return err
 		}
 	}
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=4"); err != nil {
+	if _, err = tx.ExecContext(ctx, playlistSchema); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=5"); err != nil {
 		return err
 	}
 	return tx.Commit()

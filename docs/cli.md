@@ -58,3 +58,7 @@ camelclip download 'VIDEO_URL' --rate-limit 0 --job-rate-limit 0
 Rates are bytes/second; `1MiB/s` is 1,048,576 B/s. Zero disables a limit. The global budget uses fixed shares based on maximum download concurrency, so unused shares are not redistributed. With both limits configured, the smaller nonzero global share or per-job cap applies. Changes affect new processes; running transfers keep their existing limits. CLI overrides do not change saved preferences. S3 upload rates are separate.
 
 TUI Settings expose the same total-budget and per-job controls. The application supports English and Russian UI labels; CLI documentation is English-only.
+
+## Playlist subscriptions
+
+`camelclip playlists add|edit|list|items|pause|resume|sync|backfill|retry|watch` manages persistent subscriptions. One-shot commands do not start background media transfers. `watch` explicitly runs monitoring/downloads; S3 credentials can be unlocked with `--password-fd`. See [complete playlist behavior and examples](playlists.md).

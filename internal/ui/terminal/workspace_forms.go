@@ -11,7 +11,7 @@ import (
 )
 
 func (u *panelUI) workspaceInput() bool {
-	return u.modal == "vault" || u.modal == "profile-field" || u.modal == "library-import" || u.modal == "library-filter-value"
+	return u.modal == "playlist-field" || u.modal == "vault" || u.modal == "profile-field" || u.modal == "library-import" || u.modal == "library-filter-value"
 }
 func (u *panelUI) secretInput() bool {
 	return u.modal == "vault" || u.modal == "profile-field" && u.formStep >= 7
@@ -271,6 +271,9 @@ func (u *panelUI) workspaceModalKey(key string) bool {
 		u.modal = ""
 		u.page = 0
 		u.workspaceRefresh()
+	case "playlist-field":
+		u.playlistField(value)
+		return true
 	case "library-import":
 		u.modal = ""
 		w := u.pool.workspace
@@ -399,6 +402,8 @@ func (u *panelUI) executeWorkspaceAction() {
 			}
 		}
 		switch action {
+		case "playlist-backfill":
+			return w.Playlists.Backfill(u.ctx, ids[0])
 		case "save-profile":
 			var c *core.Credentials
 			if hasCredentials {

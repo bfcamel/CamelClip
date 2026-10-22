@@ -22,10 +22,12 @@ import (
 )
 
 func workspaceCommand(args []string) bool {
-	return len(args) > 0 && (args[0] == "queue" || args[0] == "library" || args[0] == "storage")
+	return len(args) > 0 && (args[0] == "playlists" || args[0] == "queue" || args[0] == "library" || args[0] == "storage")
 }
 
 type catalogFlags struct {
+	initial, quality, out, mode, codec, audio                                                           string
+	interval                                                                                            int
 	help                                                                                                bool
 	present                                                                                             map[string]bool
 	enabled, provider                                                                                   string
@@ -38,6 +40,13 @@ func parseCatalogFlags(args []string) (catalogFlags, []string, error) {
 	o := catalogFlags{}
 	set := flag.NewFlagSet("camelclip", flag.ContinueOnError)
 	set.SetOutput(io.Discard)
+	set.StringVar(&o.initial, "initial", "new_only", "")
+	set.IntVar(&o.interval, "interval", 15, "")
+	set.StringVar(&o.quality, "quality", "", "")
+	set.StringVar(&o.out, "out", "", "")
+	set.StringVar(&o.mode, "mode", "", "")
+	set.StringVar(&o.codec, "codec", "", "")
+	set.StringVar(&o.audio, "audio", "", "")
 	set.BoolVar(&o.help, "help", false, "")
 	set.BoolVar(&o.help, "h", false, "")
 	set.BoolVar(&o.json, "json", false, "")
@@ -212,6 +221,8 @@ func runWorkspaceCLI(ctx context.Context, o options, config string, args []strin
 	w := p.workspace
 	w.Cloud.Restrict([]string{})
 	switch pos[0] {
+	case "playlists":
+		return playlistCLI(ctx, w, pos[1:], f, o)
 	case "queue":
 		return queueCLI(ctx, p, pos[1:], f, o)
 	case "library":
@@ -667,6 +678,11 @@ func ttyLine(label, fallback string) (string, error) {
 func printWorkspaceHelp() {
 	fmt.Println(`
 Workspace:
+  camelclip playlists list|items|add|edit|pause|resume|sync|backfill|retry|watch
+  camelclip playlists add URL --initial new_only|all_existing --interval 15
+      [--name LABEL] [--quality 1080] [--out PATH] [--profile ID[,ID]]
+  camelclip playlists watch [--password-fd N]  # continuous monitoring/downloads
+  camelclip playlists sync ID                # one discovery scan, no transfers
   camelclip queue list --json
   camelclip queue priority JOB_ID low|normal|high
   camelclip queue reorder JOB_ID up|down|first|last
