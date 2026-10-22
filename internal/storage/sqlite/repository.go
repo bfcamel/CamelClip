@@ -62,7 +62,7 @@ func Open(ctx context.Context, dir string) (*Repository, error) {
 	if err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 4 {
+	if version > 5 {
 		return fail(fmt.Errorf("unsupported database schema version %d", version))
 	}
 	for _, statement := range []string{"PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON"} {
@@ -170,6 +170,13 @@ func saveChangesTx(ctx context.Context, tx *sql.Tx, changes application.Changes,
 		}
 		if _, err = tx.ExecContext(ctx, `INSERT INTO jobs(id,url,title,state,detail,output_path,needs_quality,request_json,media_json,monitor_json,control_json,history_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET url=excluded.url,title=excluded.title,state=excluded.state,detail=excluded.detail,output_path=excluded.output_path,needs_quality=excluded.needs_quality,request_json=excluded.request_json,media_json=excluded.media_json,monitor_json=excluded.monitor_json,control_json=excluded.control_json,history_json=excluded.history_json WHERE jobs.url!=excluded.url OR jobs.title!=excluded.title OR jobs.state!=excluded.state OR jobs.detail!=excluded.detail OR jobs.output_path!=excluded.output_path OR jobs.needs_quality!=excluded.needs_quality OR jobs.request_json!=excluded.request_json OR jobs.media_json!=excluded.media_json OR jobs.monitor_json!=excluded.monitor_json OR jobs.control_json!=excluded.control_json OR jobs.history_json!=excluded.history_json`, j.ID, j.Request.URL, j.Title, string(j.State), j.Detail, j.OutputPath, j.NeedsQuality, string(request), string(info), string(monitor), string(control), string(history)); err != nil {
 			return err
+		}
+		materialized, e := encode(j)
+		if e != nil {
+			return e
+		}
+		if _, e = tx.ExecContext(ctx, "UPDATE playlist_materializations SET record=? WHERE job_id=?", materialized, j.ID); e != nil {
+			return e
 		}
 		if j.OutputPath != "" {
 			if err = reconcilePublishedTx(ctx, tx, j.OutputPath, j.Title, j.Request.URL, j.ID, j.Request.Mode, j.Info.Duration); err != nil {

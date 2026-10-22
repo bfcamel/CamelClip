@@ -55,8 +55,8 @@ func inspect(ctx context.Context, path string, o options) (mediaInfo, error) {
 	if info.Type == "playlist" || info.Type == "multi_video" {
 		return info, errors.New("a single video URL is required")
 	}
-	if info.Live {
-		return info, errors.New("ongoing livestreams are not supported")
+	if info.Live || info.LiveStatus == "is_upcoming" {
+		return info, &core.Failure{Code: core.CodeNotReady, Message: "video is live or scheduled; waiting for a completed recording"}
 	}
 	return info, nil
 }

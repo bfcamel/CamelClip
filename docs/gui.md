@@ -49,3 +49,9 @@ python3 scripts/test_gui.py dist/CamelClip.app/Contents/MacOS/camelclip-gui
 ```
 
 The GUI smoke test uses a temporary config and a disposable local HTTP video fixture. It covers real yt-dlp/FFmpeg download and verification, quality choice, second-instance rejection, library retention after history removal, encrypted test credentials, vault rotation and restart. It requires FFmpeg, yt-dlp and permission to bind local sockets. Real S3 providers and Linux desktop integration require platform/provider acceptance checks.
+
+## Playlist monitoring and progress
+
+The Playlists section adds/edit subscriptions, shows first-scan state and errors, pauses/resumes monitoring, requests a scan and backfills existing entries. Details separate local task state from each S3 delivery. Monitoring requires CamelClip to remain running; see [playlist documentation](playlists.md).
+
+Download progress displays an approximate aggregate across separate video/audio tracks as soon as one track reports progress. The approximation marker avoids presenting equal-track weighting as a known byte total. Downloaded bytes and track count remain visible. If no percentage can be inferred, an indeterminate activity bar is shown. Speed and ETA remain separate; completed jobs reach 100% only after verification/publication.

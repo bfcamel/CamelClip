@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0 — 2026-10-22 (preview)
+
+- Follow any number of persistent YouTube playlists with new-only or full initial synchronization, durable video identity, bounded scanning/admission and shared materializations.
+- Add playlist management to GUI, TUI and CLI, including pause/resume, backfill, per-item status and selected S3 destinations.
+- Keep playlist local-only mode independent of global S3 auto-upload; persist delivery bindings and reuse already published compatible files.
+- Show approximate video/audio track progress from the first track, downloaded bytes and an activity bar when totals are unknown; retain speed and ETA.
+- Harden Core publication identity, retry state, adapter contracts, cloud cancellation and service shutdown; use incremental queue persistence.
+- Migrate to SQLite schema 5 without discarding queue/library/profile history. Older executables cannot open migrated workspaces.
+- Preview remains unsigned/not notarized; no server or bundled external media tools.
+
 ## 0.13.1 — 2026-10-22 (preview)
 
 - Make installer, package and launcher messages English-only while preserving application localization.

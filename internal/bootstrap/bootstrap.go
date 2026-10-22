@@ -60,6 +60,14 @@ func OpenWorkspace(backend core.Downloader) func(context.Context, string) (*appl
 		}
 		lib := application.NewLibrary(repo, library.Prober{})
 		lib.Enrich(ctx)
-		return &application.Workspace{Queue: q, Library: lib, Cloud: application.NewCloud(ctx, repo, repo, repo, security.New(), func() core.CredentialVault { return security.New() }, s3adapter.Adapter{}), Monitor: application.NewSystemMonitor(ctx, systemmetrics.New())}, nil
+		w := &application.Workspace{Queue: q, Library: lib, Cloud: application.NewCloud(ctx, repo, repo, repo, security.New(), func() core.CredentialVault { return security.New() }, s3adapter.Adapter{}), Monitor: application.NewSystemMonitor(ctx, systemmetrics.New())}
+		if source, ok := backend.(core.PlaylistSource); ok {
+			w.Playlists, err = application.NewPlaylists(ctx, repo, source, q)
+			if err != nil {
+				w.Close()
+				return nil, err
+			}
+		}
+		return w, nil
 	}
 }

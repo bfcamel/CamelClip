@@ -183,7 +183,7 @@ func detailsText(j *job) string {
 }
 func helpText() string {
 	return strings.Join([]string{
-		tr("1–4:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"),
+		tr("1–5:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"),
 		"Space/A: select · p: pause/resume · [/]: priority · </>: order · {/}: first/last",
 		tr("↑/↓ или j/k — выбрать задание"), tr("Tab / Shift+Tab — следующая / предыдущая вкладка"),
 		tr("Enter — сведения или выбор качества"), tr("a — добавить видео или аудио; v — быстро добавить видео"),
@@ -224,7 +224,7 @@ func (u *panelUI) render() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+"  c: CPU/RAM", cyan)
+	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+" 5: "+tr("Плейлисты")+"  c: CPU/RAM", cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), normal)

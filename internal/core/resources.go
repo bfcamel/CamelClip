@@ -64,12 +64,15 @@ func ParseRate(value string) (int64, error) {
 
 // Metrics are numerical measurements from the backend, not rendered text.
 type Metrics struct {
-	DownloadedBytes int64     `json:"downloaded_bytes"`
-	TotalBytes      *int64    `json:"total_bytes,omitempty"`
-	SpeedBPS        *float64  `json:"speed_bps,omitempty"`
-	ETASeconds      *float64  `json:"eta_seconds,omitempty"`
-	Percent         *float64  `json:"phase_progress,omitempty"`
-	At              time.Time `json:"timestamp"`
+	ProgressEstimated bool      `json:"progress_estimated,omitempty"`
+	PartIndex         int       `json:"part_index,omitempty"`
+	PartCount         int       `json:"part_count,omitempty"`
+	DownloadedBytes   int64     `json:"downloaded_bytes"`
+	TotalBytes        *int64    `json:"total_bytes,omitempty"`
+	SpeedBPS          *float64  `json:"speed_bps,omitempty"`
+	ETASeconds        *float64  `json:"eta_seconds,omitempty"`
+	Percent           *float64  `json:"phase_progress,omitempty"`
+	At                time.Time `json:"timestamp"`
 }
 
 func CloneMetrics(m Metrics) Metrics {

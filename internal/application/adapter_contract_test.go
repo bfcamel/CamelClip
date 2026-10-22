@@ -6,6 +6,7 @@ import (
 	"github.com/bfcamel/CamelClip/internal/core"
 	"math"
 	"testing"
+	"time"
 )
 
 type malformedDownloader struct {
@@ -102,5 +103,37 @@ func TestTypedRetryPolicyDoesNotParseDiagnostics(t *testing.T) {
 	}
 	if !retryable(context.DeadlineExceeded) {
 		t.Fatal("deadline not retryable")
+	}
+}
+
+type deferredDownloader struct{ fakeDownloader }
+
+func (d *deferredDownloader) Inspect(context.Context, core.Request) (core.MediaInfo, error) {
+	return core.MediaInfo{}, &core.Failure{Code: core.CodeNotReady, Message: "premiere pending"}
+}
+func TestUpcomingMediaDefersWithoutConsumingRetryBudget(t *testing.T) {
+	s, e := New(context.Background(), &deferredDownloader{}, &memoryRepository{}, 1)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	j, e := s.Submit(req(), false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s.Start()
+	deadline := time.Now().Add(time.Second)
+	for {
+		v := s.Jobs()[0]
+		if v.State == Queued && !v.Control.NextAttempt.IsZero() {
+			if v.Monitoring.AutomaticRetries != 0 || v.ID != j.ID {
+				t.Fatal(v)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal(s.Jobs())
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

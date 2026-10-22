@@ -8,7 +8,7 @@
 
 Download with yt-dlp, process and verify with FFmpeg, organize a persistent media library, and optionally upload to S3-compatible storage. Written in Go and licensed under Apache-2.0.
 
-[Download the preview](https://github.com/bfcamel/CamelClip/releases/tag/v0.13.1) · [Installation](docs/installers.md) · [CLI reference](docs/cli.md) · [Contributing](CONTRIBUTING.md)
+[Download the preview](https://github.com/bfcamel/CamelClip/releases/tag/v0.14.0) · [Installation](docs/installers.md) · [CLI reference](docs/cli.md) · [Contributing](CONTRIBUTING.md)
 
 ## Download and install
 
@@ -16,12 +16,12 @@ Choose your operating system and architecture. Each installer lets you select **
 
 | Platform | Recommended download |
 | --- | --- |
-| macOS — Apple Silicon | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_macos_arm64.pkg) |
-| macOS — Intel | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_macos_amd64.pkg) |
-| Linux — x86_64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_linux_amd64.tar.gz) |
-| Linux — ARM64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/camelclip_setup_0.13.1_linux_arm64.tar.gz) |
+| macOS — Apple Silicon | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_macos_arm64.pkg) |
+| macOS — Intel | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_macos_amd64.pkg) |
+| Linux — x86_64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_linux_amd64.tar.gz) |
+| Linux — ARM64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_linux_arm64.tar.gz) |
 
-macOS user-scoped archives and [SHA256SUMS](https://github.com/bfcamel/CamelClip/releases/download/v0.13.1/SHA256SUMS) are available on the release page. Installer text and project documentation are English-only; the application supports English and Russian.
+macOS user-scoped archives and [SHA256SUMS](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/SHA256SUMS) are available on the release page. Installer text and project documentation are English-only; the application supports English and Russian.
 
 **Preview status:** builds are unsigned and not notarized by Apple. Native Linux/Intel acceptance and system-wide macOS installation acceptance remain pending. See [platform support](docs/support.md) before use. Windows and a server edition are not available.
 
@@ -67,6 +67,8 @@ The interfaces share settings, queue/history, the library and the encrypted S3 v
 ## What CamelClip does
 
 - **Download video and audio:** batch URLs, quality selection, video codecs/containers and audio extraction.
+- **Follow YouTube playlists:** any number of subscriptions, new-only or full initial sync, durable video-ID history, shared downloads, pause/backfill and optional selected S3 destinations.
+- **See live progress:** approximate video/audio track progress, downloaded bytes and an activity bar when totals are unknown; speed and ETA remain separate.
 - **Control the queue:** separate download/processing limits, fixed-share rate budgets, priorities, pending pause, cancellation, retry and bulk actions.
 - **Keep a local library:** search, filters, metadata refresh, folder scanning, playback and explicit file management.
 - **Verify before publication:** staged downloads, stream/duration checks, full FFmpeg decode and publication without overwriting existing media.
@@ -82,9 +84,21 @@ camelclip download --list links.txt
 camelclip queue list --json
 camelclip library list --json
 camelclip doctor
+camelclip playlists add 'PLAYLIST_URL' --initial new_only --interval 15
+camelclip playlists watch
 ```
 
 `download` selects video and `audio` selects audio regardless of saved defaults. Each job captures its settings when submitted. Supported video codecs are H.264, HEVC, VP9 and AV1; containers are MP4, MKV and compatible WebM profiles. Audio formats include MP3, M4A, Opus, FLAC, WAV and best available. See [complete command and rate-limit details](docs/cli.md).
+
+## YouTube playlist subscriptions
+
+Open **Playlists** in GUI or press **5** in TUI. Add a persistent YouTube playlist URL, choose whether to download its existing entries, set a check interval (minimum five minutes), and optionally select S3 profiles. No S3 selection means local-only, even when global auto-upload is enabled elsewhere.
+
+New-only mode establishes its baseline after the first complete scan; later newly observed video IDs are downloaded, including old videos newly added anywhere in the list. Reordering, renaming, duplicate entries and re-adding known videos do not create another download. Compatible subscriptions share local work, and each keeps its own cloud delivery requirements. The default output folder is shared; selecting different output folders deliberately creates separate local files.
+
+Keep GUI/TUI running, or run `camelclip playlists watch`, for automatic monitoring and transfers. One-shot CLI list/add/sync commands do not start background downloads; `sync ID` performs discovery only. A locked S3 vault retains pending deliveries until explicitly unlocked (CLI watch supports `--password-fd`). Files are retained locally. Live/upcoming videos are deferred until a completed recording is available. Private playlists require an explicitly selected browser with working access.
+
+Subscription count has no product cap, but scans and download admission use bounded shared workers. Actual polling latency depends on backlog, playlist sizes and YouTube availability. A video added and removed between polls cannot be guaranteed to be discovered. See [playlist behavior and commands](docs/playlists.md).
 
 ## Your files and settings
 
@@ -109,7 +123,7 @@ Generated files stay under `dist/`: `build/` for intermediate installer payloads
 ## Documentation
 
 - [Installation and removal](docs/installers.md) · [Graphical interface](docs/gui.md)
-- [CLI reference](docs/cli.md) · [Queue, library and S3](docs/s3.md)
+- [Playlist subscriptions](docs/playlists.md) · [CLI reference](docs/cli.md) · [Queue, library and S3](docs/s3.md)
 - [Troubleshooting](docs/troubleshooting.md) · [Platform support](docs/support.md)
 - [Architecture](docs/architecture.md) · [Testing and acceptance](docs/testing.md)
 - [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Community guidelines](CODE_OF_CONDUCT.md)

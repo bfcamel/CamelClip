@@ -717,7 +717,12 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		j.Detail = err.Error()
 		j.Monitoring.LastError = err.Error()
 		j.Monitoring.ErrorCode = string(core.CodeOf(err))
-		if retryable(err) && j.Monitoring.AutomaticRetries < s.policy.RetryAttempts {
+		if core.CodeOf(err) == core.CodeNotReady {
+			j.State = Queued
+			j.Control.NextAttempt = time.Now().Add(15 * time.Minute)
+			j.Detail = "Waiting for source availability"
+			j.Monitoring.AttemptID = ""
+		} else if retryable(err) && j.Monitoring.AutomaticRetries < s.policy.RetryAttempts {
 			j.Monitoring.Attempts++
 			j.Monitoring.AutomaticRetries++
 			j.Monitoring.AttemptID = ""

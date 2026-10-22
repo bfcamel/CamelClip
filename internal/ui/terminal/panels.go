@@ -18,6 +18,9 @@ import (
 )
 
 type panelUI struct {
+	playlists                                         []core.PlaylistSubscription
+	playlistForm                                      core.PlaylistSubscription
+	playlistStep                                      int
 	ctx                                               context.Context
 	out                                               io.Writer
 	o                                                 *options

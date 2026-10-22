@@ -29,13 +29,14 @@ type MediaFormat struct {
 	DRM    bool   `json:"has_drm"`
 }
 type MediaInfo struct {
-	ID        string        `json:"id"`
-	Extractor string        `json:"extractor_key"`
-	Title     string        `json:"title"`
-	Duration  float64       `json:"duration"`
-	Formats   []MediaFormat `json:"formats"`
-	Type      string        `json:"_type"`
-	Live      bool          `json:"is_live"`
+	ID         string        `json:"id"`
+	Extractor  string        `json:"extractor_key"`
+	Title      string        `json:"title"`
+	Duration   float64       `json:"duration"`
+	Formats    []MediaFormat `json:"formats"`
+	Type       string        `json:"_type"`
+	LiveStatus string        `json:"live_status"`
+	Live       bool          `json:"is_live"`
 }
 
 func Validate(o Request) error {
