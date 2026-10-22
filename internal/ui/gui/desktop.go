@@ -14,7 +14,7 @@ import (
 )
 
 func Defaults(home string) config.Settings {
-	return config.Settings{Language: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: filepath.Join(downloadsDirectory(home), "CamelClip"), MaxDownloads: 5, MaxUploads: 2, UploadParts: 2, StagingFiles: 64, StagingBytes: 20 << 30, MinFreeBytes: 512 << 20}
+	return config.Defaults(filepath.Join(downloadsDirectory(home), "CamelClip"))
 }
 func downloadsDirectory(home string) string {
 	if runtime.GOOS == "linux" {

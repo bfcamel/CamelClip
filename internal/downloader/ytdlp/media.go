@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bfcamel/CamelClip/internal/core"
 	"os"
 	"os/exec"
 	"syscall"
@@ -43,9 +44,9 @@ func inspect(ctx context.Context, path string, o options) (mediaInfo, error) {
 			if parent.Err() != nil {
 				return mediaInfo{}, errCanceled
 			}
-			return mediaInfo{}, errors.New("metadata request canceled or exceeded 90 seconds")
+			return mediaInfo{}, &core.Failure{Code: core.CodeBackend, Message: "metadata request exceeded 90 seconds", Temporary: true}
 		}
-		return mediaInfo{}, fmt.Errorf("yt-dlp metadata: %w: %s", err, tail.String())
+		return mediaInfo{}, backendFailure(fmt.Errorf("yt-dlp metadata: %w: %s", err, tail.String()))
 	}
 	var info mediaInfo
 	if err := json.Unmarshal(out.Bytes(), &info); err != nil {

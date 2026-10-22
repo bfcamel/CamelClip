@@ -289,7 +289,7 @@ func queueCLI(ctx context.Context, p *jobPool, pos []string, f catalogFlags, o o
 		if pos[0] == "remove" && !f.yes {
 			return errors.New("history removal requires --yes; local files are kept")
 		}
-		return emitActionResults(p.service.BulkAction(ids, pos[0]))
+		return emitActionResults(p.service.BulkActionWithOptions(ids, pos[0], application.RetryOptions{Browser: &o.Cookies}))
 	}
 	return &usageError{"unknown queue action"}
 }
@@ -610,7 +610,7 @@ func waitUploads(ctx context.Context, w *application.Workspace, ids []string, as
 			}
 			selected = append(selected, j)
 			if j.State != "done" {
-				if j.Terminal() || j.State == "conflict" || j.State == "source_missing" || j.State == "blocked_profile_changed" {
+				if j.Terminal() || j.State.NeedsAttention() {
 					fail = true
 				} else {
 					finished = false

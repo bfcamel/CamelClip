@@ -102,3 +102,11 @@ Monitoring separates execution identity/count from the automatic retry budget. E
 Library and cloud operations have serialized admission, a cancellation context and a join barrier. Shutdown rejects new calls and joins admitted calls before releasing shared storage. Enrichment startup is idempotent. Queue limit/policy mutations reject a closed service. Cloud fatal failures are exposed by Err, reads used by wait loops, and Close; Workspace.Close joins component errors.
 
 Explicit multipart cleanup reserves its job against scheduling and retry, performs remote work outside the service mutex, then merges only the matching multipart checkpoint into the current record. A concurrent cancellation is preserved. Vault locking cancels and joins tracked credential-bearing network tests and cleanup operations as well as upload workers.
+
+## Validated adapter and command contracts
+
+Downloader and uploader callbacks are serialized and must finish before their operation returns. Queue validates media metadata, stage ordering, finite metrics, absolute result paths and publication/result agreement before accepting adapter output. Cloud validates upload metrics and successful verification results; adapter panics become item failures. Invalid adapter output does not poison shared persistence.
+
+Core.Failure carries a stable code, cause and retryability; application retry policy does not parse diagnostic text. Text classification of yt-dlp failures belongs to the yt-dlp adapter. UploadState owns valid, terminal and needs-attention categories. Existing JSON state values remain unchanged.
+
+RetryWithOptions and BulkActionWithOptions distinguish preserving browser authentication (nil), replacing it, and clearing it (pointer to an empty string). Legacy Retry remains compatible. Frontends share the bulk implementation and current-browser policy. Config owns defaults and canonical normalization, including zero resource defaults and absolute output paths. Bootstrap.OpenQueue honors the requested metadata worker count.

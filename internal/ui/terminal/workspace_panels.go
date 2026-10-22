@@ -321,7 +321,7 @@ func (u *panelUI) uploadKey(key string) bool {
 	case "enter":
 		u.modal = "details"
 		u.title = j.Profile.Name
-		u.input = fmt.Sprintf("ID: %s\n%s · %s\n%s/%s\n%s\n%s\n%s\nMultipart: %s", j.ID, uploadStateLabel(j.State), j.Profile.Name, j.Profile.Bucket, j.Key, remoteVerificationLabel(j.Verification), j.Error, tr("Повтор начинает отправку с начала"), j.MultipartID)
+		u.input = fmt.Sprintf("ID: %s\n%s · %s\n%s/%s\n%s\n%s\n%s\nMultipart: %s", j.ID, uploadStateLabel(string(j.State)), j.Profile.Name, j.Profile.Bucket, j.Key, remoteVerificationLabel(j.Verification), j.Error, tr("Повтор начинает отправку с начала"), j.MultipartID)
 		u.detailOffset = 0
 	case "r":
 		u.action = "retry-upload"
@@ -435,7 +435,7 @@ func (u *panelUI) renderWorkspace() {
 			text = fmt.Sprintf("%s%s · %s · %.0fs · %dx%d · %s · S3:%d", mark, filepath.Base(a.Path), fileSize(a.Size), a.Duration, a.Width, a.Height, assetStatusLabel(a.Status), a.RemoteCopies)
 		case 2:
 			j := u.uploads[i]
-			text = fmt.Sprintf("%s · %s · %s · %s · %s · ETA %s", j.Profile.Name, uploadStateLabel(j.State), percent(j.Metrics), speed(j.Metrics), j.Key, eta(j.Metrics))
+			text = fmt.Sprintf("%s · %s · %s · %s · %s · ETA %s", j.Profile.Name, uploadStateLabel(string(j.State)), percent(j.Metrics), speed(j.Metrics), j.Key, eta(j.Metrics))
 		case 3:
 			p := u.profiles[i]
 			enabled := tr("Отключено")

@@ -7,7 +7,10 @@ import (
 	"github.com/bfcamel/CamelClip/internal/core"
 	"github.com/bfcamel/CamelClip/internal/security"
 	"github.com/bfcamel/CamelClip/internal/storage/sqlite"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 type auditCleanupBackend struct {
@@ -99,5 +102,78 @@ func TestCloudFatalFailurePropagatesThroughReadsAndClose(t *testing.T) {
 	}
 	if e = c.Unlock(ctx, []byte("audit master password")); !errors.Is(e, application.ErrClosed) {
 		t.Fatal(e)
+	}
+}
+
+type malformedCloud struct {
+	fakeCloud
+	mode string
+}
+
+func (b *malformedCloud) Upload(ctx context.Context, p core.S3Profile, c core.Credentials, key string, source core.UploadSource, size int64, sha string, parts int, rate int64, emit func(core.UploadEvent)) (core.RemoteObject, error) {
+	switch b.mode {
+	case "panic":
+		panic("injected panic")
+	case "metrics":
+		emit(core.UploadEvent{Bytes: -1, Total: size})
+	case "result":
+		return core.RemoteObject{}, nil
+	}
+	return core.RemoteObject{Size: size, Verification: "size_verified"}, nil
+}
+func TestUploadAdapterViolationsAreIsolated(t *testing.T) {
+	for _, mode := range []string{"panic", "metrics", "result"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			r, e := sqlite.Open(ctx, t.TempDir())
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer r.Close()
+			factory := func() core.CredentialVault { return security.New() }
+			b := &malformedCloud{mode: mode}
+			c := application.NewCloud(ctx, r, r, r, factory(), factory, b)
+			defer c.Close()
+			c.Restrict([]string{})
+			if e = c.Initialize(ctx, []byte("audit master password")); e != nil {
+				t.Fatal(e)
+			}
+			p := core.S3Profile{ID: core.NewID(), Name: "contract", Region: "auto", Bucket: "bucket", Style: "path_style", Enabled: true}
+			if e = c.SaveProfile(ctx, p, &core.Credentials{AccessKey: "access", SecretKey: "private-key"}); e != nil {
+				t.Fatal(e)
+			}
+			path := filepath.Join(t.TempDir(), "source.mp4")
+			os.WriteFile(path, []byte("bytes"), 0600)
+			st, _ := os.Stat(path)
+			a, e := r.PutAsset(ctx, core.Asset{Path: path, Size: st.Size(), Modified: st.ModTime()})
+			if e != nil {
+				t.Fatal(e)
+			}
+			jobs, e := c.Enqueue(ctx, a.ID, []string{p.ID})
+			if e != nil {
+				t.Fatal(e)
+			}
+			c.Restrict([]string{jobs[0].ID})
+			deadline := time.Now().Add(5 * time.Second)
+			for {
+				j, e := c.Get(ctx, jobs[0].ID)
+				if e != nil {
+					t.Fatal(e)
+				}
+				if j.Terminal() {
+					if j.State != "failed" || j.ErrorCode != string(core.CodeContract) {
+						t.Fatal(j)
+					}
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatal("adapter failure did not terminate")
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			if c.Err() != nil {
+				t.Fatal("adapter poisoned cloud service", c.Err())
+			}
+		})
 	}
 }

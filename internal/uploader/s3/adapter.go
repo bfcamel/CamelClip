@@ -35,6 +35,15 @@ type Failure struct {
 	Temporary bool
 }
 
+func (e *Failure) FailureCode() core.ErrorCode {
+	switch e.Code {
+	case "PreconditionFailed", "ConditionalRequestConflict":
+		return core.CodeConflict
+	case "RemoteObjectChanged", "RemoteChecksumMismatch", "RemoteSizeMismatch":
+		return core.CodeContract
+	}
+	return core.CodeBackend
+}
 func (e *Failure) Retryable() bool { return e.Temporary }
 func (e *Failure) Error() string   { return "S3: " + e.Code }
 func failure(err error) error {

@@ -102,6 +102,9 @@ func WithResources(ctx context.Context, r Resources) context.Context {
 	return context.WithValue(ctx, resourceKey{}, r)
 }
 func EnterStage(ctx context.Context, phase Stage) error {
+	if StageOrder(phase) == 0 {
+		return ContractError("unknown resource stage")
+	}
 	if r, ok := ctx.Value(resourceKey{}).(Resources); ok {
 		return r.Enter(ctx, phase)
 	}

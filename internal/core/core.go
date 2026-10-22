@@ -39,6 +39,12 @@ type MediaInfo struct {
 }
 
 func Validate(o Request) error {
+	if !finiteNonnegative(o.Duration) || o.ExpectedParts < 0 || o.ExpectedParts > 4 {
+		return errors.New("invalid duration or expected part count")
+	}
+	if strings.ContainsRune(o.Out, '\x00') {
+		return errors.New("output path contains a null byte")
+	}
 	if o.RateLimitBPS < 0 {
 		return errors.New("rate limit must be nonnegative")
 	}
@@ -115,6 +121,10 @@ type Result struct{ Path string }
 
 // Downloader is the only interface required by the queue service. Implementations
 // must honor cancellation, finish child processes, and serialize observer calls.
+// Callbacks finish before Download returns, must not reenter the queue, and may
+// block for resource acquisition. Stages move forward (repeats are allowed).
+// Metrics must be finite/nonnegative. A successful result has an absolute path
+// inside Request.Out; if Published is emitted its path equals Result.Path.
 type Downloader interface {
 	Inspect(context.Context, Request) (MediaInfo, error)
 	Download(context.Context, Request, Observer) (Result, error)

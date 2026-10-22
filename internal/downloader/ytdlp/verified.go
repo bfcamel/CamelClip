@@ -270,7 +270,7 @@ func verifiedDownloadWithObserver(ctx context.Context, executable string, o opti
 			return compareErr
 		}
 		if !same {
-			return fmt.Errorf("publication conflict: existing file differs; kept unchanged: %s", target)
+			return &core.Failure{Code: core.CodeConflict, Message: fmt.Sprintf("publication conflict: existing file differs; kept unchanged: %s", target)}
 		}
 	}
 	if o.Mode == "video" {
@@ -317,6 +317,13 @@ func lockDownload(ctx context.Context, lock *os.File) error {
 func sameContent(ctx context.Context, a, b string) (bool, error) {
 	hash := func(path string) ([32]byte, error) {
 		var sum [32]byte
+		before, err := os.Lstat(path)
+		if err != nil {
+			return sum, err
+		}
+		if !before.Mode().IsRegular() {
+			return sum, errors.New("publication target is not a regular file")
+		}
 		f, err := os.Open(path)
 		if err != nil {
 			return sum, err
@@ -326,7 +333,7 @@ func sameContent(ctx context.Context, a, b string) (bool, error) {
 		if err != nil {
 			return sum, err
 		}
-		if !st.Mode().IsRegular() {
+		if !st.Mode().IsRegular() || !os.SameFile(before, st) {
 			return sum, errors.New("publication target is not a regular file")
 		}
 		h := sha256.New()
@@ -345,6 +352,13 @@ func sameContent(ctx context.Context, a, b string) (bool, error) {
 			if e != nil {
 				return sum, e
 			}
+		}
+		after, err := os.Lstat(path)
+		if err != nil {
+			return sum, err
+		}
+		if !os.SameFile(st, after) || st.Size() != after.Size() || !st.ModTime().Equal(after.ModTime()) {
+			return sum, errors.New("publication target changed during verification")
 		}
 		copy(sum[:], h.Sum(nil))
 		return sum, nil

@@ -407,9 +407,10 @@ func (u *panelUI) modalKey(key string) {
 		if yes {
 			ids := append([]int(nil), u.bulkIDs...)
 			action := u.bulkAction
+			browser := u.o.Cookies
 			u.background(func() error {
 				failed := []string{}
-				for _, r := range u.pool.service.BulkAction(ids, action) {
+				for _, r := range u.pool.service.BulkActionWithOptions(ids, action, application.RetryOptions{Browser: &browser}) {
 					if r.Error != "" {
 						failed = append(failed, fmt.Sprintf("#%d: %s", r.ID, r.Error))
 					}

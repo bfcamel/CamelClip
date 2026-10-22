@@ -96,6 +96,7 @@ type Queue interface {
 	Choose(int, string) error
 	Cancel(int) error
 	Retry(int, string) error
+	RetryWithOptions(int, RetryOptions) error
 	Remove(int) error
 	SetLimits(core.Limits) error
 	Statistics() Statistics
@@ -104,6 +105,7 @@ type Queue interface {
 	Reorder(int, string) error
 	PausePending(int, bool) error
 	BulkAction([]int, string) []ActionResult
+	BulkActionWithOptions([]int, string, RetryOptions) []ActionResult
 	Start()
 	StartOnly([]int)
 	Events() <-chan Event
@@ -250,7 +252,7 @@ func (s *Service) findLocked(id int) (int, error) {
 			return i, nil
 		}
 	}
-	return -1, fmt.Errorf("job #%d not found", id)
+	return -1, &core.Failure{Code: core.CodeNotFound, Message: fmt.Sprintf("job #%d not found", id)}
 }
 func variant(r core.Request) string {
 	if r.Mode == "audio" {
@@ -259,7 +261,9 @@ func variant(r core.Request) string {
 	return r.Quality + ":" + core.VideoCodec(r) + ":" + core.VideoContainer(r)
 }
 func (s *Service) Submit(r core.Request, choose bool) (Job, error) {
-	if err := core.Validate(r); err != nil {
+	var err error
+	r, err = core.NormalizeRequest(r)
+	if err != nil {
 		return Job{}, err
 	}
 	s.mu.Lock()
@@ -352,7 +356,25 @@ func (s *Service) Cancel(id int) error {
 	s.emitLocked(s.jobs[i], core.StageChanged, "")
 	return nil
 }
+
+// Retry preserves the original browser when browser is empty (legacy API).
 func (s *Service) Retry(id int, browser string) error {
+	options := RetryOptions{}
+	if browser != "" {
+		options.Browser = &browser
+	}
+	return s.RetryWithOptions(id, options)
+}
+
+// A nil Browser preserves authentication; a pointer to an empty string clears it.
+type RetryOptions struct{ Browser *string }
+
+func (s *Service) RetryWithOptions(id int, options RetryOptions) error {
+	browser := ""
+	if options.Browser != nil {
+		browser = *options.Browser
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.availableLocked(); err != nil {
@@ -387,7 +409,7 @@ func (s *Service) Retry(id int, browser string) error {
 	s.jobs[i].Monitoring.StartedAt = time.Time{}
 	s.jobs[i].Monitoring.FinishedAt = time.Time{}
 	delete(s.samples, id)
-	if browser != "" {
+	if options.Browser != nil {
 		s.jobs[i].Request.Cookies = browser
 	}
 	if err = s.saveLocked(); err != nil {
@@ -459,6 +481,10 @@ func (s *Service) scheduleLocked() {
 		}
 		if inspecting {
 			if j.Monitoring.AttemptID == "" {
+				j.Monitoring.StartedAt = time.Time{}
+				j.Monitoring.FinishedAt = time.Time{}
+				j.Monitoring.LastError = ""
+				j.Monitoring.ErrorCode = ""
 				j.Monitoring.AttemptID = core.NewID()
 				j.Monitoring.Executions++
 			}
@@ -506,22 +532,85 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 	func() {
 		defer func() {
 			if value := recover(); value != nil {
-				err = fmt.Errorf("backend panic: %v", value)
+				err = core.ContractError(fmt.Sprintf("backend panic: %v", value))
 			}
 		}()
 		if err != nil { // canceled while waiting for a resource
 		} else if inspecting {
 			info, err = s.backend.Inspect(ctx, r)
+			if err == nil {
+				err = core.ValidateMediaInfo(info)
+			}
 		} else {
 			r.RateLimitBPS = core.DownloadRate(ctx, r.RateLimitBPS)
-			result, err = s.backend.Download(ctx, r, func(e core.Event) {
+
+			var callbacks sync.Mutex
+			accepting := true
+			stage := core.Downloading
+			published := ""
+			var violation error
+			callback := func(e core.Event) {
+				callbacks.Lock()
+				defer callbacks.Unlock()
+				if !accepting || violation != nil {
+					return
+				}
+				switch e.Kind {
+				case core.StageChanged:
+					if core.StageOrder(e.Stage) == 0 || core.StageOrder(e.Stage) < core.StageOrder(stage) {
+						violation = core.ContractError("adapter emitted an invalid stage transition")
+						return
+					}
+					stage = e.Stage
+				case core.Progress:
+					if core.StageOrder(e.Stage) == 0 {
+						violation = core.ContractError("adapter emitted progress for an unknown stage")
+						return
+					}
+					if e.Metrics != nil {
+						violation = core.ValidateMetrics(*e.Metrics)
+						if violation != nil {
+							return
+						}
+					}
+				case core.Published:
+					violation = core.ValidateResult(r, core.Result{Path: e.Path})
+					if violation != nil {
+						return
+					}
+					if published != "" && published != e.Path {
+						violation = core.ContractError("adapter published multiple results")
+						return
+					}
+					published = e.Path
+				case core.Log:
+				default:
+					violation = core.ContractError("adapter emitted an unknown event")
+					return
+				}
 				if e.Kind == core.StageChanged {
 					if gateErr := resource.Enter(ctx, e.Stage); gateErr != nil {
 						return
 					}
 				}
 				s.observe(id, e)
-			})
+			}
+			func() {
+				defer func() { callbacks.Lock(); accepting = false; callbacks.Unlock() }()
+				result, err = s.backend.Download(ctx, r, callback)
+			}()
+			callbacks.Lock()
+			accepting = false
+			if violation != nil {
+				err = violation
+			} else if err == nil {
+				err = core.ValidateResult(r, result)
+				if err == nil && published != "" && result.Path != published {
+					err = core.ContractError("adapter result differs from its published path")
+				}
+			}
+			callbacks.Unlock()
+
 		}
 	}()
 	if resource != nil {
@@ -545,14 +634,14 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 	j.Monitoring.UpdatedAt = time.Now()
 	j.Monitoring.Download.SpeedBPS = nil
 	j.Monitoring.Download.ETASeconds = nil
-	if j.State == Canceling || errors.Is(err, core.ErrCanceled) {
+	if j.State == Canceling || errors.Is(err, core.ErrCanceled) || errors.Is(err, context.Canceled) {
 		j.State = Canceled
 		j.Detail = ""
 	} else if err != nil {
 		j.State = Failed
 		j.Detail = err.Error()
 		j.Monitoring.LastError = err.Error()
-		j.Monitoring.ErrorCode = "backend"
+		j.Monitoring.ErrorCode = string(core.CodeOf(err))
 		if retryable(err) && j.Monitoring.AutomaticRetries < s.policy.RetryAttempts {
 			j.Monitoring.Attempts++
 			j.Monitoring.AutomaticRetries++

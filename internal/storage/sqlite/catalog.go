@@ -421,6 +421,9 @@ func uploadIdentity(j core.UploadJob) string {
 	return fmt.Sprintf("%s\x00%d\x00%d\x00%s\x00%s\x00%s\x00%s\x00%s", j.AssetID, j.Size, j.Modified.UnixNano(), j.ProfileID, j.Profile.Endpoint, j.Profile.Region, j.Profile.Bucket, j.Key)
 }
 func saveUploadTx(ctx context.Context, tx *sql.Tx, j core.UploadJob, insert bool) error {
+	if !j.State.Valid() {
+		return core.ContractError("invalid upload state")
+	}
 	persisted := j
 	persisted.Metrics = core.Metrics{}
 	b, e := encode(persisted)

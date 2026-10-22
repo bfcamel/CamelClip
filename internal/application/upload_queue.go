@@ -8,9 +8,9 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -572,13 +572,13 @@ func (s *CloudService) schedule() {
 func sourceFile(a core.Asset, j core.UploadJob) (*os.File, error) {
 	fd, e := syscall.Open(a.Path, syscall.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if e != nil {
-		return nil, errors.New("source_missing")
+		return nil, &core.Failure{Code: core.CodeSourceChanged, Message: "source_missing"}
 	}
 	f := os.NewFile(uintptr(fd), a.Path)
 	st, e := f.Stat()
 	if e != nil || !st.Mode().IsRegular() || st.Size() != j.Size || !st.ModTime().Equal(j.Modified) {
 		f.Close()
-		return nil, errors.New("source_changed")
+		return nil, &core.Failure{Code: core.CodeSourceChanged, Message: "source_changed"}
 	}
 	return f, nil
 }
@@ -609,9 +609,15 @@ func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Cre
 	defer s.workers.Done()
 	var result core.RemoteObject
 	var err error
+	defer func() {
+		if value := recover(); value != nil {
+			err = core.ContractError(fmt.Sprintf("upload adapter panic: %v", value))
+		}
+		s.finishUpload(ctx, j, result, err, o)
+	}()
 	a, e := s.assets.Asset(ctx, j.AssetID)
 	if e != nil {
-		err = errors.New("source_missing")
+		err = &core.Failure{Code: core.CodeSourceChanged, Message: "source_missing"}
 	} else {
 		var f *os.File
 		f, err = sourceFile(a, j)
@@ -620,7 +626,7 @@ func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Cre
 			var sum string
 			sum, err = digest(ctx, f)
 			if err == nil && j.SHA256 != "" && j.SHA256 != sum {
-				err = errors.New("source_changed")
+				err = &core.Failure{Code: core.CodeSourceChanged, Message: "source_changed"}
 			}
 			if err == nil {
 				j.SHA256 = sum
@@ -657,63 +663,90 @@ func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Cre
 				started := time.Now()
 				var previousAt time.Time
 				var previousBytes int64
+				var observerMu sync.Mutex
+				accepting := true
+				var callbackErr error
 				err = s.uploads.SaveUpload(ctx, j)
 				if err == nil {
-					result, err = s.backend.Upload(ctx, j.Profile, c, j.Key, f, j.Size, sum, o.Parts, o.RateBPS, func(event core.UploadEvent) {
-						s.mu.Lock()
-						defer s.mu.Unlock()
-						if event.MultipartID != "" {
-							j.MultipartID = event.MultipartID
-							if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
-								s.failure = e
-								s.active[j.ID]()
+					func() {
+						defer func() { observerMu.Lock(); accepting = false; observerMu.Unlock() }()
+						result, err = s.backend.Upload(ctx, j.Profile, c, j.Key, f, j.Size, sum, o.Parts, o.RateBPS, func(event core.UploadEvent) {
+							observerMu.Lock()
+							defer observerMu.Unlock()
+							if !accepting || callbackErr != nil {
+								return
 							}
-						}
-						if event.Cleanup {
-							j.MultipartID = ""
-							if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
-								s.failure = e
+							if event.Bytes < 0 || event.Total < 0 || event.Total > 0 && event.Bytes > event.Total {
+								callbackErr = core.ContractError("upload adapter returned invalid byte counts")
+								return
 							}
-						}
-						if event.Stage == "uploaded" {
-							j.ETag = event.ETag
-							j.VersionID = event.VersionID
-							j.Verification = "uploaded_unverified"
-							j.State = "remote_check"
-							if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
-								s.failure = e
-								s.active[j.ID]()
+							switch event.Stage {
+							case "", "uploading", "uploaded", "remote_check":
+							default:
+								callbackErr = core.ContractError("upload adapter returned an unknown stage")
+								return
 							}
-						}
-						if event.Stage == "remote_check" {
-							j.State = "remote_check"
-							j.Updated = time.Now()
-							if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
-								s.failure = e
-								s.active[j.ID]()
-							}
-						}
-						if event.Total > 0 {
-							now := time.Now()
-							m := core.Metrics{DownloadedBytes: event.Bytes, TotalBytes: &event.Total, At: now}
-							if now.Sub(started) > 0 {
-								rate := float64(event.Bytes) / now.Sub(started).Seconds()
-								m.SpeedBPS = &rate
-								if rate > 0 {
-									eta := float64(event.Total-event.Bytes) / rate
-									m.ETASeconds = &eta
+							s.mu.Lock()
+							defer s.mu.Unlock()
+							if event.MultipartID != "" {
+								j.MultipartID = event.MultipartID
+								if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
+									s.failure = e
+									s.active[j.ID]()
 								}
 							}
-							percent := min(99.0, float64(event.Bytes)/float64(event.Total)*100)
-							m.Percent = &percent
-							if now.Sub(previousAt) > 200*time.Millisecond || event.Bytes == event.Total {
-								s.progress[j.ID] = m
-								previousAt = now
-								previousBytes = event.Bytes
+							if event.Cleanup {
+								j.MultipartID = ""
+								if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
+									s.failure = e
+								}
 							}
-							_ = previousBytes
-						}
-					})
+							if event.Stage == "uploaded" {
+								j.ETag = event.ETag
+								j.VersionID = event.VersionID
+								j.Verification = "uploaded_unverified"
+								j.State = "remote_check"
+								if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
+									s.failure = e
+									s.active[j.ID]()
+								}
+							}
+							if event.Stage == "remote_check" {
+								j.State = "remote_check"
+								j.Updated = time.Now()
+								if e := s.uploads.SaveUpload(context.Background(), j); e != nil {
+									s.failure = e
+									s.active[j.ID]()
+								}
+							}
+							if event.Total > 0 {
+								now := time.Now()
+								m := core.Metrics{DownloadedBytes: event.Bytes, TotalBytes: &event.Total, At: now}
+								if now.Sub(started) > 0 {
+									rate := float64(event.Bytes) / now.Sub(started).Seconds()
+									m.SpeedBPS = &rate
+									if rate > 0 {
+										eta := float64(event.Total-event.Bytes) / rate
+										m.ETASeconds = &eta
+									}
+								}
+								percent := min(99.0, float64(event.Bytes)/float64(event.Total)*100)
+								m.Percent = &percent
+								if now.Sub(previousAt) > 200*time.Millisecond || event.Bytes == event.Total {
+									s.progress[j.ID] = m
+									previousAt = now
+									previousBytes = event.Bytes
+								}
+								_ = previousBytes
+							}
+						})
+					}()
+					if callbackErr != nil {
+						err = callbackErr
+					}
+					if err == nil && (result.Size != j.Size || (result.Verification != "size_verified" && result.Verification != "checksum_verified")) {
+						err = core.ContractError("upload adapter returned an unverified or mismatched result")
+					}
 				}
 			}
 			if err == nil {
@@ -721,11 +754,14 @@ func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Cre
 				st, statErr := f.Stat()
 				current, pathErr := os.Lstat(a.Path)
 				if e != nil || statErr != nil || pathErr != nil || !os.SameFile(st, current) || st.Size() != j.Size || !st.ModTime().Equal(j.Modified) || after != sum {
-					err = errors.New("source_changed")
+					err = &core.Failure{Code: core.CodeSourceChanged, Message: "source_changed"}
 				}
 			}
 		}
 	}
+}
+
+func (s *CloudService) finishUpload(ctx context.Context, j core.UploadJob, result core.RemoteObject, err error, o core.UploadOptions) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.active, j.ID)
@@ -751,19 +787,16 @@ func (s *CloudService) execute(ctx context.Context, j core.UploadJob, c core.Cre
 		j.State = "failed"
 		j.Verification = "verification_failed"
 		j.Error = err.Error()
-		j.ErrorCode = "upload_failed"
-		if strings.Contains(j.Error, "source_") {
+		j.ErrorCode = string(core.CodeOf(err))
+		if core.CodeOf(err) == core.CodeSourceChanged {
 			j.State = "source_missing"
 			j.ErrorCode = "source_changed"
 		}
-		if strings.Contains(j.Error, "PreconditionFailed") || strings.Contains(j.Error, "ConditionalRequestConflict") {
+		if core.CodeOf(err) == core.CodeConflict {
 			j.State = "conflict"
 			j.ErrorCode = "conflict"
 		}
 		temporary := retryable(err)
-		if x, ok := err.(interface{ Retryable() bool }); ok {
-			temporary = x.Retryable()
-		}
 		if temporary && j.Attempts < o.RetryAttempts {
 			j.Attempts++
 			j.State = "queued"
