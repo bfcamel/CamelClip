@@ -1,6 +1,6 @@
 # Contributing
 
-CamelClip is a terminal video downloader for macOS and Linux, licensed under Apache-2.0. Contributions through issues and pull requests are welcome. Windows and a graphical interface are outside the current supported scope.
+CamelClip is a terminal video downloader for macOS and Linux, licensed under Apache-2.0. Contributions through issues and pull requests are welcome. Windows is outside the current supported scope. The additional GUI frontend is described in [docs/gui.md](docs/gui.md).
 
 ## Development
 

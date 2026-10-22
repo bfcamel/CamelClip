@@ -38,7 +38,11 @@ The event channel is a bounded, single-consumer notification stream. Slow observ
 
 `config.Repository` is a separate port for user preferences. Its JSON file adapter atomically writes `settings.json`. A job captures a copy of download parameters; changing preferences does not mutate queued work. Retrying an authentication failure explicitly takes the current browser selector.
 
-## Adding a GUI
+## GUI frontend
+
+The implemented frontend lives in `internal/ui/gui`, with its composition root in `cmd/camelclip-gui`. Embedded HTML/CSS/JavaScript is served on a random loopback port behind a per-session token, Host and Origin checks. The macOS AppKit/WebKit host is in `scripts/gui/Window.swift`; Linux and explicit browser mode use the default browser. It opens `bootstrap.OpenWorkspace`, so the same repository lock excludes simultaneous TUI/GUI instances. No IPC or background daemon is introduced. See [GUI documentation](gui.md).
+
+## Extending the GUI
 
 Add another executable under `cmd/` and a frontend under `internal/ui/`. Wire the same ports through `bootstrap`, or provide alternative implementations. A GUI can use the service without importing terminal code or invoking subprocesses itself:
 
