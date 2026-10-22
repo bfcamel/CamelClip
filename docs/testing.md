@@ -54,7 +54,7 @@ Past reports are retained under `docs/history/` for context only. They are not a
 
 ## Required pull-request validation
 
-The [CI workflow](../.github/workflows/ci.yml) runs on pull requests to `main`, pushes to `main`, merge queues and manual dispatch. The stable `Required` check aggregates every job and fails if any dependency fails, is canceled or is skipped. Main branch protection requires this check and an up-to-date branch before merging.
+The [CI workflow](../.github/workflows/ci.yml) runs on pull requests to `main`, pushes to `main` and `codex/**` branches, merge queues and manual dispatch. The stable `Required` check aggregates every job and fails if any dependency fails, is canceled or is skipped. Main branch protection requires this check and an up-to-date branch before merging.
 
 - Quality: Go formatting, module verification, vet, whitespace checks, English public content and GUI progress fixtures.
 - Native tests: full serial race suite on Linux x86-64 and the native macOS runner architecture, with FFmpeg/ffprobe and a pinned yt-dlp installed; GUI, playlist and workspace/S3 smoke tests use temporary local fixtures.
