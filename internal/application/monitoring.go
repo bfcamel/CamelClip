@@ -69,7 +69,7 @@ func (s *Service) resourcePhase(id int, stage core.Stage, waiting bool) {
 		j.Monitoring.Download.SpeedBPS = nil
 		j.Monitoring.Download.ETASeconds = nil
 	}
-	if s.saveLocked() != nil {
+	if s.saveJobLocked(id) != nil {
 		return
 	}
 	s.emitLocked(*j, core.StageChanged, "")

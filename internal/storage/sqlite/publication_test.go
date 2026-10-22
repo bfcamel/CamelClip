@@ -23,12 +23,12 @@ func TestDistinctPublicationsOfSameJobAreIndexed(t *testing.T) {
 	os.WriteFile(second, []byte("second"), 0600)
 	req := core.Request{URL: "https://example.com/video", Mode: "video", Quality: "best", Audio: "mp3", Out: dir}
 	j := application.Job{ID: 1, Request: req, State: application.Failed, OutputPath: first}
-	if e = r.Save(ctx, application.Snapshot{NextID: 1, Jobs: []application.Job{j}}); e != nil {
+	if e = r.ApplyChanges(ctx, application.Changes{NextID: 1, Upserts: []application.Job{j}}); e != nil {
 		t.Fatal(e)
 	}
 	j.State = application.Done
 	j.OutputPath = second
-	if e = r.Save(ctx, application.Snapshot{NextID: 1, Jobs: []application.Job{j}}); e != nil {
+	if e = r.ApplyChanges(ctx, application.Changes{NextID: 1, Upserts: []application.Job{j}}); e != nil {
 		t.Fatal(e)
 	}
 	page, e := r.Assets(ctx, core.AssetQuery{Limit: 50})
@@ -38,7 +38,7 @@ func TestDistinctPublicationsOfSameJobAreIndexed(t *testing.T) {
 	if len(page.Items) != 2 {
 		t.Fatal("observation changed", page)
 	}
-	if e = r.Save(ctx, application.Snapshot{NextID: 1, Jobs: []application.Job{j}}); e != nil {
+	if e = r.ApplyChanges(ctx, application.Changes{NextID: 1, Upserts: []application.Job{j}}); e != nil {
 		t.Fatal(e)
 	}
 	page, _ = r.Assets(ctx, core.AssetQuery{Limit: 50})

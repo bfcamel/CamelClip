@@ -66,7 +66,7 @@ func (s *Service) SetPriority(id, priority int) error {
 	s.jobs[i].Control.Priority = priority
 	s.jobs[i].Control.Position = time.Now().UnixNano()
 	s.syncOrderLocked()
-	return s.saveLocked()
+	return s.saveJobLocked(id)
 }
 func (s *Service) Reorder(id int, move string) error {
 	s.mu.Lock()
@@ -111,6 +111,7 @@ func (s *Service) Reorder(id int, move string) error {
 	indices[target] = v
 	for n, v := range indices {
 		s.jobs[v].Control.Position = int64(n + 1)
+		s.dirty[s.jobs[v].ID] = true
 	}
 	s.syncOrderLocked()
 	return s.saveLocked()
@@ -135,7 +136,7 @@ func (s *Service) PausePending(id int, paused bool) error {
 	j.Control.Paused = paused
 	j.Monitoring.UpdatedAt = time.Now()
 	s.syncOrderLocked()
-	if err = s.saveLocked(); err != nil {
+	if err = s.saveJobLocked(id); err != nil {
 		return err
 	}
 	s.scheduleLocked()
@@ -254,6 +255,7 @@ func (s *Service) maintain() {
 					}
 					if j.State != next {
 						j.State = next
+						s.dirty[j.ID] = true
 						changed = true
 					}
 				}

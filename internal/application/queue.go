@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -82,6 +83,18 @@ type Repository interface {
 	Save(context.Context, Snapshot) error
 	Close() error
 }
+
+// Changes is an atomic incremental transaction. Unmentioned jobs are retained.
+type Changes struct {
+	NextID  int
+	Upserts []Job
+	Removed []int
+}
+
+// IncrementalRepository is optional; alternative repositories may use snapshots.
+type IncrementalRepository interface {
+	ApplyChanges(context.Context, Changes) error
+}
 type Event struct {
 	Job    Job
 	Kind   core.EventKind
@@ -93,6 +106,7 @@ type Event struct {
 type Queue interface {
 	Submit(core.Request, bool) (Job, error)
 	Jobs() []Job
+	JobsPage(int, int) JobPage
 	Choose(int, string) error
 	Cancel(int) error
 	Retry(int, string) error
@@ -137,6 +151,9 @@ type Service struct {
 	closeErr                error
 	policy                  QueuePolicy
 	staged                  map[string]int64
+	dirty                   map[int]bool
+	removed                 map[int]bool
+	index                   map[int]int
 }
 
 var _ Queue = (*Service)(nil)
@@ -153,7 +170,7 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		return nil, err
 	}
 	c, cancel := context.WithCancel(ctx)
-	s := &Service{ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, resources: newResources(), staged: map[string]int64{}, samples: map[int][]rateSample{}, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
+	s := &Service{index: map[int]int{}, dirty: map[int]bool{}, removed: map[int]bool{}, ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, resources: newResources(), staged: map[string]int64{}, samples: map[int][]rateSample{}, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
 	seen := map[int]bool{}
 	for _, j := range snapshot.Jobs {
 		if j.ID <= 0 || seen[j.ID] || !j.State.Valid() {
@@ -182,7 +199,9 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 		if j.Control.Position == 0 {
 			j.Control.Position = int64(j.ID)
 		}
+		s.index[j.ID] = len(s.jobs)
 		s.jobs = append(s.jobs, clone(j))
+		s.dirty[j.ID] = true
 		if j.ID > s.nextID {
 			s.nextID = j.ID
 		}
@@ -200,38 +219,67 @@ func clone(j Job) Job {
 	j.Monitoring.Verify = core.CloneMetrics(j.Monitoring.Verify)
 	return j
 }
+func persistedJob(j *Job) Job {
+	message := ""
+	if j.State == Failed {
+		message = j.Detail
+	}
+	if len(j.History) == 0 || j.History[len(j.History)-1].State != j.State {
+		j.History = append(j.History, JobEvent{At: time.Now(), State: j.State, Message: message})
+		if len(j.History) > 100 {
+			j.History = j.History[len(j.History)-100:]
+		}
+	}
+	v := clone(*j)
+	if !j.State.Terminal() {
+		v.Detail = ""
+	}
+	v.Monitoring.Download.SpeedBPS = nil
+	v.Monitoring.Download.ETASeconds = nil
+	return v
+}
 func (s *Service) snapshotLocked() Snapshot {
 	v := Snapshot{NextID: s.nextID, Jobs: make([]Job, len(s.jobs))}
 	for i := range s.jobs {
-		j := &s.jobs[i]
-		message := ""
-		if j.State == Failed {
-			message = j.Detail
-		}
-		if len(j.History) == 0 || j.History[len(j.History)-1].State != j.State {
-			j.History = append(j.History, JobEvent{At: time.Now(), State: j.State, Message: message})
-			if len(j.History) > 100 {
-				j.History = j.History[len(j.History)-100:]
-			}
-		}
-		v.Jobs[i] = clone(*j)
-		if !j.State.Terminal() {
-			v.Jobs[i].Detail = ""
-		}
-		v.Jobs[i].Monitoring.Download.SpeedBPS = nil
-		v.Jobs[i].Monitoring.Download.ETASeconds = nil
+		v.Jobs[i] = persistedJob(&s.jobs[i])
 	}
 	return v
 }
+func (s *Service) saveJobLocked(id int) error { s.dirty[id] = true; return s.saveLocked() }
+
 func (s *Service) saveLocked() error {
 	if s.failure != nil {
 		return s.failure
 	}
-	if err := s.repository.Save(context.Background(), s.snapshotLocked()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var err error
+	if incremental, ok := s.repository.(IncrementalRepository); ok {
+		changes := Changes{NextID: s.nextID}
+		ids := make([]int, 0, len(s.dirty))
+		for id := range s.dirty {
+			ids = append(ids, id)
+		}
+		sort.Ints(ids)
+		for _, id := range ids {
+			if i, ok := s.index[id]; ok {
+				changes.Upserts = append(changes.Upserts, persistedJob(&s.jobs[i]))
+			}
+		}
+		for id := range s.removed {
+			changes.Removed = append(changes.Removed, id)
+		}
+		err = incremental.ApplyChanges(ctx, changes)
+	} else {
+		err = s.repository.Save(ctx, s.snapshotLocked())
+	}
+	if err != nil {
 		s.failure = fmt.Errorf("cannot save queue: %w", err)
 		s.cancel()
 		return s.failure
 	}
+	clear(s.dirty)
+	clear(s.removed)
 	return nil
 }
 func (s *Service) availableLocked() error {
@@ -247,13 +295,12 @@ func (s *Service) availableLocked() error {
 	return nil
 }
 func (s *Service) findLocked(id int) (int, error) {
-	for i := range s.jobs {
-		if s.jobs[i].ID == id {
-			return i, nil
-		}
+	if i, ok := s.index[id]; ok {
+		return i, nil
 	}
 	return -1, &core.Failure{Code: core.CodeNotFound, Message: fmt.Sprintf("job #%d not found", id)}
 }
+
 func variant(r core.Request) string {
 	if r.Mode == "audio" {
 		return r.Audio
@@ -278,9 +325,10 @@ func (s *Service) Submit(r core.Request, choose bool) (Job, error) {
 	}
 	s.nextID++
 	j := Job{ID: s.nextID, Request: r, Title: r.URL, State: Queued, NeedsQuality: choose, Control: JobControl{Position: time.Now().UnixNano()}, Monitoring: Monitoring{CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	s.index[j.ID] = len(s.jobs)
 	s.jobs = append(s.jobs, j)
 	s.syncOrderLocked()
-	if err := s.saveLocked(); err != nil {
+	if err := s.saveJobLocked(j.ID); err != nil {
 		return Job{}, err
 	}
 	s.emitLocked(j, core.StageChanged, "")
@@ -295,6 +343,27 @@ func (s *Service) Jobs() []Job {
 		result[i] = clone(j)
 	}
 	return result
+}
+
+// JobsPage provides bounded immutable reads for additional clients.
+type JobPage struct {
+	Items []Job
+	Total int
+}
+
+func (s *Service) JobsPage(offset, limit int) JobPage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if limit <= 0 {
+		limit = 50
+	}
+	limit = min(limit, 200)
+	offset = min(max(offset, 0), len(s.jobs))
+	page := JobPage{Total: len(s.jobs), Items: make([]Job, 0, min(limit, len(s.jobs)-offset))}
+	for _, j := range s.jobs[offset:min(len(s.jobs), offset+limit)] {
+		page.Items = append(page.Items, clone(j))
+	}
+	return page
 }
 func (s *Service) Choose(id int, quality string) error {
 	s.mu.Lock()
@@ -320,7 +389,7 @@ func (s *Service) Choose(id int, quality string) error {
 	if s.jobs[i].State.Terminal() {
 		s.jobs[i].Monitoring.FinishedAt = time.Now()
 	}
-	if err = s.saveLocked(); err != nil {
+	if err = s.saveJobLocked(id); err != nil {
 		return err
 	}
 	s.emitLocked(s.jobs[i], core.StageChanged, "")
@@ -350,7 +419,7 @@ func (s *Service) Cancel(id int) error {
 	if s.jobs[i].State.Terminal() {
 		s.jobs[i].Monitoring.FinishedAt = time.Now()
 	}
-	if err = s.saveLocked(); err != nil {
+	if err = s.saveJobLocked(id); err != nil {
 		return err
 	}
 	s.emitLocked(s.jobs[i], core.StageChanged, "")
@@ -412,7 +481,7 @@ func (s *Service) RetryWithOptions(id int, options RetryOptions) error {
 	if options.Browser != nil {
 		s.jobs[i].Request.Cookies = browser
 	}
-	if err = s.saveLocked(); err != nil {
+	if err = s.saveJobLocked(id); err != nil {
 		return err
 	}
 	s.scheduleLocked()
@@ -432,7 +501,13 @@ func (s *Service) Remove(id int) error {
 		return errors.New("cancel active jobs before removing")
 	}
 	delete(s.samples, id)
+	delete(s.dirty, id)
+	s.removed[id] = true
 	s.jobs = append(s.jobs[:i], s.jobs[i+1:]...)
+	delete(s.index, id)
+	for n := i; n < len(s.jobs); n++ {
+		s.index[s.jobs[n].ID] = n
+	}
 	return s.saveLocked()
 }
 func (s *Service) Start() {
@@ -470,7 +545,7 @@ func (s *Service) scheduleLocked() {
 			if j.State != WaitingDisk {
 				j.State = WaitingDisk
 				j.Detail = "Waiting for disk/staging capacity"
-				if s.saveLocked() != nil {
+				if s.saveJobLocked(j.ID) != nil {
 					return
 				}
 			}
@@ -498,7 +573,7 @@ func (s *Service) scheduleLocked() {
 			j.Monitoring.StartedAt = time.Now()
 		}
 		j.Detail = ""
-		if err := s.saveLocked(); err != nil {
+		if err := s.saveJobLocked(j.ID); err != nil {
 			if inspecting {
 				s.metadataActive--
 			}
@@ -685,7 +760,7 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 	if j.State.Terminal() {
 		j.Monitoring.FinishedAt = time.Now()
 	}
-	if s.saveLocked() != nil {
+	if s.saveJobLocked(id) != nil {
 		return
 	}
 
@@ -718,7 +793,7 @@ func (s *Service) observe(id int, e core.Event) {
 		}
 		j.State = state
 		j.Detail = ""
-		if s.saveLocked() != nil {
+		if s.saveJobLocked(id) != nil {
 			return
 		}
 	case core.Progress:
@@ -726,7 +801,7 @@ func (s *Service) observe(id int, e core.Event) {
 		s.measureLocked(j, e)
 	case core.Published:
 		j.OutputPath = e.Path
-		if s.saveLocked() != nil {
+		if s.saveJobLocked(id) != nil {
 			return
 		}
 	}
@@ -736,13 +811,16 @@ func (s *Service) Close() error {
 	s.closeOnce.Do(func() {
 		s.mu.Lock()
 		s.closing = true
+		for _, j := range s.jobs {
+			if !j.State.Terminal() {
+				s.dirty[j.ID] = true
+			}
+		}
 		s.closeErr = s.saveLocked()
 		s.cancel()
 		s.mu.Unlock()
 		s.wg.Wait()
-		if err := s.repository.Close(); s.closeErr == nil {
-			s.closeErr = err
-		}
+		s.closeErr = errors.Join(s.closeErr, s.repository.Close())
 		close(s.events)
 	})
 	return s.closeErr

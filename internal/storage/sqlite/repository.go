@@ -116,24 +116,31 @@ func (r *Repository) Load(ctx context.Context) (application.Snapshot, error) {
 	return snapshot, rows.Err()
 }
 func saveTx(ctx context.Context, tx *sql.Tx, snapshot application.Snapshot) error {
-	if snapshot.NextID < 0 {
+	return saveChangesTx(ctx, tx, application.Changes{NextID: snapshot.NextID, Upserts: snapshot.Jobs}, true)
+}
+func saveChangesTx(ctx context.Context, tx *sql.Tx, changes application.Changes, replace bool) error {
+	if changes.NextID < 0 {
 		return errors.New("invalid next job ID")
 	}
-	if _, err := tx.ExecContext(ctx, "CREATE TEMP TABLE IF NOT EXISTS retained_jobs(id INTEGER PRIMARY KEY)"); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM retained_jobs"); err != nil {
-		return err
-	}
+	if replace {
+		if _, err := tx.ExecContext(ctx, "CREATE TEMP TABLE IF NOT EXISTS retained_jobs(id INTEGER PRIMARY KEY)"); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM retained_jobs"); err != nil {
+			return err
+		}
 
+	}
 	seen := map[int]bool{}
-	for _, j := range snapshot.Jobs {
+	for _, j := range changes.Upserts {
 		if seen[j.ID] {
 			return errors.New("duplicate job ID")
 		}
 		seen[j.ID] = true
-		if _, err := tx.ExecContext(ctx, "INSERT INTO retained_jobs(id) VALUES(?)", j.ID); err != nil {
-			return err
+		if replace {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO retained_jobs(id) VALUES(?)", j.ID); err != nil {
+				return err
+			}
 		}
 		if j.ID <= 0 || !j.State.Valid() {
 			return errors.New("invalid job record")
@@ -176,10 +183,22 @@ func saveTx(ctx context.Context, tx *sql.Tx, snapshot application.Snapshot) erro
 			}
 		}
 	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM jobs WHERE NOT EXISTS (SELECT 1 FROM retained_jobs WHERE retained_jobs.id=jobs.id)"); err != nil {
-		return err
+	if replace {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM jobs WHERE NOT EXISTS (SELECT 1 FROM retained_jobs WHERE retained_jobs.id=jobs.id)"); err != nil {
+			return err
+		}
+	} else {
+		for _, id := range changes.Removed {
+			if id <= 0 || seen[id] {
+				return errors.New("invalid or conflicting removal ID")
+			}
+			seen[id] = true
+			if _, err := tx.ExecContext(ctx, "DELETE FROM jobs WHERE id=?", id); err != nil {
+				return err
+			}
+		}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO metadata(key,value) VALUES('next_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, snapshot.NextID)
+	_, err := tx.ExecContext(ctx, `INSERT INTO metadata(key,value) VALUES('next_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, changes.NextID)
 	return err
 }
 func (r *Repository) Save(ctx context.Context, snapshot application.Snapshot) error {
@@ -189,6 +208,17 @@ func (r *Repository) Save(ctx context.Context, snapshot application.Snapshot) er
 	}
 	defer tx.Rollback()
 	if err = saveTx(ctx, tx, snapshot); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+func (r *Repository) ApplyChanges(ctx context.Context, changes application.Changes) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = saveChangesTx(ctx, tx, changes, false); err != nil {
 		return err
 	}
 	return tx.Commit()
