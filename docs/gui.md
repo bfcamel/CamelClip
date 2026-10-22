@@ -26,7 +26,7 @@ Use Quit to stop the application and save resumable work. Closing the native win
 sh scripts/build_gui.sh
 ```
 
-Go is required; macOS additionally requires Xcode Command Line Tools (`swiftc` and the macOS SDK). No new Go dependencies are added. The desktop window uses system AppKit/WebKit. The UI assets are embedded in the Go executable.
+Go and Python 3 are required; macOS additionally requires Xcode Command Line Tools (`swiftc` and the macOS SDK). No new Go dependencies are added. The desktop window uses system AppKit/WebKit. The UI assets are embedded in the Go executable. The transparent logo in `internal/ui/gui/web/logo.png` is also packaged as the macOS Finder/Dock icon during the build.
 
 ## Browser mode / Linux
 

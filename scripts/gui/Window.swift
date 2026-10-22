@@ -9,6 +9,10 @@ final class WindowDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
     let startURL: URL
     init(url: URL) { startURL = url; super.init() }
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let executable = Bundle.main.executableURL {
+            let iconURL = executable.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/CamelClip.icns")
+            if let icon = NSImage(contentsOf: iconURL) { NSApp.applicationIconImage = icon }
+        }
         let menu = NSMenu()
         let appItem = NSMenuItem()
         menu.addItem(appItem)

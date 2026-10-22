@@ -8,6 +8,27 @@ case "$(uname -s)" in
  Darwin)
   app="dist/CamelClip.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+  iconwork=$(mktemp -d "${TMPDIR:-/tmp}/camelclip-icon.XXXXXX")
+  trap 'rm -rf "$iconwork"' EXIT HUP INT TERM
+  mkdir -p "$iconwork/CamelClip.iconset"
+  for size in 16 32 128 256 512; do
+    sips -z "$size" "$size" internal/ui/gui/web/logo.png --out "$iconwork/CamelClip.iconset/icon_${size}x${size}.png" >/dev/null
+    double=$((size * 2))
+    sips -z "$double" "$double" internal/ui/gui/web/logo.png --out "$iconwork/CamelClip.iconset/icon_${size}x${size}@2x.png" >/dev/null
+  done
+  # Package PNG representations directly; no dependency on iconutil's GUI services.
+  python3 - "$iconwork/CamelClip.iconset" "$app/Contents/Resources/CamelClip.icns" <<'ICNS'
+import pathlib, struct, sys
+root = pathlib.Path(sys.argv[1])
+representations = [("icp4",16,1),("icp5",32,1),("ic07",128,1),("ic08",256,1),("ic09",512,1),("ic11",16,2),("ic12",32,2),("ic13",128,2),("ic14",256,2),("ic10",512,2)]
+chunks = []
+for tag, size, scale in representations:
+    suffix = "@2x" if scale == 2 else ""
+    data = (root / f"icon_{size}x{size}{suffix}.png").read_bytes()
+    chunks.append(tag.encode("ascii") + struct.pack(">I", len(data) + 8) + data)
+body = b"".join(chunks)
+pathlib.Path(sys.argv[2]).write_bytes(b"icns" + struct.pack(">I", len(body) + 8) + body)
+ICNS
   go build -trimpath -o "$app/Contents/MacOS/camelclip-gui" ./cmd/camelclip-gui
   swiftc -O -module-cache-path "${TMPDIR:-/tmp}/camelclip-swift-cache" scripts/gui/Window.swift -o "$app/Contents/MacOS/CamelClipWindow"
   cat > "$app/Contents/MacOS/CamelClip" <<'LAUNCH'
@@ -36,6 +57,7 @@ LAUNCH
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>CamelClip</string>
 <key>CFBundleIdentifier</key><string>com.bfcamel.camelclip.gui</string>
+<key>CFBundleIconFile</key><string>CamelClip.icns</string>
 <key>CFBundleName</key><string>CamelClip</string>
 <key>CFBundleDisplayName</key><string>CamelClip</string>
 <key>CFBundlePackageType</key><string>APPL</string>
