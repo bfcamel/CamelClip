@@ -29,6 +29,10 @@ On first interactive launch, setup asks for language, output directory, video pr
 
 The installer uses `~/.local/bin/camelclip`. `--add-to-path` updates `~/.zprofile` for macOS/zsh, `~/.bashrc` for Linux bash, or `~/.profile` for Linux sh. Other shells need manual PATH setup. Use `--bin-dir /absolute/path` for a custom location and `--force` to replace an installed binary. To uninstall, remove the binary and the startup line marked `# CamelClip CLI`; media and application data are retained.
 
+## Graphical interface
+
+A separate GUI is available alongside TUI/CLI. On macOS, run `sh scripts/build_gui.sh`, then open `dist/CamelClip.app`. The native window uses the same workspace and exclusive instance lock as TUI. On Linux, the GUI opens in the default browser. See [GUI launch, build and validation](docs/gui.md).
+
 ## Commands
 
 ```sh
@@ -140,7 +144,7 @@ CamelClip uses only `camelclip`, `CAMELCLIP_CONFIG_DIR`, and the CamelClip direc
 - [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [Community conduct](CODE_OF_CONDUCT.md)
 - [Changelog](CHANGELOG.md), [License](LICENSE), [Notices](NOTICE), [Third-party licenses](THIRD_PARTY_LICENSES.txt)
 
-Windows and a GUI are not currently supported. Site access depends on yt-dlp, the current site behavior and your account/network. No hosted automation is required for local checks or release packaging.
+Windows is not currently supported. The GUI is documented in [docs/gui.md](docs/gui.md). Site access depends on yt-dlp, the current site behavior and your account/network. No hosted automation is required for local checks or release packaging.
 
 ## Queue, library and S3 workspace
 
