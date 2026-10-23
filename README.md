@@ -12,6 +12,9 @@ Download with yt-dlp, process and verify with FFmpeg, organize a persistent medi
 
 ## Download and install
 
+Local component installers for **0.15.0** include Clip by Link and poster/subtitle
+workflows. They are not yet published; the public downloads below remain 0.14.0.
+
 Choose your operating system and architecture. Each installer lets you select **GUI**, **TUI**, **CLI**, or any combination.
 
 | Platform | Recommended download |
