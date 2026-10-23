@@ -17,11 +17,17 @@ sandbox.window.webkit={messageHandlers:{appearance:{postMessage(v){appearanceMes
 vm.runInContext("applyTheme('dark');applyTheme('dark')",sandbox);
 assert.equal(sandbox.document.documentElement.dataset.theme,'dark');
 assert.equal(appearanceMessages.length,1);
-assert.equal(appearanceMessages[0].revealTitle,'Reveal');
+assert.equal(appearanceMessages[0].theme,'dark');
 vm.runInContext("applyTheme('light');applyTheme('auto');applyTheme('unsupported')",sandbox);
 assert.equal(sandbox.document.documentElement.dataset.theme,'auto');
 assert.equal(appearanceMessages.length,3);
 vm.runInContext("lang='ru';applyTheme('auto')",sandbox);
-assert.equal(appearanceMessages.at(-1).revealTitle,'Показать в папке');
-assert.equal(appearanceMessages.at(-1).fileTitle,'Файл');
+assert.equal(appearanceMessages.at(-1).theme,'auto');
 console.log('Adaptive theme and native menu synchronization passed.');
+
+const ready=vm.runInContext("jobActions({ID:7,State:'done',OutputPath:'/media/video.mp4',Title:'Video <7>'})",sandbox);
+assert.match(ready,/data-action="job-reveal"/);assert.match(ready,/data-id="7"/);assert.match(ready,/Video &lt;7&gt;/);
+for(const stage of ['downloading','failed','canceled']){
+ assert.doesNotMatch(vm.runInContext(`jobActions({ID:8,State:'${stage}',OutputPath:'',Title:'Pending'})`,sandbox),/job-reveal/);
+}
+console.log('Per-video reveal actions and unavailable output handling passed.');
