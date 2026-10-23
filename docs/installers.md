@@ -1,13 +1,17 @@
 # Component installers
 
+The current local build is **0.15.0**, including Clip by Link and poster/subtitle
+workflows. It has not been published as a GitHub Release. The public download
+links in README still point to the existing 0.14.0 preview.
+
 CamelClip now has prebuilt component installers for macOS and Linux. Choose GUI, TUI and/or CLI. The unreleased server is rejected as a component, never installed or started. All interfaces keep the existing exclusive local workspace lock.
 
 ## macOS: standard graphical Installer
 
 Open the package matching your Mac:
 
-- Apple Silicon: `camelclip_setup_0.14.0_macos_arm64.pkg`
-- Intel: `camelclip_setup_0.14.0_macos_amd64.pkg`
+- Apple Silicon: `camelclip_setup_0.15.0_macos_arm64.pkg`
+- Intel: `camelclip_setup_0.15.0_macos_amd64.pkg`
 
 The standard Installer automatically presents component choices. GUI is selected for a clean install; existing installed selections are restored on later runs. Shared terminal files are selected automatically when TUI or CLI is chosen. GUI is installed as `/Applications/CamelClip.app`, TUI as `/Applications/CamelClip TUI.command` and `camelclip-tui`, CLI as `/usr/local/bin/camelclip`. Setup/maintenance is `/usr/local/bin/camelclip-setup`.
 
@@ -27,7 +31,7 @@ These are local unsigned development packages. Public distribution still require
 
 ## Linux: interactive or unattended user setup
 
-Download/extract the matching `camelclip_setup_0.14.0_linux_amd64.tar.gz` or `camelclip_setup_0.14.0_linux_arm64.tar.gz`, enter the extracted directory and run:
+Download/extract the matching `camelclip_setup_0.15.0_linux_amd64.tar.gz` or `camelclip_setup_0.15.0_linux_arm64.tar.gz`, enter the extracted directory and run:
 
 ```sh
 ./setup.sh
@@ -90,10 +94,10 @@ sh scripts/build_installers.sh                  # all four targets; run on macOS
 sh scripts/build_installers.sh linux amd64     # one target
 sh scripts/build_installers.sh darwin arm64    # Mac package and user archive
 python3 scripts/test_installers.py             # after all four builds
-python3 scripts/test_installer_choices.py dist/installers/0.14.0/camelclip_setup_0.14.0_macos_arm64.pkg  # read-only native choice evaluation
+python3 scripts/test_installer_choices.py dist/installers/0.15.0/camelclip_setup_0.15.0_macos_arm64.pkg  # read-only native choice evaluation
 ```
 
-Outputs are in `dist/installers/0.14.0/`: two macOS `.pkg` files, four user-setup `.tar.gz` archives and `SHA256SUMS`. Debug Distribution XML files are also emitted. Existing terminal-only release packaging and `install.sh` remain available for compatibility.
+Outputs are in `dist/installers/0.15.0/`: two macOS `.pkg` files, four user-setup `.tar.gz` archives and `SHA256SUMS`. Debug Distribution XML files are also emitted. Existing terminal-only release packaging and `install.sh` remain available for compatibility.
 
 Each user archive has a schema-1 manifest with stable component IDs, OS/architecture, version/commit and every payload file's hash, size, destination and mode. Builds outside a clean release checkout default to `development-local`; release builders supply `RELEASE_COMMIT` and `SOURCE_DATE_EPOCH` after validating their exact source revision. Packaging does not claim to validate source provenance automatically.
 
