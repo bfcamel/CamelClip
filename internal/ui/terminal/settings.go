@@ -20,11 +20,11 @@ func settingsFor(o options) settings {
 	if o.Lang == "" {
 		o.Lang = "auto"
 	}
-	return settings{MaxUploads: o.MaxUploads, UploadParts: o.UploadParts, RetryAttempts: o.RetryAttempts, StagingFiles: o.StagingFiles, StagingBytes: o.StagingBytes, MinFreeBytes: o.MinFreeBytes, UploadRateBPS: o.UploadRateBPS, Language: o.Lang, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o), MaxDownloads: o.MaxDownloads, MaxProcessing: o.MaxProcessing, RateLimitBPS: o.RateLimitBPS, JobRateLimitBPS: o.JobRateLimitBPS}
+	return settings{MaxUploads: o.MaxUploads, UploadParts: o.UploadParts, RetryAttempts: o.RetryAttempts, StagingFiles: o.StagingFiles, StagingBytes: o.StagingBytes, MinFreeBytes: o.MinFreeBytes, UploadRateBPS: o.UploadRateBPS, Language: o.Lang, Theme: o.Theme, Mode: o.Mode, Quality: o.Quality, Audio: o.Audio, Out: o.Out, Browser: o.Cookies, Codec: videoCodec(o), Container: videoContainer(o), MaxDownloads: o.MaxDownloads, MaxProcessing: o.MaxProcessing, RateLimitBPS: o.RateLimitBPS, JobRateLimitBPS: o.JobRateLimitBPS}
 }
 func defaultOptions(home string) options {
 	v := config.Defaults(filepath.Join(downloadsDirectory(home), "CamelClip"))
-	return options{MaxUploads: v.MaxUploads, UploadParts: v.UploadParts, StagingFiles: v.StagingFiles, StagingBytes: v.StagingBytes, MinFreeBytes: v.MinFreeBytes, MaxDownloads: v.MaxDownloads, Lang: v.Language, Mode: v.Mode, Quality: v.Quality, Audio: v.Audio, Codec: v.Codec, Container: v.Container, Out: v.Out}
+	return options{MaxUploads: v.MaxUploads, UploadParts: v.UploadParts, StagingFiles: v.StagingFiles, StagingBytes: v.StagingBytes, MinFreeBytes: v.MinFreeBytes, MaxDownloads: v.MaxDownloads, Lang: v.Language, Theme: v.Theme, Mode: v.Mode, Quality: v.Quality, Audio: v.Audio, Codec: v.Codec, Container: v.Container, Out: v.Out}
 }
 func loadSettings(path string, o *options) error {
 	if o.runtime == nil || o.runtime.OpenConfig == nil {
@@ -43,6 +43,7 @@ func loadSettings(path string, o *options) error {
 	o.MinFreeBytes = s.MinFreeBytes
 	o.UploadRateBPS = s.UploadRateBPS
 	o.Lang = s.Language
+	o.Theme = s.Theme
 	o.Mode = s.Mode
 	o.Quality = s.Quality
 	o.Audio = s.Audio

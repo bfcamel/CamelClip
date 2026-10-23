@@ -18,6 +18,7 @@ func TestSettingsRoundTripAndCorruption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "settings.json")
 	o := defaults()
 	o.Cookies = "firefox"
+	o.Theme = "dark"
 	if err := saveSettings(path, o); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +26,7 @@ func TestSettingsRoundTripAndCorruption(t *testing.T) {
 	if err := loadSettings(path, &loaded); err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Quality != o.Quality || loaded.Out != o.Out || loaded.Cookies != "firefox" || loaded.URL != "" {
+	if loaded.Quality != o.Quality || loaded.Out != o.Out || loaded.Cookies != "firefox" || loaded.Theme != "dark" || loaded.URL != "" {
 		t.Fatalf("%+v", loaded)
 	}
 	st, _ := os.Stat(path)

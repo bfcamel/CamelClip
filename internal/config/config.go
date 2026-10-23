@@ -21,6 +21,7 @@ type Settings struct {
 	UploadRateBPS int64 `json:"s3_upload_rate_limit_bps"`
 
 	Language        string `json:"language"`
+	Theme           string `json:"theme"`
 	Mode            string `json:"mode"`
 	Quality         string `json:"quality"`
 	Audio           string `json:"audio_format"`
@@ -48,6 +49,9 @@ func (s Settings) UploadOptions() core.UploadOptions {
 	return (core.UploadOptions{Objects: s.MaxUploads, Parts: s.UploadParts, RetryAttempts: s.RetryAttempts, RateBPS: s.UploadRateBPS}).WithDefaults()
 }
 func Validate(s Settings) error {
+	if s.Theme != "" && s.Theme != "auto" && s.Theme != "light" && s.Theme != "dark" {
+		return fmt.Errorf("theme must be auto, light or dark")
+	}
 	if err := s.QueuePolicy().Validate(); err != nil {
 		return err
 	}
@@ -68,11 +72,14 @@ func Validate(s Settings) error {
 
 // Defaults owns resource and media defaults shared by every local frontend.
 func Defaults(out string) Settings {
-	return Settings{Language: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: out, MaxDownloads: 5, MaxUploads: 2, UploadParts: 2, StagingFiles: 64, StagingBytes: 20 << 30, MinFreeBytes: 512 << 20}
+	return Settings{Language: "auto", Theme: "auto", Mode: "video", Quality: "best", Audio: "mp3", Codec: "h264", Container: "mp4", Out: out, MaxDownloads: 5, MaxUploads: 2, UploadParts: 2, StagingFiles: 64, StagingBytes: 20 << 30, MinFreeBytes: 512 << 20}
 }
 
 // Normalize resolves documented zero resource defaults before validation/storage.
 func Normalize(s Settings) (Settings, error) {
+	if s.Theme == "" {
+		s.Theme = "auto"
+	}
 	if s.MaxDownloads == 0 {
 		s.MaxDownloads = 5
 	}

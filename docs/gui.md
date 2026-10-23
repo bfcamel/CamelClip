@@ -55,3 +55,9 @@ The GUI smoke test uses a temporary config and a disposable local HTTP video fix
 The Playlists section adds/edit subscriptions, shows first-scan state and errors, pauses/resumes monitoring, requests a scan and backfills existing entries. Details separate local task state from each S3 delivery. Monitoring requires CamelClip to remain running; see [playlist documentation](playlists.md).
 
 Download progress displays an approximate aggregate across separate video/audio tracks as soon as one track reports progress. The approximation marker avoids presenting equal-track weighting as a known byte total. Downloaded bytes and track count remain visible. If no percentage can be inferred, an indeterminate activity bar is shown. Speed and ETA remain separate; completed jobs reach 100% only after verification/publication.
+
+## Appearance and folder access
+
+The sidebar's **Reveal** action opens the current output folder from any workspace section. Individual video details retain their own **Reveal** action for the selected file. On macOS, the same output-folder command is available in **File** (`Shift+Command+O`).
+
+In **Settings → Appearance**, choose **System**, **Light** or **Dark**, then save. System follows operating-system appearance changes automatically while the application is open. Both palettes cover forms, dialogs, status badges, tables and progress controls. The macOS title bar follows the selected appearance too. The preference persists across restarts and is retained when settings are saved by TUI/CLI. Existing settings without a theme use System.
