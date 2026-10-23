@@ -220,6 +220,7 @@ func printHelp(command string) {
   camelclip audio 'URL' --audio-format mp3
   camelclip download --list links.txt`))
 	printWorkspaceHelp()
+	fmt.Println("  clips      Create precise video/audio fragments (clips --help)")
 }
 func showConfig(path string, o options) error {
 	e := json.NewEncoder(os.Stdout)

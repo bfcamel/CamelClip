@@ -66,6 +66,10 @@ The interfaces share settings, queue/history, the library and the encrypted S3 v
 
 ## What CamelClip does
 
+**Source/main addition:** [Clip by Link](docs/clips.md) creates precise fragments from one URL or library file, with shared source preparation, independent verified outputs and optional S3 delivery. Existing v0.14.0 release installers remain unchanged and do not include this addition.
+
+
+- **Create clips:** 1–100 manual/chapter intervals, precise H.264/AAC video or audio output, durable batches and provenance. [Scope and usage](docs/clips.md).
 - **Download video and audio:** batch URLs, quality selection, video codecs/containers and audio extraction.
 - **Follow YouTube playlists:** any number of subscriptions, new-only or full initial sync, durable video-ID history, shared downloads, pause/backfill and optional selected S3 destinations.
 - **See live progress:** approximate video/audio track progress, downloaded bytes and an activity bar when totals are unknown; speed and ETA remain separate.

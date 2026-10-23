@@ -61,3 +61,7 @@ Download progress displays an approximate aggregate across separate video/audio 
 Each completed download has a **Reveal** button directly beside the video, selecting its actual output file in macOS Finder. Library rows expose the same action for available files. Video detail dialogs retain **Reveal** too. There is no global output-folder action in sidebar navigation. If the file has disappeared, the application reports it instead of revealing an unrelated folder.
 
 In **Settings → Appearance**, choose **System**, **Light** or **Dark**, then save. System follows operating-system appearance changes automatically while the application is open. Both palettes cover forms, dialogs, status badges, tables and progress controls. The macOS title bar follows the selected appearance too. The preference persists across restarts and is retained when settings are saved by TUI/CLI. Existing settings without a theme use System.
+
+## Clip by Link
+
+The **Clips** workspace creates reviewed batches from a URL or library asset. Use **Create clips** in library details, enter manual ranges or inspect source chapters, then review the plan before admitting it. Batch/source progress and independent fragment actions use the same Core service as CLI/TUI. See [clip usage and current boundaries](clips.md).

@@ -66,6 +66,16 @@ func requestedLanguage(args []string, fallback string) string {
 }
 
 var english = map[string]string{
+	"Проверка нарезки": "Review clips", "Создать проверенный пакет нарезки?": "Create the reviewed clip batch?",
+	"Фрагменты": "Clips",
+	"1–6:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход":            "1–6:views c:CPU/RAM Enter:details ?:help q:quit",
+	"n:нарезать p:пауза/продолжить x:отмена r:повтор Enter:сведения":  "n:create clips p:pause/resume x:cancel r:retry Enter:details",
+	"Ссылка или asset:ID из медиатеки":                                "URL or asset:ID from the library",
+	"Интервалы: 00:01..00:05 | Название; 00:10..00:15 | Название":     "Ranges: 00:01..00:05 | Title; 00:10..00:15 | Title",
+	"Точная нарезка. Источник скачивается целиком один раз. Создать?": "Precise processing. The entire source is acquired once. Create batch?",
+	"S3: ID профилей через запятую (пусто: локально)":                 "S3 profile IDs, comma separated (empty: local only)",
+	"Аудиоформат: m4a / mp3 / opus / flac / wav":                      "Audio format: m4a / mp3 / opus / flac / wav",
+
 	"Медиатека":                    "Library",
 	"Профили":                      "Profiles",
 	"Ресурсы":                      "Resources",

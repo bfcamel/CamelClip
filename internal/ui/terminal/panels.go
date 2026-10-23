@@ -18,6 +18,11 @@ import (
 )
 
 type panelUI struct {
+	clips                                             []core.ClipBatch
+	clipForm                                          core.ClipRequest
+	clipStep                                          int
+	clipPlan                                          core.ClipPlan
+	clipPlans                                         chan core.ClipPlan
 	playlists                                         []core.PlaylistSubscription
 	playlistForm                                      core.PlaylistSubscription
 	playlistStep                                      int
@@ -114,6 +119,7 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 				}
 			}
 			u.pool.refresh()
+			u.receiveClipPlan()
 			u.workspaceRefresh()
 			u.resumeProfileCreation()
 			if u.modal == "resources-panel" {

@@ -158,6 +158,9 @@ func (r *Repository) Assets(ctx context.Context, q core.AssetQuery) (core.AssetP
 	return page, rows.Err()
 }
 func (r *Repository) ForgetAsset(ctx context.Context, id string) error {
+	if e := r.CanDeleteAsset(ctx, id); e != nil {
+		return e
+	}
 	tx, e := r.db.BeginTx(ctx, nil)
 	if e != nil {
 		return e
@@ -522,6 +525,19 @@ func reconcilePublishedTx(ctx context.Context, tx *sql.Tx, path string, title st
 }
 
 func (r *Repository) CanDeleteAsset(ctx context.Context, id string) error {
+	var clips int
+	if e := r.db.QueryRowContext(ctx, `SELECT count(*) FROM clip_batches WHERE settled=0 AND json_extract(record,'$.batch.plan.request.source.asset_id')=?`, id).Scan(&clips); e != nil {
+		return e
+	}
+	if clips > 0 {
+		return errors.New("cancel dependent clip batches before deleting their source")
+	}
+	if e := r.db.QueryRowContext(ctx, "SELECT count(*) FROM clip_deliveries WHERE asset_id=? AND state!='enqueued'", id).Scan(&clips); e != nil {
+		return e
+	}
+	if clips > 0 {
+		return errors.New("pending clip delivery still needs this asset")
+	}
 	var n int
 	if e := r.db.QueryRowContext(ctx, "SELECT count(*) FROM s3_upload_jobs WHERE asset_id=? AND state NOT IN ('done','failed','canceled')", id).Scan(&n); e != nil {
 		return e

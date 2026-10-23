@@ -126,3 +126,9 @@ SQLite implements the optional IncrementalRepository port. Queue saves contain o
 Queue uses an ID index and exposes JobsPage(offset, limit), capped at 200 immutable jobs per read, alongside the compatible Jobs snapshot API.
 
 A local macOS arm64 benchmark with 1,000 stored jobs and one modified row (10 iterations) measured approximately 39.4 ms / 4.49 MB allocated per full snapshot versus 0.236 ms / 5.23 KB per incremental transaction. This measures persistence overhead on one machine, not an end-to-end throughput guarantee. Run `go test ./internal/storage/sqlite -run '^$' -bench 'BenchmarkQueue(Snapshot|Incremental)1000' -benchtime=10x` to reproduce.
+
+## Independent clip pipeline
+
+Clip ranges, canonical plans, source identity, aggregate states and numerical evidence live in `internal/core`. `application.ClipService` owns planning, durable admission, cancellation, resource sharing, publication reconciliation and delivery intents. It depends on repository, source/media and filesystem ports; it imports no frontend or concrete adapter. `internal/media/clips` implements yt-dlp/FFmpeg and owned filesystem operations. Bootstrap wires a shared workspace and resource authority. The legacy `core.Downloader` single-result contract is unchanged.
+
+Schema 6 stores clip records separately from ordinary jobs. Optimistic revisions fence writes; publication commits asset/provenance/task completion/delivery outbox atomically after non-overwriting filesystem publication. Prepared-source and candidate references are private storage fields, excluded from public batch JSON. Staging locks inherited by children prevent restart from racing orphan media processes. [Runtime contracts and current scope](clips.md) · [Detailed design](design/clip-by-link-specification.md).

@@ -11,7 +11,7 @@ import (
 )
 
 func (u *panelUI) workspaceInput() bool {
-	return u.modal == "playlist-field" || u.modal == "vault" || u.modal == "profile-field" || u.modal == "library-import" || u.modal == "library-filter-value"
+	return u.modal == "clip-field" || u.modal == "playlist-field" || u.modal == "vault" || u.modal == "profile-field" || u.modal == "library-import" || u.modal == "library-filter-value"
 }
 func (u *panelUI) secretInput() bool {
 	return u.modal == "vault" || u.modal == "profile-field" && u.formStep >= 7
@@ -155,6 +155,20 @@ func (u *panelUI) workspaceModalKey(key string) bool {
 		}
 		return true
 	}
+	if u.modal == "clip-review" {
+		switch key {
+		case "escape":
+			u.modal = ""
+		case "up", "k":
+			u.detailOffset = max(0, u.detailOffset-1)
+		case "down", "j":
+			u.detailOffset++
+		case "enter":
+			u.action = "clip-admit"
+			u.confirmAction(tr("Создать проверенный пакет нарезки?"))
+		}
+		return true
+	}
 	if u.modal == "upload-review" {
 		switch key {
 		case "escape":
@@ -271,6 +285,9 @@ func (u *panelUI) workspaceModalKey(key string) bool {
 		u.modal = ""
 		u.page = 0
 		u.workspaceRefresh()
+	case "clip-field":
+		u.clipField(value)
+		return true
 	case "playlist-field":
 		u.playlistField(value)
 		return true
@@ -360,6 +377,12 @@ func (u *panelUI) profilesForTargets() []core.S3Profile {
 	return result
 }
 func (u *panelUI) executeWorkspaceAction() {
+	if u.action == "clip-admit" {
+		p := u.clipPlan
+		s := u.pool.workspace.Clips
+		u.background(func() error { _, e := s.Admit(u.ctx, p.ID, p.Revision, p.Digest, core.NewID()); return e })
+		return
+	}
 	w := u.pool.workspace
 	action := u.action
 	ids := append([]string(nil), u.actionIDs...)
