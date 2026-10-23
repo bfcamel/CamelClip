@@ -11,23 +11,25 @@ import (
 
 type permit struct {
 	id      int
+	owner   string
 	pool    string
 	ready   chan struct{}
 	rate    int64
 	granted bool
 }
 type resources struct {
-	mu       sync.Mutex
-	limits   core.Limits
-	active   map[string]int
-	reserved int64
-	waiting  []*permit
-	ranks    map[int]JobControl
-	owners   map[*permit]bool
+	metadataLimit int
+	mu            sync.Mutex
+	limits        core.Limits
+	active        map[string]int
+	reserved      int64
+	waiting       []*permit
+	ranks         map[int]JobControl
+	owners        map[*permit]bool
 }
 
 func newResources() *resources {
-	return &resources{limits: core.Limits{Downloads: 5}, active: map[string]int{}, ranks: map[int]JobControl{}, owners: map[*permit]bool{}}
+	return &resources{metadataLimit: 5, limits: core.Limits{Downloads: 5}, active: map[string]int{}, ranks: map[int]JobControl{}, owners: map[*permit]bool{}}
 }
 func (r *resources) update(l core.Limits) {
 	r.mu.Lock()
@@ -38,7 +40,7 @@ func (r *resources) update(l core.Limits) {
 func (r *resources) dispatch() {
 	limits := r.limits.Effective()
 	sort.SliceStable(r.waiting, func(i, j int) bool {
-		a, b := r.ranks[r.waiting[i].id], r.ranks[r.waiting[j].id]
+		a, b := r.control(r.waiting[i]), r.control(r.waiting[j])
 		if a.Priority != b.Priority {
 			return a.Priority > b.Priority
 		}
@@ -48,10 +50,13 @@ func (r *resources) dispatch() {
 	blocked := map[string]bool{}
 	for _, p := range r.waiting {
 		maximum := limits.Downloads
+		if p.pool == "metadata" {
+			maximum = r.metadataLimit
+		}
 		if p.pool == "processing" {
 			maximum = limits.Processing
 		}
-		if r.ranks[p.id].Paused || p.pool == "downloading" && r.ranks[p.id].DiskBlocked || r.active[p.pool] >= maximum || blocked[p.pool] {
+		if r.control(p).Paused || p.pool == "downloading" && r.control(p).DiskBlocked || r.active[p.pool] >= maximum || blocked[p.pool] {
 			rest = append(rest, p)
 			continue
 		}
@@ -128,6 +133,9 @@ func (r *resources) release(p *permit) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if !r.owners[p] {
+		return
+	}
 	delete(r.owners, p)
 	r.active[p.pool]--
 	if p.pool == "downloading" {
@@ -204,4 +212,20 @@ func (r *resources) running(id int) bool {
 		}
 	}
 	return false
+}
+
+// Named owners cannot alias integer legacy download IDs.
+func (r *resources) control(p *permit) JobControl {
+	if p.owner != "" {
+		return JobControl{}
+	}
+	return r.ranks[p.id]
+}
+func (r *resources) acquireNamed(ctx context.Context, pool, owner string) (*permit, error) {
+	p := &permit{owner: owner, pool: pool, ready: make(chan struct{})}
+	r.mu.Lock()
+	r.waiting = append(r.waiting, p)
+	r.dispatch()
+	r.mu.Unlock()
+	return r.wait(ctx, p)
 }

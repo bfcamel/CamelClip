@@ -62,3 +62,7 @@ TUI Settings expose the same total-budget and per-job controls. The application 
 ## Playlist subscriptions
 
 `camelclip playlists add|edit|list|items|pause|resume|sync|backfill|retry|watch` manages persistent subscriptions. One-shot commands do not start background media transfers. `watch` explicitly runs monitoring/downloads; S3 credentials can be unlocked with `--password-fd`. See [complete playlist behavior and examples](playlists.md).
+
+## Clip commands (source/main)
+
+`camelclip clips --help` describes precise fragment planning, admission, execution, listing, control and provenance export. Plans and idempotency keys separate review from execution; a one-shot command does not start a daemon. See [complete examples and limitations](clips.md). Published v0.14.0 installers are unchanged.

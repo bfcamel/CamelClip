@@ -73,6 +73,9 @@ func New(ctx context.Context, deps Dependencies, path string, defaults config.Se
 	}
 	if !s.firstRun {
 		w.Queue.Start()
+		if w.Clips != nil {
+			w.Clips.Start("")
+		}
 		if w.Playlists != nil {
 			w.Playlists.Start()
 		}
@@ -125,7 +128,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", 405)
 		return
 	}
-	name := map[string]string{"/": "index.html", "/app.js": "app.js", "/style.css": "style.css", "/logo.png": "logo.png"}[r.URL.Path]
+	name := map[string]string{"/": "index.html", "/app.js": "app.js", "/clips.js": "clips.js", "/style.css": "style.css", "/logo.png": "logo.png"}[r.URL.Path]
 	if name == "" {
 		http.NotFound(w, r)
 		return
@@ -135,7 +138,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", map[string]string{"logo.png": "image/png", "index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}[name])
+	w.Header().Set("Content-Type", map[string]string{"logo.png": "image/png", "index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "clips.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}[name])
 	w.Write(data)
 }
 func reply(w http.ResponseWriter, v any, err error) {
@@ -171,6 +174,9 @@ func number(v string, fallback int) int {
 }
 
 func (s *Server) api(w http.ResponseWriter, r *http.Request) {
+	if s.clipAPI(w, r) {
+		return
+	}
 	ctx := r.Context()
 	ws := s.workspace
 	if r.Method == "GET" {
@@ -196,11 +202,15 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 					playlistError = e.Error()
 				}
 			}
+			clipError := ""
+			if ws.Clips != nil && ws.Clips.Err() != nil {
+				clipError = ws.Clips.Err().Error()
+			}
 			qerr := ""
 			if e := ws.Queue.Err(); e != nil {
 				qerr = e.Error()
 			}
-			reply(w, map[string]any{"jobs": ws.Queue.Jobs(), "statistics": ws.Queue.Statistics(), "profiles": profiles, "uploads": uploads, "settings": v, "firstRun": first, "locked": ws.Cloud.Locked(), "hasVault": ws.Cloud.HasVault(ctx), "system": ws.Monitor.Snapshot(), "scanning": scanning, "scanReport": report, "queueError": qerr, "playlistError": playlistError}, nil)
+			reply(w, map[string]any{"jobs": ws.Queue.Jobs(), "statistics": ws.Queue.Statistics(), "profiles": profiles, "uploads": uploads, "settings": v, "firstRun": first, "locked": ws.Cloud.Locked(), "hasVault": ws.Cloud.HasVault(ctx), "system": ws.Monitor.Snapshot(), "scanning": scanning, "scanReport": report, "queueError": qerr, "playlistError": playlistError, "clipError": clipError}, nil)
 		case "/api/playlists":
 			if ws.Playlists == nil {
 				reply(w, core.PlaylistPage{Items: []core.PlaylistSubscription{}}, nil)
@@ -299,6 +309,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			s.settings = v
 			s.firstRun = false
 			ws.Queue.Start()
+			if ws.Clips != nil {
+				ws.Clips.Start("")
+			}
 			if ws.Playlists != nil {
 				ws.Playlists.Start()
 			}

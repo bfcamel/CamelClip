@@ -171,6 +171,7 @@ func New(ctx context.Context, backend core.Downloader, repository Repository, wo
 	}
 	c, cancel := context.WithCancel(ctx)
 	s := &Service{index: map[int]int{}, dirty: map[int]bool{}, removed: map[int]bool{}, ctx: c, cancel: cancel, backend: backend, repository: repository, nextID: snapshot.NextID, workers: workers, resources: newResources(), staged: map[string]int64{}, samples: map[int][]rateSample{}, cancels: make(map[int]context.CancelFunc), events: make(chan Event, 256)}
+	s.resources.metadataLimit = workers
 	seen := map[int]bool{}
 	for _, j := range snapshot.Jobs {
 		if j.ID <= 0 || seen[j.ID] || !j.State.Valid() {
@@ -612,7 +613,13 @@ func (s *Service) execute(ctx context.Context, id int, r core.Request, inspectin
 		}()
 		if err != nil { // canceled while waiting for a resource
 		} else if inspecting {
-			info, err = s.backend.Inspect(ctx, r)
+			metadataPermit, gateErr := s.resources.acquireNamed(ctx, "metadata", fmt.Sprintf("download-metadata:%d", id))
+			if gateErr != nil {
+				err = gateErr
+			} else {
+				info, err = s.backend.Inspect(ctx, r)
+				s.resources.release(metadataPermit)
+			}
 			if err == nil {
 				err = core.ValidateMediaInfo(info)
 			}

@@ -116,7 +116,7 @@ func (s *Service) Statistics() Statistics {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.resources.mu.Lock()
-	r := Statistics{Downloads: s.resources.active["downloading"], Processing: s.resources.active["processing"], Metadata: s.metadataActive, Limits: s.resources.limits, SessionBytes: s.sessionBytes}
+	r := Statistics{Downloads: s.resources.active["downloading"], Processing: s.resources.active["processing"], Metadata: s.resources.active["metadata"], Limits: s.resources.limits, SessionBytes: s.sessionBytes}
 	s.resources.mu.Unlock()
 	speed := 0.0
 	known := false

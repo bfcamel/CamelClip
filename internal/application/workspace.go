@@ -8,6 +8,7 @@ import (
 )
 
 type Workspace struct {
+	Clips     *ClipService
 	Queue     Queue
 	Library   *LibraryService
 	Cloud     *CloudService
@@ -19,6 +20,9 @@ type Workspace struct {
 
 func (w *Workspace) Close() error {
 	w.once.Do(func() {
+		if w.Clips != nil {
+			w.err = errors.Join(w.err, w.Clips.Close())
+		}
 		if w.Playlists != nil {
 			w.err = errors.Join(w.err, w.Playlists.Close())
 		}

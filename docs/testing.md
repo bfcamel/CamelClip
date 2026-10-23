@@ -61,3 +61,7 @@ The [CI workflow](../.github/workflows/ci.yml) runs on pull requests to `main`, 
 - Packaging: macOS builds all four platform/architecture archives and both native packages, validates hashes and seven component choices, and exercises native macOS installation maintenance. Linux downloads the same CI artifacts and exercises native Linux installation maintenance.
 
 Workflow permissions are read-only. Official Actions are pinned to commit hashes. Installer validation artifacts expire after seven days; the workflow never publishes tags, modifies GitHub Releases or deploys to a user's computer. macOS Intel/Linux ARM64 runtime acceptance, system-wide installation and Apple signing remain outside this workflow.
+
+## Clip acceptance
+
+Run `go test -race ./internal/core ./internal/application ./internal/media/clips ./internal/storage/sqlite` and `python3 scripts/test_clips.py PATH_TO_CAMELCLIP`. The offline CLI scenario generates actual media, checks independent outputs/provenance, durable admission replay, cancellation, original-file preservation and local-only S3 policy. Media fixtures check non-keyframe precise cuts, output frame counts, audio profiles and full-decode verification. In-memory application tests prove headless orchestration, single preparation, publication-commit recovery and closed-observer fencing.

@@ -22,6 +22,23 @@ func (u *panelUI) workspaceRefresh() {
 	defer cancel()
 	oldID := u.selectedItemID()
 	switch u.section {
+	case 5:
+		if w.Clips != nil {
+			cursor := ""
+			var v core.ClipBatchPage
+			var e error
+			for i := 0; i <= u.page; i++ {
+				v, e = w.Clips.List(ctx, 50, cursor)
+				if e != nil || i == u.page || v.NextCursor == "" {
+					break
+				}
+				cursor = v.NextCursor
+			}
+			if e == nil {
+				u.clips = v.Items
+				u.assetIndex = max(0, min(u.assetIndex, len(u.clips)-1))
+			}
+		}
 	case 4:
 		if w.Playlists != nil {
 			v, e := w.Playlists.List(ctx, 50, u.page*50)
@@ -83,7 +100,7 @@ func (u *panelUI) workspaceKey(key string) bool {
 	if u.pool.workspace == nil {
 		return false
 	}
-	if key == "1" || key == "2" || key == "3" || key == "4" || key == "5" {
+	if key == "1" || key == "2" || key == "3" || key == "4" || key == "5" || key == "6" {
 		u.section = int(key[0] - '1')
 		u.page = 0
 		u.assetIndex = 0
@@ -167,6 +184,9 @@ func (u *panelUI) workspaceKey(key string) bool {
 	if u.section == 2 {
 		return u.uploadKey(key)
 	}
+	if u.section == 5 {
+		return u.clipKey(key)
+	}
 	if u.section == 4 {
 		return u.playlistKey(key)
 	}
@@ -174,6 +194,8 @@ func (u *panelUI) workspaceKey(key string) bool {
 }
 func (u *panelUI) sectionLength() int {
 	switch u.section {
+	case 5:
+		return len(u.clips)
 	case 1:
 		return len(u.assets)
 	case 2:
@@ -412,7 +434,7 @@ func (u *panelUI) renderWorkspace() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+" 5: "+tr("Плейлисты"), cyan)
+	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+" 5: "+tr("Плейлисты")+" 6: "+tr("Фрагменты"), cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), dim)
@@ -430,7 +452,7 @@ func (u *panelUI) renderWorkspace() {
 		locked = "LOCKED"
 	}
 	c.text(1, 2, w-2, fmt.Sprintf("↑ S3 %s · %d/%d · %s", rate, active, u.pool.workspace.Cloud.Options().Objects, locked), dim)
-	title := []string{"", tr("Медиатека"), tr("S3-отправки"), tr("S3-профили"), tr("Плейлисты")}[u.section]
+	title := []string{"", tr("Медиатека"), tr("S3-отправки"), tr("S3-профили"), tr("Плейлисты"), tr("Фрагменты")}[u.section]
 	c.box(0, 3, w, h-6, title, true)
 	rows := max(1, h-8)
 	start := max(0, u.assetIndex-rows+1)
@@ -442,6 +464,15 @@ func (u *panelUI) renderWorkspace() {
 		}
 		text := ""
 		switch u.section {
+		case 5:
+			b := u.clips[i]
+			done := 0
+			for _, task := range b.Tasks {
+				if task.State == core.ClipDone {
+					done++
+				}
+			}
+			text = fmt.Sprintf("%s · %s · %d/%d", b.Plan.Source.Title, b.Status(), done, len(b.Tasks))
 		case 4:
 			p := u.playlists[i]
 			text = fmt.Sprintf("%s · %s · %d min · S3:%d · %s", p.Name, p.Status, p.IntervalMinutes, len(p.S3Profiles), p.LastError)
@@ -472,7 +503,7 @@ func (u *panelUI) renderWorkspace() {
 	if u.sectionLength() == 0 {
 		c.text(2, 5, w-4, tr("Нет записей"), dim)
 	}
-	c.text(1, h-2, w-2, tr("1–5:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"), cyan)
+	c.text(1, h-2, w-2, tr("1–6:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"), cyan)
 	footer := tr("g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск")
 	if u.section == 2 {
 		footer = tr("r:повтор x:отмена z:очистить multipart")
@@ -483,6 +514,9 @@ func (u *panelUI) renderWorkspace() {
 	if u.section == 4 {
 		footer = tr("n:новый e:изменить p:пауза s:проверить b:существующие")
 	}
+	if u.section == 5 {
+		footer = tr("n:нарезать p:пауза/продолжить x:отмена r:повтор Enter:сведения")
+	}
 	c.text(1, h-1, w-2, footer, dim)
 	if u.modal != "" {
 		u.drawModal(c)
@@ -491,6 +525,9 @@ func (u *panelUI) renderWorkspace() {
 }
 
 func (u *panelUI) itemID(index int) string {
+	if u.section == 5 && index >= 0 && index < len(u.clips) {
+		return u.clips[index].ID
+	}
 	if index < 0 {
 		return ""
 	}

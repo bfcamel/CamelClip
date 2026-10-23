@@ -129,7 +129,7 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 	if len(u.choices) > 0 && u.modal != "url" && u.modal != "folder" && u.modal != "browser" && u.modal != "details" && u.modal != "search" && !strings.HasPrefix(u.modal, "resource:") && !u.workspaceInput() {
 		height = minInt(c.h-4, len(u.choices)+5)
 	}
-	if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" {
+	if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" || u.modal == "clip-review" {
 		height = minInt(c.h-4, 20)
 	}
 	x, y := (c.w-width)/2, (c.h-height)/2
@@ -145,7 +145,7 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 		c.fill(x+2, y+2, width-4, selected)
 		c.text(x+2, y+2, width-4, "> "+string(value)+"▏", selected)
 		c.text(x+2, y+height-2, width-4, tr("Enter: подтвердить · Esc: назад. Загрузки продолжаются."), dim)
-	} else if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" {
+	} else if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" || u.modal == "clip-review" {
 		lines := wrapLines(u.input, width-4)
 		start := min(u.detailOffset, max(0, len(lines)-(height-3)))
 		for row := 0; row < height-3 && row+start < len(lines); row++ {

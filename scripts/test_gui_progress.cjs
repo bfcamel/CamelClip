@@ -31,3 +31,12 @@ for(const stage of ['downloading','failed','canceled']){
  assert.doesNotMatch(vm.runInContext(`jobActions({ID:8,State:'${stage}',OutputPath:'',Title:'Pending'})`,sandbox),/job-reveal/);
 }
 console.log('Per-video reveal actions and unavailable output handling passed.');
+
+vm.runInContext(fs.readFileSync('internal/ui/gui/web/clips.js','utf8'),sandbox);
+assert.equal(vm.runInContext("sections.some(s=>s[0]==='clips')",sandbox),true);
+assert.equal(vm.runInContext("clipInterval({start_ms:1250,end_ms:4550})",sandbox),'00:00:01.250..00:00:04.550');
+vm.runInContext(`clipPage={items:[{id:'batch',status:'completed',created:'2026-10-23T00:00:00Z',source_state:'done',plan:{source:{title:'<script>unsafe</script>'}},tasks:[{id:'task',state:'done',segment:{title:'<clip>',range:{start_ms:0,end_ms:1000}},asset_id:'real-asset'}]}],total:1};lang='en';renderClips()`,sandbox);
+assert.match(element.innerHTML,/&lt;script&gt;unsafe&lt;\/script&gt;/);
+assert.match(element.innerHTML,/data-id="real-asset"/);
+assert.doesNotMatch(element.innerHTML,/<script>/);
+console.log('Clip navigation, precise time display, escaping and per-asset actions passed.');

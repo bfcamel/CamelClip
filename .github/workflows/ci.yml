@@ -85,6 +85,8 @@ jobs:
           python3 scripts/test_gui.py dist/ci/camelclip-gui
           python3 scripts/test_playlists.py dist/ci/camelclip-gui
           python3 scripts/test_workspace.py dist/ci/camelclip
+          python3 scripts/test_clips.py dist/ci/camelclip
+          python3 scripts/test_gui_clips.py dist/ci/camelclip-gui
 
   installers:
     name: Installer packages

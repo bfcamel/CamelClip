@@ -163,3 +163,5 @@ td.title strong{max-width:280px;font-weight:600}
 .badge{border-radius:6px;padding:5px 9px;font-weight:500}
 @media(max-width:1100px){.row-actions{align-items:stretch;flex-direction:column}.media-glyph{display:none}td.title strong{max-width:240px}}
 @media(max-width:680px){h1{font-size:24px}.stat{padding:14px}main{padding-top:20px}}
+
+.clip-batch{margin-bottom:20px}.clip-batch h2{margin:0 0 8px}.clip-results{margin-top:16px}.clip-result{display:grid;grid-template-columns:minmax(180px,1fr) minmax(130px,180px) auto;gap:16px;align-items:center;border-top:1px solid var(--line);padding:16px 0}.clip-result small{display:block;margin-top:6px;overflow-wrap:anywhere}.clip-result .row-actions{flex-wrap:wrap}@media(max-width:900px){.clip-result{grid-template-columns:1fr}.clip-result .row-actions{justify-content:flex-start}}

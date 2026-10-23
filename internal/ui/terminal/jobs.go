@@ -99,6 +99,9 @@ func (p *jobPool) add(o options) bool {
 	return err == nil
 }
 func (p *jobPool) schedule() {
+	if p.workspace != nil && p.workspace.Clips != nil {
+		p.workspace.Clips.Start("")
+	}
 	p.service.Start()
 	if p.workspace != nil && p.workspace.Playlists != nil {
 		p.workspace.Playlists.Start()
