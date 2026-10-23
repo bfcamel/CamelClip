@@ -66,6 +66,10 @@ func requestedLanguage(args []string, fallback string) string {
 }
 
 var english = map[string]string{
+	"Субтитры:": "Captions:", "Субтитры: s — поиск, r — интервал": "Captions: s search, r interval", "Поиск по субтитрам": "Search captions", "Индексы реплик FIRST:LAST (от нуля)": "Cue indices FIRST:LAST (zero based)", "Обложка сохранена": "Poster saved", "Субтитры: номер дорожки или poster для обложки": "Captions: enter track index or poster for the image",
+	"g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск h:субтитры":         "g:scan i:import u:S3 d:forget D:delete /:search h:captions",
+	"n:нарезать p:пауза/продолжить x:отмена r:повтор Enter:сведения h:субтитры": "n:clip p:pause/resume x:cancel r:retry Enter:details h:captions",
+
 	"Проверка нарезки": "Review clips", "Создать проверенный пакет нарезки?": "Create the reviewed clip batch?",
 	"Фрагменты": "Clips",
 	"1–6:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход":            "1–6:views c:CPU/RAM Enter:details ?:help q:quit",

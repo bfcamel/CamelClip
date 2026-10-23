@@ -221,6 +221,7 @@ func printHelp(command string) {
   camelclip download --list links.txt`))
 	printWorkspaceHelp()
 	fmt.Println("  clips      Create precise video/audio fragments (clips --help)")
+	fmt.Println("  companions Posters, existing subtitles and transcript search (companions --help)")
 }
 func showConfig(path string, o options) error {
 	e := json.NewEncoder(os.Stdout)

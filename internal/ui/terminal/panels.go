@@ -18,6 +18,9 @@ import (
 )
 
 type panelUI struct {
+	companionResults                                  chan companionPanelResult
+	companionCatalog                                  core.CompanionCatalog
+	companionSnapshot                                 core.CaptionSnapshot
 	clips                                             []core.ClipBatch
 	clipForm                                          core.ClipRequest
 	clipStep                                          int
@@ -120,6 +123,7 @@ func panelDashboard(parent context.Context, m *menu, o *options, config, system,
 			}
 			u.pool.refresh()
 			u.receiveClipPlan()
+			u.receiveCompanion()
 			u.workspaceRefresh()
 			u.resumeProfileCreation()
 			if u.modal == "resources-panel" {

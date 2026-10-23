@@ -15,6 +15,7 @@ import (
 	"github.com/bfcamel/CamelClip/internal/downloader/ytdlp"
 	"github.com/bfcamel/CamelClip/internal/library"
 	"github.com/bfcamel/CamelClip/internal/media/clips"
+	"github.com/bfcamel/CamelClip/internal/media/companions"
 	"github.com/bfcamel/CamelClip/internal/security"
 	"github.com/bfcamel/CamelClip/internal/storage/jsonconfig"
 	"github.com/bfcamel/CamelClip/internal/storage/sqlite"
@@ -67,6 +68,7 @@ func OpenWorkspace(backend core.Downloader) func(context.Context, string) (*appl
 			w.Close()
 			return nil, err
 		}
+		w.Companions = application.NewCompanions(ctx, repo, repo, companions.New(clips.New()), companions.Files{Root: filepath.Join(filepath.Dir(config), "companions")}, companions.Parser{}, q)
 		if source, ok := backend.(core.PlaylistSource); ok {
 			w.Playlists, err = application.NewPlaylists(ctx, repo, source, q)
 			if err != nil {

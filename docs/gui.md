@@ -65,3 +65,9 @@ In **Settings → Appearance**, choose **System**, **Light** or **Dark**, then s
 ## Clip by Link
 
 The **Clips** workspace creates reviewed batches from a URL or library asset. Use **Create clips** in library details, enter manual ranges or inspect source chapters, then review the plan before admitting it. Batch/source progress and independent fragment actions use the same Core service as CLI/TUI. See [clip usage and current boundaries](clips.md).
+
+## Media companions (source/main)
+
+[Posters and subtitles](companions.md) use an interface-independent application
+service, scoped content-addressed files and immutable caption snapshots. See the
+linked guide for commands, desktop/terminal workflows, limits and remaining stages.

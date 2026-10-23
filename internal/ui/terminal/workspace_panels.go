@@ -97,6 +97,10 @@ func (u *panelUI) resourceLine() string {
 	return "CPU " + cpu + " | RAM " + ram
 }
 func (u *panelUI) workspaceKey(key string) bool {
+	if key == "h" && (u.section == 1 || u.section == 5) {
+		u.companionPrompt()
+		return true
+	}
 	if u.pool.workspace == nil {
 		return false
 	}
@@ -504,7 +508,7 @@ func (u *panelUI) renderWorkspace() {
 		c.text(2, 5, w-4, tr("Нет записей"), dim)
 	}
 	c.text(1, h-2, w-2, tr("1–6:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"), cyan)
-	footer := tr("g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск")
+	footer := tr("g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск h:субтитры")
 	if u.section == 2 {
 		footer = tr("r:повтор x:отмена z:очистить multipart")
 	}
@@ -515,7 +519,7 @@ func (u *panelUI) renderWorkspace() {
 		footer = tr("n:новый e:изменить p:пауза s:проверить b:существующие")
 	}
 	if u.section == 5 {
-		footer = tr("n:нарезать p:пауза/продолжить x:отмена r:повтор Enter:сведения")
+		footer = tr("n:нарезать p:пауза/продолжить x:отмена r:повтор Enter:сведения h:субтитры")
 	}
 	c.text(1, h-1, w-2, footer, dim)
 	if u.modal != "" {

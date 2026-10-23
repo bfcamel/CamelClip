@@ -132,3 +132,9 @@ A local macOS arm64 benchmark with 1,000 stored jobs and one modified row (10 it
 Clip ranges, canonical plans, source identity, aggregate states and numerical evidence live in `internal/core`. `application.ClipService` owns planning, durable admission, cancellation, resource sharing, publication reconciliation and delivery intents. It depends on repository, source/media and filesystem ports; it imports no frontend or concrete adapter. `internal/media/clips` implements yt-dlp/FFmpeg and owned filesystem operations. Bootstrap wires a shared workspace and resource authority. The legacy `core.Downloader` single-result contract is unchanged.
 
 Schema 6 stores clip records separately from ordinary jobs. Optimistic revisions fence writes; publication commits asset/provenance/task completion/delivery outbox atomically after non-overwriting filesystem publication. Prepared-source and candidate references are private storage fields, excluded from public batch JSON. Staging locks inherited by children prevent restart from racing orphan media processes. [Runtime contracts and current scope](clips.md) · [Detailed design](design/clip-by-link-specification.md).
+
+## Media companions (source/main)
+
+[Posters and subtitles](companions.md) use an interface-independent application
+service, scoped content-addressed files and immutable caption snapshots. See the
+linked guide for commands, desktop/terminal workflows, limits and remaining stages.
