@@ -58,6 +58,6 @@ Download progress displays an approximate aggregate across separate video/audio 
 
 ## Appearance and folder access
 
-The sidebar's **Reveal** action opens the current output folder from any workspace section. Individual video details retain their own **Reveal** action for the selected file. On macOS, the same output-folder command is available in **File** (`Shift+Command+O`).
+Each completed download has a **Reveal** button directly beside the video, selecting its actual output file in macOS Finder. Library rows expose the same action for available files. Video detail dialogs retain **Reveal** too. There is no global output-folder action in sidebar navigation. If the file has disappeared, the application reports it instead of revealing an unrelated folder.
 
 In **Settings → Appearance**, choose **System**, **Light** or **Dark**, then save. System follows operating-system appearance changes automatically while the application is open. Both palettes cover forms, dialogs, status badges, tables and progress controls. The macOS title bar follows the selected appearance too. The preference persists across restarts and is retained when settings are saved by TUI/CLI. Existing settings without a theme use System.

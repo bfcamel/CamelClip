@@ -4,6 +4,7 @@ package gui
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,6 +41,15 @@ func OpenMedia(ctx context.Context, path string, reveal bool) error {
 	path, e := filepath.Abs(path)
 	if e != nil {
 		return e
+	}
+	if reveal {
+		stat, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("file unavailable: %w", err)
+		}
+		if !stat.Mode().IsRegular() {
+			return fmt.Errorf("cannot reveal a video: path is not a regular file")
+		}
 	}
 	if runtime.GOOS == "darwin" {
 		args := []string{path}
