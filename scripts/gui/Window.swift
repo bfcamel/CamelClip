@@ -6,6 +6,9 @@ import WebKit
 final class WindowDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKDownloadDelegate {
     var window: NSWindow!
     var web: WKWebView!
+    var fileMenu: NSMenu!
+    var fileMenuItem: NSMenuItem!
+    var revealItem: NSMenuItem!
     let startURL: URL
     init(url: URL) { startURL = url; super.init() }
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -19,6 +22,15 @@ final class WindowDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "Quit CamelClip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
+        let fileItem = NSMenuItem()
+        fileMenuItem = fileItem
+        menu.addItem(fileItem)
+        fileMenu = NSMenu(title: "File")
+        revealItem = NSMenuItem(title: "Show in Folder", action: #selector(showOutputFolder), keyEquivalent: "o")
+        revealItem.keyEquivalentModifierMask = [.command, .shift]
+        revealItem.target = self
+        fileMenu.addItem(revealItem)
+        fileItem.submenu = fileMenu
         let editItem = NSMenuItem()
         menu.addItem(editItem)
         let edit = NSMenu(title: "Edit")
@@ -30,7 +42,9 @@ final class WindowDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.userContentController.add(self, name: "filePicker")
+        configuration.userContentController.add(self, name: "appearance")
         web = WKWebView(frame: .zero, configuration: configuration)
+        web.underPageBackgroundColor = .windowBackgroundColor
         web.navigationDelegate = self
         web.uiDelegate = self
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -44,6 +58,9 @@ final class WindowDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         NSApp.activate(ignoringOtherApps: true)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    @objc func showOutputFolder() {
+        web.evaluateJavaScript("window.dispatchEvent(new Event('camelclip-open-folder'));", completionHandler: nil)
+    }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
         if navigationAction.shouldPerformDownload && (url.scheme == "blob" || url.host == startURL.host && url.port == startURL.port) { decisionHandler(.download); return }
@@ -51,6 +68,12 @@ final class WindowDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         else { decisionHandler(.cancel) }
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "appearance", let body = message.body as? [String: String], let theme = body["theme"], ["auto", "light", "dark"].contains(theme) {
+            NSApp.appearance = theme == "dark" ? NSAppearance(named: .darkAqua) : theme == "light" ? NSAppearance(named: .aqua) : nil
+            if let title = body["revealTitle"] { revealItem.title = title }
+            if let title = body["fileTitle"] { fileMenu.title = title; fileMenuItem.title = title }
+            return
+        }
         guard message.name == "filePicker", let body = message.body as? [String: String], let target = body["target"], ["out", "path"].contains(target) else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = body["kind"] == "directory"

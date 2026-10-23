@@ -39,3 +39,37 @@ func TestZeroDefaultsAndPathsRoundTripCanonically(t *testing.T) {
 		t.Fatal("read changed file")
 	}
 }
+
+func TestAppearanceDefaultsAndPersistence(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "settings.json")
+	defaults := config.Defaults(t.TempDir())
+	f := File{Path: path, Defaults: defaults}
+	// A legacy settings file with no theme follows the operating system.
+	if err := os.WriteFile(path, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := f.Load(ctx)
+	if err != nil || s.Theme != "auto" {
+		t.Fatal(s.Theme, err)
+	}
+	for _, theme := range []string{"dark", "light", "auto"} {
+		s.Theme = theme
+		if err = f.Save(ctx, s); err != nil {
+			t.Fatal(err)
+		}
+		loaded, e := f.Load(ctx)
+		if e != nil || loaded.Theme != theme {
+			t.Fatal(loaded.Theme, e)
+		}
+	}
+	before, _ := os.ReadFile(path)
+	s.Theme = "unknown"
+	if f.Save(ctx, s) == nil {
+		t.Fatal("unsupported theme saved")
+	}
+	after, _ := os.ReadFile(path)
+	if string(before) != string(after) {
+		t.Fatal("invalid theme replaced settings")
+	}
+}
