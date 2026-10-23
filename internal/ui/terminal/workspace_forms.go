@@ -11,7 +11,7 @@ import (
 )
 
 func (u *panelUI) workspaceInput() bool {
-	return u.modal == "clip-field" || u.modal == "playlist-field" || u.modal == "vault" || u.modal == "profile-field" || u.modal == "library-import" || u.modal == "library-filter-value"
+	return strings.HasPrefix(u.modal, "companion-") || u.modal == "clip-field" || u.modal == "playlist-field" || u.modal == "vault" || u.modal == "profile-field" || u.modal == "library-import" || u.modal == "library-filter-value"
 }
 func (u *panelUI) secretInput() bool {
 	return u.modal == "vault" || u.modal == "profile-field" && u.formStep >= 7
@@ -118,6 +118,20 @@ func (u *panelUI) nextProfileField() {
 	u.input = values[u.formStep]
 }
 func (u *panelUI) workspaceModalKey(key string) bool {
+	if u.modal == "details" && u.companionSnapshot.ID != "" && strings.HasPrefix(u.title, tr("Субтитры:")) {
+		if key == "s" {
+			u.modal = "companion-query"
+			u.title = tr("Поиск по субтитрам")
+			u.input = ""
+			return true
+		}
+		if key == "r" {
+			u.modal = "companion-range"
+			u.title = tr("Индексы реплик FIRST:LAST (от нуля)")
+			u.input = ""
+			return true
+		}
+	}
 	if u.modal == "upload-targets" {
 		switch key {
 		case "escape":
@@ -250,6 +264,10 @@ func (u *panelUI) workspaceModalKey(key string) bool {
 	}
 	value := u.input
 	u.input = ""
+	if strings.HasPrefix(u.modal, "companion-") {
+		u.companionField(value)
+		return true
+	}
 	switch u.modal {
 	case "library-filter-value":
 		value = strings.TrimSpace(value)

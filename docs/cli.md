@@ -66,3 +66,9 @@ TUI Settings expose the same total-budget and per-job controls. The application 
 ## Clip commands (source/main)
 
 `camelclip clips --help` describes precise fragment planning, admission, execution, listing, control and provenance export. Plans and idempotency keys separate review from execution; a one-shot command does not start a daemon. See [complete examples and limitations](clips.md). Published v0.14.0 installers are unchanged.
+
+## Media companions (source/main)
+
+[Posters and subtitles](companions.md) use an interface-independent application
+service, scoped content-addressed files and immutable caption snapshots. See the
+linked guide for commands, desktop/terminal workflows, limits and remaining stages.

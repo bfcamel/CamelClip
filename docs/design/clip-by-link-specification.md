@@ -1192,3 +1192,8 @@ Not yet delivered: fast-copy/approval, section acquisition, preview, cross-batch
 Current persistence uses indexed batch rows with bounded ordered task arrays rather than the complete normalized table proposal of section 13. Domain/application CAS revisions and per-task attempt counters are implemented; distributed claims/ownership tokens are deferred with distributed workers. The single workspace owner plus inherited child locks prevents competing local workers. Adapter callbacks are closed and serialized at the boundary. Public service names and HTTP routes follow the operational documentation and source code; earlier snippets remain design sketches.
 
 The complete-v1 definition of done in section 22 remains open until its remaining capabilities and fault/fixture matrix are implemented. No release, installer rebuild or server edition is included in this increment.
+
+
+## Related companion extension
+
+The proposed [Media Preview and Subtitles specification](media-companions-specification.md) defines poster/timeline/playback distinctions, selected caption discovery and retention, source leases, authenticated media reads, transcript-driven interval proposals and optional synchronized subtitle outputs. It is a separate, unimplemented extension; the precise increment status above remains unchanged.

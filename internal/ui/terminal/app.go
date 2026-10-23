@@ -39,6 +39,9 @@ func run(deps Dependencies) error {
 		fmt.Fprintln(os.Stderr, tr("Не удалось прочитать настройки; используются стандартные значения:"), err)
 	}
 	useLanguage(requestedLanguage(os.Args[1:], o.Lang), system)
+	if len(os.Args) > 1 && os.Args[1] == "companions" {
+		return runCompanionsCLI(ctx, o, configPath, os.Args[2:])
+	}
 	if len(os.Args) > 1 && os.Args[1] == "clips" {
 		return runClipsCLI(ctx, o, configPath, os.Args[2:])
 	}

@@ -54,7 +54,7 @@ with tempfile.TemporaryDirectory(prefix='camelclip-clips-') as directory:
     canceled=data('clips','cancel',canceled['id'],'--revision',str(canceled['control_revision']))
     assert canceled['status']=='canceled'
     db=sqlite3.connect(root/'config/queue.sqlite3')
-    assert db.execute('pragma user_version').fetchone()[0]==6
+    assert db.execute('pragma user_version').fetchone()[0]==7
     assert db.execute('select count(*) from clip_provenance').fetchone()[0]==2
     assert db.execute('select count(*) from clip_deliveries').fetchone()[0]==0
     db.close()

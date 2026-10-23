@@ -107,7 +107,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 	if r.Host != s.host {
 		http.Error(w, "invalid host", http.StatusForbidden)
 		return
@@ -128,7 +128,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", 405)
 		return
 	}
-	name := map[string]string{"/": "index.html", "/app.js": "app.js", "/clips.js": "clips.js", "/style.css": "style.css", "/logo.png": "logo.png"}[r.URL.Path]
+	name := map[string]string{"/": "index.html", "/app.js": "app.js", "/clips.js": "clips.js", "/companions.js": "companions.js", "/style.css": "style.css", "/logo.png": "logo.png"}[r.URL.Path]
 	if name == "" {
 		http.NotFound(w, r)
 		return
@@ -138,7 +138,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", map[string]string{"logo.png": "image/png", "index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "clips.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}[name])
+	w.Header().Set("Content-Type", map[string]string{"logo.png": "image/png", "index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "clips.js": "text/javascript; charset=utf-8", "companions.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}[name])
 	w.Write(data)
 }
 func reply(w http.ResponseWriter, v any, err error) {
@@ -174,6 +174,9 @@ func number(v string, fallback int) int {
 }
 
 func (s *Server) api(w http.ResponseWriter, r *http.Request) {
+	if s.companionAPI(w, r) {
+		return
+	}
 	if s.clipAPI(w, r) {
 		return
 	}

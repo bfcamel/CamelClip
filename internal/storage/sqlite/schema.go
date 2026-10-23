@@ -64,7 +64,10 @@ func (r *Repository) schema(ctx context.Context, version int) error {
 	if _, err = tx.ExecContext(ctx, clipSchema); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=6"); err != nil {
+	if _, err = tx.ExecContext(ctx, companionSchema); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version=7"); err != nil {
 		return err
 	}
 	return tx.Commit()
