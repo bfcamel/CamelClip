@@ -12,7 +12,7 @@ open dist/CamelClip.app
 
 Close any running CamelClip TUI/GUI first. The existing exclusive database lock prevents a second owner; startup shows the error in a macOS alert. Startup details are retained in `~/Library/Logs/CamelClip/gui-startup.log`.
 
-The first run asks for language, output directory and download preferences. You can run offline diagnostics before saving. Existing TUI settings bypass setup. Dependencies (`yt-dlp`, `ffmpeg`, `ffprobe`, and Deno when needed by the source) must be installed. Finder launch includes Homebrew's `/opt/homebrew/bin` and `/usr/local/bin` in PATH.
+The first run asks for language, output directory and download preferences. You can run offline diagnostics before saving. Existing TUI settings bypass setup. Dependencies (`yt-dlp`, `ffmpeg`, `ffprobe`, and Deno) must be installed. Finder launch includes Homebrew's `/opt/homebrew/bin` and `/usr/local/bin` in PATH.
 
 Downloads contains the queue, playlists and clips. Library contains local files. Cloud storage contains uploads and S3 profiles. Settings includes diagnostics.
 

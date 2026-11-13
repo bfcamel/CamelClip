@@ -8,25 +8,26 @@
 
 Download with yt-dlp, process and verify with FFmpeg, organize a persistent media library, and optionally upload to S3-compatible storage. Written in Go and licensed under Apache-2.0.
 
-[Download the preview](https://github.com/bfcamel/CamelClip/releases/tag/v0.14.0) · [Installation](docs/installers.md) · [CLI reference](docs/cli.md) · [Contributing](CONTRIBUTING.md)
+[Download the preview](https://github.com/bfcamel/CamelClip/releases/tag/v0.16.0) · [Installation](docs/installers.md) · [CLI reference](docs/cli.md) · [Contributing](CONTRIBUTING.md)
 
 ## Download and install
 
-Local component installers for **0.15.0** include Clip by Link and poster/subtitle
-workflows. They are not yet published; the public downloads below remain 0.14.0.
+Version **0.16.0** includes dependency-aware setup for macOS, Linux and Windows via WSL 2.
 
 Choose your operating system and architecture. Each installer lets you select **GUI**, **TUI**, **CLI**, or any combination.
 
 | Platform | Recommended download |
 | --- | --- |
-| macOS — Apple Silicon | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_macos_arm64.pkg) |
-| macOS — Intel | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_macos_amd64.pkg) |
-| Linux — x86_64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_linux_amd64.tar.gz) |
-| Linux — ARM64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/camelclip_setup_0.14.0_linux_arm64.tar.gz) |
+| macOS — Apple Silicon | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/camelclip_setup_0.16.0_macos_arm64.pkg) |
+| macOS — Intel | [Graphical installer (.pkg)](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/camelclip_setup_0.16.0_macos_amd64.pkg) |
+| Linux — x86_64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/camelclip_setup_0.16.0_linux_amd64.tar.gz) |
+| Linux — ARM64 | [Setup archive (.tar.gz)](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/camelclip_setup_0.16.0_linux_arm64.tar.gz) |
+| Windows via WSL 2 — x64 | [Windows setup (.exe)](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/camelclip_setup_0.16.0_windows_amd64.exe) |
+| Windows via WSL 2 — ARM64 | [Windows setup (.exe)](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/camelclip_setup_0.16.0_windows_arm64.exe) |
 
-macOS user-scoped archives and [SHA256SUMS](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/SHA256SUMS) are available on the release page. Installer text and project documentation are English-only; the application supports English and Russian.
+macOS user-scoped archives and [SHA256SUMS](https://github.com/bfcamel/CamelClip/releases/download/v0.16.0/SHA256SUMS) are available on the release page. Installer text and project documentation are English-only; the application supports English and Russian.
 
-**Preview status:** builds are unsigned and not notarized by Apple. Linux desktop and macOS Intel acceptance and system-wide macOS installation acceptance remain pending. See [platform support](docs/support.md) before use. Windows users can run the current source build through [WSL 2](docs/gui.md#windows-via-wsl-2). A native Windows installer and server edition are unavailable.
+**Preview status:** builds are unsigned and not notarized by Apple. Linux desktop and macOS Intel acceptance and system-wide macOS installation acceptance remain pending. See [platform support](docs/support.md) before use. Windows setup installs the Linux application in WSL 2. Interactive Windows acceptance remains pending.
 
 ### macOS
 
@@ -41,21 +42,13 @@ Extract the setup archive, enter the extracted directory, and run:
 ./setup.sh --components gui,tui,cli --yes  # Install all components
 ```
 
-Installation is user-scoped by default and does not require `sudo`. Add `~/.local/bin` to PATH if your shell does not already include it. Linux GUI opens in your default browser.
+Application installation is user-scoped; installing dependencies may require `sudo`. Add `~/.local/bin` to PATH if your shell does not already include it. Linux GUI opens in your default browser.
 
 See [installer instructions](docs/installers.md) for custom prefixes, updates, component removal and the legacy terminal-only installer.
 
 ### Runtime dependencies
 
-Install **yt-dlp** and **FFmpeg/ffprobe**. Deno and yt-dlp's EJS support are needed for relevant YouTube workflows. Dependencies must be on PATH; installers report missing tools and never silently install third-party software.
-
-On macOS with Homebrew:
-
-```sh
-brew install yt-dlp ffmpeg deno
-```
-
-On Linux, use your distribution for FFmpeg and desktop tools, and follow the official [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) and [Deno](https://docs.deno.com/runtime/getting_started/installation/) installation instructions. Site behavior and account access can change independently of CamelClip.
+Setup checks **yt-dlp, FFmpeg, ffprobe and Deno** before installing CamelClip. If all four run, it installs only the selected components. Otherwise it offers to provision missing dependencies; Linux uses APT, DNF or Pacman first and Homebrew for unavailable packages. macOS uses Homebrew. See [installer details and recovery](docs/installers.md).
 
 ## Choose your interface
 
@@ -69,7 +62,7 @@ The interfaces share settings, queue/history, the library and the encrypted S3 v
 
 ## What CamelClip does
 
-**Source/main addition:** [Clip by Link](docs/clips.md) creates precise fragments from one URL or library file, with shared source preparation, independent verified outputs and optional S3 delivery. Existing v0.14.0 release installers remain unchanged and do not include this addition.
+**Source/main addition:** [Clip by Link](docs/clips.md) creates precise fragments from one URL or library file, with shared source preparation, independent verified outputs and optional S3 delivery. Included in the 0.16.0 installers.
 
 
 - **Posters and subtitles (source/main):** inspect existing tracks, load a poster, search transcripts and propose reviewed clip ranges. GUI, terminal and JSON CLI share the same Core service. [Usage and current scope](docs/companions.md).

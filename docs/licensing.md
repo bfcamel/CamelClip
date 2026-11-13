@@ -25,7 +25,7 @@ Exact module versions and checksums are recorded in go.mod/go.sum. Obtain their 
 
 ## External programs
 
-CamelClip invokes yt-dlp, FFmpeg/ffprobe and optional Deno as separate installed programs; the package builder does not bundle them or link FFmpeg libraries. Their licenses are not changed to Apache-2.0 by this project. FFmpeg licensing depends on its build options (LGPL/GPL and potentially nonredistributable configurations); yt-dlp's source and packaged executables can have different third-party obligations. Re-audit before bundling any external executable.
+CamelClip invokes yt-dlp, FFmpeg/ffprobe and Deno as separate installed programs; the package builder does not bundle them or link FFmpeg libraries. Their licenses are not changed to Apache-2.0 by this project. FFmpeg licensing depends on its build options (LGPL/GPL and potentially nonredistributable configurations); yt-dlp's source and packaged executables can have different third-party obligations. Re-audit before bundling any external executable.
 
 Primary references: [Apache-2.0 redistribution terms](https://www.apache.org/licenses/LICENSE-2.0), [FFmpeg licensing](https://ffmpeg.org/legal.html), [yt-dlp license section](https://github.com/yt-dlp/yt-dlp#license), [Go license](https://go.dev/LICENSE).
 

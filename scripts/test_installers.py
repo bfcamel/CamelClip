@@ -37,6 +37,7 @@ for line in (OUT/'SHA256SUMS').read_text().splitlines():
     path=OUT/name
     assert path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest()==sha,name
     artifacts.append(path)
+assert len([p for p in artifacts if p.suffix==".exe" and p.read_bytes()[:2]==b"MZ"])==2
 archives=[p for p in artifacts if p.name.endswith('.tar.gz')]
 assert len(archives)==4,'build all four platform/architecture archives first'
 for archive in archives:
@@ -74,7 +75,11 @@ for archive in archives:
         if (manifest['os'],manifest['arch'])!=(host_os,host_arch):
             continue
         config=tmp/'config';config.mkdir();(config/'settings.json').write_text('untouched test preferences')
-        env=dict(os.environ,CAMELCLIP_CONFIG_DIR=str(config))
+        # Exercise the all-present branch without provisioning the CI machine.
+        tools=tmp/'fixture-tools';tools.mkdir()
+        for name in ('yt-dlp','ffmpeg','ffprobe','deno'):
+            tool=tools/name;tool.write_text('#!/bin/sh\necho deno 2.3.0\n');tool.chmod(0o755)
+        env=dict(os.environ,CAMELCLIP_CONFIG_DIR=str(config),PATH=str(tools)+os.pathsep+os.environ['PATH'])
         for n in range(1,4):
             for choices in itertools.combinations(['gui','tui','cli'],n):
                 prefix=tmp/('install with space and quote\' '+'-'.join(choices))

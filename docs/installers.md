@@ -1,8 +1,6 @@
 # Component installers
 
-The current local build is **0.15.0**, including Clip by Link and poster/subtitle
-workflows. It has not been published as a GitHub Release. The public download
-links in README still point to the existing 0.14.0 preview.
+Version **0.16.0** is a prerelease with mandatory dependency checks.
 
 CamelClip now has prebuilt component installers for macOS and Linux. Choose GUI, TUI and/or CLI. The unreleased server is rejected as a component, never installed or started. All interfaces keep the existing exclusive local workspace lock.
 
@@ -10,8 +8,8 @@ CamelClip now has prebuilt component installers for macOS and Linux. Choose GUI,
 
 Open the package matching your Mac:
 
-- Apple Silicon: `camelclip_setup_0.15.0_macos_arm64.pkg`
-- Intel: `camelclip_setup_0.15.0_macos_amd64.pkg`
+- Apple Silicon: `camelclip_setup_0.16.0_macos_arm64.pkg`
+- Intel: `camelclip_setup_0.16.0_macos_amd64.pkg`
 
 The standard Installer automatically presents component choices. GUI is selected for a clean install; existing installed selections are restored on later runs. Shared terminal files are selected automatically when TUI or CLI is chosen. GUI is installed as `/Applications/CamelClip.app`, TUI as `/Applications/CamelClip TUI.command` and `camelclip-tui`, CLI as `/usr/local/bin/camelclip`. Setup/maintenance is `/usr/local/bin/camelclip-setup`.
 
@@ -29,11 +27,13 @@ Use the next `.pkg` for system updates. The setup engine refuses direct user-sty
 
 These are local unsigned development packages. Public distribution still requires the app/executables and package to be signed with appropriate identities and notarized. Setting `INSTALLER_SIGN_ID` signs the outer package if the release builder has that identity; it does not sign/notarize the inner app automatically. Never disable Gatekeeper as part of installation.
 
-Windows users can build and launch the current Linux application inside [WSL 2](gui.md#windows-via-wsl-2). Existing preview archives predate this integration.
+## Windows via WSL 2
+
+Run the Windows x64 or ARM64 setup executable matching your WSL architecture. It uses an existing WSL 2 distribution or offers to enable WSL and install Ubuntu. Windows can request administrator authorization and a restart. Setup registers a one-time continuation for the next sign-in and may ask you to initialize a Linux user. Select the distribution when several are available. Setup downloads the matching Linux archive from this release, checks its embedded SHA-256, runs the component menu there and creates Start menu shortcuts for the installed GUI/TUI. Internet access is required for the Windows bootstrap. Existing WSL 1 distributions are not converted automatically. Source launch instructions are in the [GUI guide](gui.md#windows-via-wsl-2).
 
 ## Linux: interactive or unattended user setup
 
-Download/extract the matching `camelclip_setup_0.15.0_linux_amd64.tar.gz` or `camelclip_setup_0.15.0_linux_arm64.tar.gz`, enter the extracted directory and run:
+Download/extract the matching `camelclip_setup_0.16.0_linux_amd64.tar.gz` or `camelclip_setup_0.16.0_linux_arm64.tar.gz`, enter the extracted directory and run:
 
 ```sh
 ./setup.sh
@@ -47,7 +47,7 @@ The menu offers GUI, TUI+CLI, all components, custom selection, update of instal
 ./setup.sh --components tui,cli --yes
 ```
 
-Install for the current user without sudo. Default locations:
+Install application components for the current user. Default locations:
 
 - `~/.local/bin`: selected launchers and `camelclip-setup`;
 - `~/.local/share/CamelClip`: private runtime, notices and installation inventory;
@@ -79,7 +79,7 @@ An additional macOS `.tar.gz` provides the same user-scoped setup without a syst
 
 For user-scoped updates, extract the next setup archive and run `./setup.sh --components cli --yes` (or any chosen component). Existing installed choices are retained and updated together. Removing a component is always explicit; removing CLI keeps the shared terminal runtime if TUI still needs it.
 
-All modes need external yt-dlp and FFmpeg/ffprobe for downloads; Deno is recommended for YouTube. User setup reports missing tools before installation, or fails with `--require-dependencies`. The macOS package records detection results at `/Library/Application Support/CamelClip/installation/dependencies.txt`. No installer downloads tools, installs Homebrew or invokes a system package manager silently. Running the installers requires neither Go, Swift nor Python on the target machine.
+Every component requires working yt-dlp, ffmpeg, ffprobe and Deno 2.3 or newer. Setup probes their version commands. No package manager runs if all checks pass. Setup prints its provisioning route before confirmation; `--yes` accepts the plan, and `--require-dependencies` retains the check-only behavior. Linux checks APT, DNF and Pacman for available packages, then uses Homebrew for remaining tools. The ffmpeg package supplies ffprobe. If Homebrew is needed but absent, setup downloads its official installer at a pinned revision. Run setup as the desktop user; system packages and the Homebrew prefix may require administrator authentication. If provisioning fails, install the listed tools manually and rerun setup. Status, removal and uninstall do not provision tools. On macOS, the package checks dependencies under the console account and opens Terminal when installation is needed. On Windows these checks run inside the selected distribution.
 
 Close running GUI/TUI/CLI sessions before updating/removing. User setup checks the default queue lock, `CAMELCLIP_CONFIG_DIR`, or the directory passed with `--config-dir`. It cannot discover arbitrary custom workspaces in unrelated processes; pass their configuration path and close all sessions. The macOS system package also checks running executable names across accounts before changing files.
 
@@ -96,10 +96,10 @@ sh scripts/build_installers.sh                  # all four targets; run on macOS
 sh scripts/build_installers.sh linux amd64     # one target
 sh scripts/build_installers.sh darwin arm64    # Mac package and user archive
 python3 scripts/test_installers.py             # after all four builds
-python3 scripts/test_installer_choices.py dist/installers/0.15.0/camelclip_setup_0.15.0_macos_arm64.pkg  # read-only native choice evaluation
+python3 scripts/test_installer_choices.py dist/installers/0.16.0/camelclip_setup_0.16.0_macos_arm64.pkg  # read-only native choice evaluation
 ```
 
-Outputs are in `dist/installers/0.15.0/`: two macOS `.pkg` files, four user-setup `.tar.gz` archives and `SHA256SUMS`. Debug Distribution XML files are also emitted. Existing terminal-only release packaging and `install.sh` remain available for compatibility.
+Outputs are in `dist/installers/0.16.0/`: two macOS `.pkg` files, four user-setup `.tar.gz` archives, two Windows WSL bootstrap executables and `SHA256SUMS`. Debug Distribution XML files are also emitted. Existing terminal-only release packaging and `install.sh` remain available for compatibility.
 
 Each user archive has a schema-1 manifest with stable component IDs, OS/architecture, version/commit and every payload file's hash, size, destination and mode. Builds outside a clean release checkout default to `development-local`; release builders supply `RELEASE_COMMIT` and `SOURCE_DATE_EPOCH` after validating their exact source revision. Packaging does not claim to validate source provenance automatically.
 

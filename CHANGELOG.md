@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.16.0 — 2026-11-13 (preview)
+
+- Provision required yt-dlp, FFmpeg/ffprobe and Deno during component installation.
+- Add Windows x64 and ARM64 installers for WSL 2.
 
 - Added Windows browser, Explorer and Downloads integration for source builds running under WSL 2.
 - Grouped desktop navigation and made automatic capped video quality the default in Add links.

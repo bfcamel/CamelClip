@@ -65,9 +65,6 @@ func Collect(ctx context.Context, version, commit, configPath string, s config.S
 	r := Report{Version: version, Commit: commit, OS: runtime.GOOS, Arch: runtime.GOARCH, Go: runtime.Version(), Profile: Profile{s.Mode, s.Codec, s.Container, s.Audio, s.Browser != ""}}
 	for _, name := range []string{"yt-dlp", "ffmpeg", "ffprobe", "deno"} {
 		status := "FAIL"
-		if name == "deno" {
-			status = "WARN"
-		}
 		path, err := exec.LookPath(name)
 		if err != nil {
 			r.add(name, status, "Executable is missing from PATH.", "Install "+name+" and run doctor again; see README for your OS.")
