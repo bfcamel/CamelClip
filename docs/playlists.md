@@ -4,7 +4,7 @@ CamelClip 0.14.0 adds persistent playlist monitoring to the shared Core. It requ
 
 ## Add and monitor
 
-GUI: open **Playlists**, choose **Add playlist**, select an initial mode, output profile, interval and optional S3 profiles. TUI: press **5**, **n** to add, **e** to edit, **p** to pause/resume, **s** to check soon, **b** to backfill, or **Enter** for item status. TUI S3 selection uses comma-separated existing profile names.
+GUI: open **Downloads → Playlists**, choose **Add playlist**, select an initial mode, output profile, interval and optional S3 profiles. TUI: press **5**, **n** to add, **e** to edit, **p** to pause/resume, **s** to check soon, **b** to backfill, or **Enter** for item status. TUI S3 selection uses comma-separated existing profile names.
 
 ```sh
 camelclip playlists add 'https://www.youtube.com/playlist?list=PLAYLIST_ID' \

@@ -20,7 +20,7 @@ Add links uses automatic quality selection by default. A numeric video height is
 
 Click the CPU/RAM button for each logical CPU. Download progress is separated into download, processing and verification. Select rows for bulk actions. Pending jobs may be paused; active processes can be canceled and retried. History removal keeps files; physical library deletion has a separate confirmation.
 
-S3 uses the existing locally encrypted vault. Initialize/unlock it in Profiles, add a destination and credentials, and review computed object keys from Library before submitting uploads. Custom endpoints require the existing conditional-write test. Credentials are never returned to the frontend after saving.
+S3 uses the existing locally encrypted vault. Initialize/unlock it in Cloud storage → Profiles, add a destination and credentials, and review computed object keys from Library before submitting uploads. Custom endpoints require the existing conditional-write test. Credentials are never returned to the frontend after saving.
 
 Use Quit to stop the application and save resumable work. Closing the native window also shuts down the workspace. Recovery follows the same rules as TUI. This build is local, unsigned and not notarized.
 
