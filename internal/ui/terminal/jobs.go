@@ -93,7 +93,7 @@ func (p *jobPool) refresh() {
 	p.active = application.Active(items)
 }
 func (p *jobPool) add(o options) bool {
-	_, err := p.service.Submit(request(o), true)
+	_, err := p.service.Submit(request(o), o.chooseQuality)
 	p.lastErr = err
 	p.refresh()
 	return err == nil

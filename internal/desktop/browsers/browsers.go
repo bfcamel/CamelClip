@@ -1,6 +1,6 @@
 // Copyright 2026 bfcamel and contributors.
 // SPDX-License-Identifier: Apache-2.0
-package gui
+package browsers
 
 import (
 	"context"
@@ -16,15 +16,15 @@ type browserOption struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
 }
-type browserCatalog struct {
+type Catalog struct {
 	Options   []browserOption `json:"options"`
 	Suggested string          `json:"suggested"`
 }
 
-func discoverBrowsers(ctx context.Context) browserCatalog {
+func Discover(ctx context.Context) Catalog {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return browserCatalog{}
+		return Catalog{}
 	}
 	configDir, _ := os.UserConfigDir()
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -41,8 +41,8 @@ func discoverBrowsers(ctx context.Context) browserCatalog {
 }
 
 // Inspect only file metadata. Never open a cookie store during discovery.
-func browserProfiles(home, configDir, platform, handler string) browserCatalog {
-	var result browserCatalog
+func browserProfiles(home, configDir, platform, handler string) Catalog {
+	var result Catalog
 	defaults := map[string]string{
 		"com.apple.safari": "safari", "com.google.chrome": "chrome", "com.microsoft.edgemac": "edge", "com.brave.browser": "brave", "org.mozilla.firefox": "firefox",
 		"google-chrome.desktop": "chrome", "com.google.chrome.desktop": "chrome", "microsoft-edge.desktop": "edge", "com.microsoft.edge.desktop": "edge", "brave-browser.desktop": "brave", "com.brave.browser.desktop": "brave", "firefox.desktop": "firefox", "firefox_firefox.desktop": "firefox", "org.mozilla.firefox.desktop": "firefox",

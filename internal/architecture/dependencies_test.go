@@ -18,7 +18,7 @@ func TestPackageDependencyDirection(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../.."))
 	prefix := "github.com/bfcamel/CamelClip/internal/"
-	rules := map[string][]string{"core": {}, "installer": {}, "application": {"core"}, "config": {"core"}, "downloader/ytdlp": {"core"}, "media/clips": {"core"}, "media/companions": {"core"}, "storage/sqlite": {"application", "core"}, "storage/jsonconfig": {"config"}, "desktop/wsl": {}, "ui/terminal": {"desktop/wsl", "application", "core", "config", "diagnostics"}, "ui/gui": {"desktop/wsl", "application", "core", "config", "diagnostics"}, "diagnostics": {"config"}, "security": {"core"}, "library": {"core"}, "systemmetrics": {"core"}, "uploader/s3": {"core"}}
+	rules := map[string][]string{"core": {}, "installer": {}, "application": {"core"}, "config": {"core"}, "downloader/ytdlp": {"core"}, "media/clips": {"core"}, "media/companions": {"core"}, "storage/sqlite": {"application", "core"}, "storage/jsonconfig": {"config"}, "desktop/browsers": {}, "desktop/wsl": {}, "ui/terminal": {"desktop/browsers", "desktop/wsl", "application", "core", "config", "diagnostics"}, "ui/gui": {"desktop/browsers", "desktop/wsl", "application", "core", "config", "diagnostics"}, "diagnostics": {"config"}, "security": {"core"}, "library": {"core"}, "systemmetrics": {"core"}, "uploader/s3": {"core"}}
 	for dir, allowed := range rules {
 		err := filepath.WalkDir(filepath.Join(root, "internal", dir), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {

@@ -13,6 +13,8 @@ if [ -x "./$binary" ]; then
   "./$binary" || result=$?
 elif [ -x "./dist/terminal/$binary" ]; then
   "./dist/terminal/$binary" || result=$?
+elif [ -x "./dist/build/$binary" ]; then
+  "./dist/build/$binary" tui || result=$?
 elif [ -x "./dist/$binary" ]; then
   "./dist/$binary" || result=$?
 elif [ -x ./camelclip ]; then

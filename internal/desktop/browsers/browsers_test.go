@@ -1,4 +1,4 @@
-package gui
+package browsers
 
 import (
 	"os"
@@ -19,7 +19,7 @@ func TestFirstSetupBrowserSuggestion(t *testing.T) {
 		}
 		return dir
 	}
-	discover := func(handler string) browserCatalog { return browserProfiles(home, configDir, "linux", handler) }
+	discover := func(handler string) Catalog { return browserProfiles(home, configDir, "linux", handler) }
 	if got := discover("google-chrome.desktop"); len(got.Options) != 0 || got.Suggested != "" {
 		t.Fatal(got)
 	}

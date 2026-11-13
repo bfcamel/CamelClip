@@ -55,7 +55,7 @@ func dashboard(ctx context.Context, m *menu, o *options, configPath, system, hom
 		} else {
 			fmt.Fprintln(m.out, e)
 		}
-		action, err := m.selectItem(ctx, tr("Что сделать?"), []choice{{tr("↓ Скачать видео"), "video"}, {tr("♫ Скачать аудио"), "audio"}, {tr("Мои файлы"), "files"}, {tr("Сохранённая очередь"), "queue"}, {tr("Настройки"), "settings"}, {tr("Диагностика"), "doctor"}, {tr("Выход"), "exit"}}, "video")
+		action, err := m.selectItem(ctx, tr("Что сделать?"), []choice{{tr("↓ Скачать видео"), "video"}, {tr("♫ Скачать аудио"), "audio"}, {tr("Мои файлы"), "files"}, {tr("Сохранённая очередь"), "queue"}, {tr("Настройки"), "settings"}, {tr("Диагностика"), "doctor"}, {tr("Выход"), "exit"}, {tr("Видео: выбрать качество после анализа"), "manual"}}, "video")
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -84,6 +84,10 @@ func dashboard(ctx context.Context, m *menu, o *options, configPath, system, hom
 		default:
 			candidate := *o
 			candidate.Mode = action
+			if action == "manual" {
+				candidate.Mode = "video"
+				candidate.chooseQuality = true
+			}
 			candidate.Formats = false
 			screen(m, tr("Новая загрузка"), candidate, tr("Пустая строка — вернуться в меню."))
 			var urls []string
@@ -176,10 +180,7 @@ func editSettings(ctx context.Context, m *menu, o *options, configPath, system, 
 		case "video-format":
 			candidate.Container, err = m.selectItem(ctx, tr("Формат видео"), videoContainerChoices(videoCodec(*o)), videoContainer(*o))
 		case "browser":
-			candidate.Cookies, err = m.line(tr("Браузер cookies: firefox[:профиль], пусто — отключить"), "")
-			if err == nil && candidate.Cookies != "" && !validBrowser(candidate.Cookies) {
-				err = errors.New(tr("неподдерживаемый браузер"))
-			}
+			candidate.Cookies, err = m.pickBrowser(ctx, candidate.Cookies, false)
 		case "folder":
 			candidate.Out, err = m.line(tr("Папка сохранения"), o.Out)
 			if err == nil {

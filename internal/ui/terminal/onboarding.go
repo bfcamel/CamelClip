@@ -5,6 +5,7 @@ package terminal
 import (
 	"context"
 	"fmt"
+	"os"
 )
 
 func firstRun(ctx context.Context, m *menu, o *options, path, system, home string) error {
@@ -45,7 +46,8 @@ func setup(ctx context.Context, m *menu, o *options, path, system, home string, 
 	candidate.Codec = profile
 	candidate.Container = map[string]string{"h264": "mp4", "hevc": "mkv", "vp9": "webm", "av1": "mkv"}[profile]
 	fmt.Fprintln(m.out, tr("Cookies браузера нужны для роликов с ограничением доступа. Они используются только с вашего разрешения."))
-	candidate.Cookies, err = m.selectItem(ctx, tr("Использовать вход из браузера?"), []choice{{tr("Не использовать"), ""}, {"Firefox", "firefox"}, {"Chrome", "chrome"}, {"Edge", "edge"}, {"Brave", "brave"}}, candidate.Cookies)
+	_, statErr := os.Stat(path)
+	candidate.Cookies, err = m.pickBrowser(ctx, candidate.Cookies, os.IsNotExist(statErr))
 	if err != nil {
 		return err
 	}

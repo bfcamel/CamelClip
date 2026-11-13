@@ -134,7 +134,7 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 	}
 	x, y := (c.w-width)/2, (c.h-height)/2
 	c.box(x, y, width, height, u.title, true)
-	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || u.workspaceInput() || strings.HasPrefix(u.modal, "resource:") {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "search" || u.workspaceInput() || strings.HasPrefix(u.modal, "resource:") {
 		value := []rune(u.input)
 		if u.secretInput() {
 			value = []rune(strings.Repeat("•", len(value)))
@@ -144,7 +144,11 @@ func (u *panelUI) drawModal(c *panelCanvas) {
 		}
 		c.fill(x+2, y+2, width-4, selected)
 		c.text(x+2, y+2, width-4, "> "+string(value)+"▏", selected)
-		c.text(x+2, y+height-2, width-4, tr("Enter: подтвердить · Esc: назад. Загрузки продолжаются."), dim)
+		hint := tr("Enter: подтвердить · Esc: назад. Загрузки продолжаются.")
+		if u.modal == "url" {
+			hint = tr("Enter: добавить · Tab: cookies · Esc: назад")
+		}
+		c.text(x+2, y+height-2, width-4, hint, dim)
 	} else if u.modal == "details" || u.modal == "help" || u.modal == "logs" || u.modal == "resources-panel" || u.modal == "upload-review" || u.modal == "clip-review" {
 		lines := wrapLines(u.input, width-4)
 		start := min(u.detailOffset, max(0, len(lines)-(height-3)))

@@ -25,7 +25,7 @@ type options struct {
 	URL, Mode, Quality, Audio, Out, Cookies, Lang string
 	Codec, Container                              string
 	Theme                                         string
-	Formats                                       bool
+	Formats, chooseQuality                        bool
 	MaxDownloads, MaxProcessing                   int
 	RateLimitBPS, JobRateLimitBPS                 int64
 	duration                                      float64

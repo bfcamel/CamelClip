@@ -45,7 +45,7 @@ func runQueue(ctx context.Context, urls []string, o options, config string, m *m
 	seen := map[int]bool{}
 	for _, url := range urls {
 		o.URL = url
-		j, err := pool.service.Submit(request(o), m != nil)
+		j, err := pool.service.Submit(request(o), o.chooseQuality)
 		if err != nil && !errors.Is(err, application.ErrDuplicate) {
 			return err
 		}
@@ -98,13 +98,6 @@ func runQueueJobs(ctx context.Context, q application.Queue, ids []int, o options
 				}
 				if err := q.Choose(j.ID, value); err != nil {
 					return err
-				}
-				if m != nil {
-					candidate := o
-					candidate.Quality = value
-					if err := saveSettings(config, candidate); err != nil {
-						return err
-					}
 				}
 			}
 		}
