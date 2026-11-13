@@ -29,7 +29,12 @@ func buildArguments(o options, list bool) []string {
 			filter = "[height<=" + o.Quality + "]"
 		}
 		// Every fallback respects the height limit and includes audio.
-		selector := "bestvideo" + filter + "/best" + filter + ",bestaudio/best" + filter
+		selector := "bestvideo/best,bestaudio/best"
+		if filter != "" {
+			// Rank separate and combined video streams together by actual height.
+			selector = "bestvideo*" + filter + ",bestaudio/best" + filter
+			a = append(a, "--format-sort-force", "--format-sort", "height")
+		}
 		a = append(a, "--format", selector)
 	}
 	return append(a, "--", o.URL)

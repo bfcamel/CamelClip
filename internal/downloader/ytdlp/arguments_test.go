@@ -15,7 +15,7 @@ func validate(o options) error { return core.Validate(o) }
 func TestVideoLimitAndURLIsolation(t *testing.T) {
 	o := defaults()
 	a := arguments(o)
-	if !contains(a, "bestvideo[height<=1080]/best[height<=1080],bestaudio/best[height<=1080]") {
+	if !contains(a, "bestvideo*[height<=1080],bestaudio/best[height<=1080]") {
 		t.Fatal(a)
 	}
 	if !reflect.DeepEqual(a[len(a)-2:], []string{"--", o.URL}) {

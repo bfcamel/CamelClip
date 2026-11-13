@@ -14,7 +14,11 @@ Close any running CamelClip TUI/GUI first. The existing exclusive database lock 
 
 The first run asks for language, output directory and download preferences. You can run offline diagnostics before saving. Existing TUI settings bypass setup. Dependencies (`yt-dlp`, `ffmpeg`, `ffprobe`, and Deno when needed by the source) must be installed. Finder launch includes Homebrew's `/opt/homebrew/bin` and `/usr/local/bin` in PATH.
 
-The window contains downloads, library, uploads, S3 profiles, settings and diagnostics. Click the CPU/RAM button for each logical CPU. Download progress is separated into download, processing and verification. Select rows for bulk actions. Pending jobs may be paused; active processes can be canceled and retried. History removal keeps files; physical library deletion has a separate confirmation.
+Downloads contains the queue, playlists and clips. Library contains local files. Cloud storage contains uploads and S3 profiles. Settings includes diagnostics.
+
+Add links uses automatic quality selection by default. A numeric video height is an upper limit. CamelClip selects the highest available height within that limit. If all available heights exceed it, the download fails. Enable “Choose quality after inspection” to choose manually.
+
+Click the CPU/RAM button for each logical CPU. Download progress is separated into download, processing and verification. Select rows for bulk actions. Pending jobs may be paused; active processes can be canceled and retried. History removal keeps files; physical library deletion has a separate confirmation.
 
 S3 uses the existing locally encrypted vault. Initialize/unlock it in Profiles, add a destination and credentials, and review computed object keys from Library before submitting uploads. Custom endpoints require the existing conditional-write test. Credentials are never returned to the frontend after saving.
 
