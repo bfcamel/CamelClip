@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/bfcamel/CamelClip/internal/desktop/wsl"
 )
 
 // xdg-open delegates to the user's desktop. Reveal opens the containing folder;
@@ -19,6 +21,9 @@ func openMedia(ctx context.Context, path string, reveal bool) error {
 	target, err := filepath.Abs(path)
 	if err != nil {
 		return err
+	}
+	if wsl.Active() {
+		return wsl.OpenMedia(ctx, target, reveal)
 	}
 	if reveal {
 		target = filepath.Dir(target)
@@ -37,6 +42,11 @@ func dependencyHint() string {
 // Respect XDG user directories, including localized Downloads names. This file
 // is data, never a shell script: only a quoted absolute path or $HOME is accepted.
 func downloadsDirectory(home string) string {
+	if wsl.Active() {
+		if dir := wsl.Downloads(); dir != "" {
+			return dir
+		}
+	}
 	fallback := filepath.Join(home, "Downloads")
 	base, err := os.UserConfigDir()
 	if err != nil {

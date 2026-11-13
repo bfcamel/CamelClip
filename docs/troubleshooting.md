@@ -14,7 +14,8 @@ Doctor performs offline checks and temporary write probes in existing directorie
 - **File does not play:** inspect the selected codec/container and your player support. CamelClip verifies stream presence, duration and complete decoding before publication. It preserves existing files rather than replacing them. Share the doctor report and exact error, with private values removed.
 - **Queue already open:** close the other CamelClip instance. Do not remove queue.lock while a process is using it; locks are released by the OS when the owner exits.
 - **Damaged queue:** close CamelClip and copy the entire configuration directory, including queue.sqlite3, queue.sqlite3-wal and queue.sqlite3-shm if present. Keep the original untouched. Recovery should be attempted on a copy using SQLite tooling or with maintainer assistance. Automatic repair is intentionally not provided; do not delete the database to make the error disappear.
-- **Linux file opening fails:** install xdg-utils and use a graphical desktop session. CLI downloads work without a desktop. `o` opens the containing folder; selecting an exact file is desktop-dependent.
+- **WSL browser or Explorer fails to open:** run `powershell.exe -NoProfile -Command Get-Location` and `wslpath -w "$HOME"` in the same distribution. Windows interoperability and Windows PATH integration must be enabled. Use `camelclip-gui --no-open` to open the printed private URL in the Windows browser manually.
+- **Native Linux file opening fails:** install xdg-utils and use a graphical desktop session. CLI downloads work without a desktop. `o` opens the containing folder; selecting an exact file is desktop-dependent.
 
 Configuration is in `~/Library/Application Support/CamelClip` on macOS and `${XDG_CONFIG_HOME:-$HOME/.config}/CamelClip` on Linux. `CAMELCLIP_CONFIG_DIR` overrides both settings and queue locations. It can isolate a reproduction without touching the real queue:
 

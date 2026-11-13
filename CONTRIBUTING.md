@@ -1,6 +1,6 @@
 # Contributing to CamelClip
 
-CamelClip is a local media workspace with GUI, TUI and CLI frontends for macOS and Linux. Contributions are licensed under Apache-2.0. Please report reproducible problems and keep changes focused.
+CamelClip is a local media workspace with GUI, TUI and CLI frontends for macOS and Linux, including an experimental Windows desktop integration through WSL 2. Contributions are licensed under Apache-2.0. Please report reproducible problems and keep changes focused.
 
 ## Public language
 

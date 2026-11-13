@@ -44,6 +44,21 @@ The installer build places Linux GUI binaries in `dist/build/`; the user install
 
 The server listens only on a random IPv4 loopback port and uses a random per-process session token. API requests check the session token, Host and Origin. Nothing is hosted externally. `--no-open` prints the private local launch URL for debugging; do not share it. `CAMELCLIP_CONFIG_DIR` permits an isolated workspace, just as with TUI.
 
+## Windows via WSL 2
+
+Use a WSL 2 distribution with Windows interoperability enabled. Install Go (see [go.mod](../go.mod)), yt-dlp, FFmpeg/ffprobe and any needed site-specific tools inside the distribution. From the repository root in WSL, build the current application:
+
+```sh
+mkdir -p ~/.local/bin
+go build -o ~/.local/bin/camelclip-gui ./cmd/camelclip-gui
+go build -o ~/.local/bin/camelclip ./cmd/camelclip
+~/.local/bin/camelclip-gui --browser
+```
+
+For subsequent launches, double-click [Start-WSL.cmd](../Start-WSL.cmd) from Windows or create a shortcut to it. It launches the default WSL distribution. For another distribution, run `wsl.exe -d Ubuntu --cd ~ --exec sh -c "exec ~/.local/bin/camelclip-gui --browser"` from Windows, substituting its registered name. Quit from the CamelClip menu before closing the launcher.
+
+The UI opens in the Windows default browser. New settings use the Windows Downloads known folder (including redirected Downloads) with a CamelClip subfolder when Windows returns a usable path. Otherwise CamelClip uses the Linux Downloads location. Existing output settings are retained. Enter paths in Linux form, for example `/mnt/c/Users/Alex/Videos`. Play opens the file with its Windows association and Reveal selects it in Explorer. Workspace settings, history and credentials belong to the Linux user of that distribution.
+
 ## Validation
 
 ```sh
