@@ -62,10 +62,10 @@ The interfaces share settings, queue/history, the library and the encrypted S3 v
 
 ## What CamelClip does
 
-**Source/main addition:** [Clip by Link](docs/clips.md) creates precise fragments from one URL or library file, with shared source preparation, independent verified outputs and optional S3 delivery. Included in the 0.16.0 installers.
+**Clip creation:** [Clip by Link](docs/clips.md) creates precise fragments from one URL or library file, with shared source preparation, independent verified outputs and optional S3 delivery. Included in the 0.16.0 installers.
 
 
-- **Posters and subtitles (source/main):** inspect existing tracks, load a poster, search transcripts and propose reviewed clip ranges. GUI, terminal and JSON CLI share the same Core service. [Usage and current scope](docs/companions.md).
+- **Posters and subtitles:** inspect existing tracks, load a poster, search transcripts and propose reviewed clip ranges. GUI, terminal and JSON CLI share the same Core service. [Usage and current scope](docs/companions.md).
 - **Create clips:** 1–100 manual/chapter intervals, precise H.264/AAC video or audio output, durable batches and provenance. [Scope and usage](docs/clips.md).
 - **Download video and audio:** batch URLs, quality selection, video codecs/containers and audio extraction.
 - **Follow YouTube playlists:** any number of subscriptions, new-only or full initial sync, durable video-ID history, shared downloads, pause/backfill and optional selected S3 destinations.

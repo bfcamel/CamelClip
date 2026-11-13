@@ -81,6 +81,13 @@ func Collect(ctx context.Context, version, commit, configPath string, s config.S
 		}
 		// The executable can print arbitrary local data. Retain only numeric versions.
 		v := versionPattern.FindString(strings.SplitN(string(out), "\n", 2)[0])
+		if name == "deno" {
+			var major, minor int
+			if n, _ := fmt.Sscanf(v, "%d.%d", &major, &minor); n != 2 || major < 2 || (major == 2 && minor < 3) {
+				r.add(name, "FAIL", "Deno 2.3 or newer is required.", "Update Deno and run doctor again.")
+				continue
+			}
+		}
 		if v == "" {
 			v = "available"
 		}

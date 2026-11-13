@@ -22,6 +22,9 @@ func TestReportRedactsToolsPathsAndCookieSelectors(t *testing.T) {
 	os.Mkdir(bin, 0700)
 	for _, name := range []string{"yt-dlp", "ffmpeg", "ffprobe", "deno"} {
 		script := "#!/bin/sh\nif [ \"$1\" = -hide_banner ]; then printf ' V..... libx264 encoder\\n A..... aac encoder\\n'; else echo 'tool 1.2.3 /private/user-secret https://example.com/secret?token=123'; fi\n"
+		if name == "deno" {
+			script = "#!/bin/sh\necho deno 2.3.0\n"
+		}
 		if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -60,7 +63,7 @@ func TestMissingEncodersInvalidSettingsAndCorruptQueue(t *testing.T) {
 			bad[check.ID] = true
 		}
 	}
-	for _, id := range []string{"encoder:libx264", "encoder:aac", "settings", "queue"} {
+	for _, id := range []string{"deno", "encoder:libx264", "encoder:aac", "settings", "queue"} {
 		if !bad[id] {
 			t.Fatalf("missing failure %s: %+v", id, report)
 		}

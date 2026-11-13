@@ -3,7 +3,8 @@ $ErrorActionPreference = 'Stop'
 $wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
 function Get-Distros {
     if (!(Test-Path $wsl)) { return }
-    $lines = & $wsl --list --verbose 2>$null
+    $previous = $ErrorActionPreference
+    try { $ErrorActionPreference = 'Continue'; $lines = & $wsl --list --verbose 2>$null } finally { $ErrorActionPreference = $previous }
     if ($LASTEXITCODE -ne 0) { return }
     foreach ($line in $lines) {
         if (($line -replace "\x00",'') -match '^\s*\*?\s*([\w.-]+)\s+.+?\s+2\s*$' -and $Matches[1] -notmatch '^(docker-desktop|podman-machine|rancher-desktop)') { $Matches[1] }

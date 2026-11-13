@@ -1,6 +1,6 @@
 # Posters and subtitles
 
-Available in source/main builds. Existing release installers are unchanged.
+Included in the 0.16.0 release installers.
 
 CamelClip can discover existing subtitle tracks, load a poster, search a saved
 transcript and propose a time range for Clip by Link. The application does not
