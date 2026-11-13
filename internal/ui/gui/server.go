@@ -43,6 +43,7 @@ type Server struct {
 	path       string
 	mu         sync.Mutex // serializes settings and mutations, never held by background workers
 	settings   config.Settings
+	browsers   browserCatalog
 	firstRun   bool
 	token      string
 	host       string
@@ -66,7 +67,7 @@ func New(ctx context.Context, deps Dependencies, path string, defaults config.Se
 		return nil, err
 	}
 	_, statErr := os.Stat(path)
-	s := &Server{workspace: w, repository: repo, path: path, settings: settings, firstRun: os.IsNotExist(statErr), token: hex.EncodeToString(token), host: host, quit: quit, openMedia: deps.OpenMedia}
+	s := &Server{browsers: discoverBrowsers(ctx), workspace: w, repository: repo, path: path, settings: settings, firstRun: os.IsNotExist(statErr), token: hex.EncodeToString(token), host: host, quit: quit, openMedia: deps.OpenMedia}
 	if err = s.apply(settings); err != nil {
 		w.Close()
 		return nil, err
@@ -213,7 +214,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			if e := ws.Queue.Err(); e != nil {
 				qerr = e.Error()
 			}
-			reply(w, map[string]any{"jobs": ws.Queue.Jobs(), "statistics": ws.Queue.Statistics(), "profiles": profiles, "uploads": uploads, "settings": v, "firstRun": first, "locked": ws.Cloud.Locked(), "hasVault": ws.Cloud.HasVault(ctx), "system": ws.Monitor.Snapshot(), "scanning": scanning, "scanReport": report, "queueError": qerr, "playlistError": playlistError, "clipError": clipError}, nil)
+			reply(w, map[string]any{"jobs": ws.Queue.Jobs(), "statistics": ws.Queue.Statistics(), "profiles": profiles, "uploads": uploads, "settings": v, "firstRun": first, "browsers": s.browsers, "locked": ws.Cloud.Locked(), "hasVault": ws.Cloud.HasVault(ctx), "system": ws.Monitor.Snapshot(), "scanning": scanning, "scanReport": report, "queueError": qerr, "playlistError": playlistError, "clipError": clipError}, nil)
 		case "/api/playlists":
 			if ws.Playlists == nil {
 				reply(w, core.PlaylistPage{Items: []core.PlaylistSubscription{}}, nil)
