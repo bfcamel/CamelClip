@@ -125,9 +125,7 @@ func (r *memoryClips) Asset(context.Context, string) (core.Asset, error) { retur
 func (r *memoryClips) PutAsset(context.Context, core.Asset) (core.Asset, error) {
 	return core.Asset{}, nil
 }
-func (r *memoryClips) AllowAsset(context.Context, string) error     { return nil }
-func (r *memoryClips) ForgetAsset(context.Context, string) error    { return nil }
-func (r *memoryClips) CanDeleteAsset(context.Context, string) error { return nil }
+func (r *memoryClips) DeleteAssetFile(context.Context, string) error { return nil }
 func (r *memoryClips) MarkMissing(context.Context, string, []string, bool) (int, error) {
 	return 0, nil
 }

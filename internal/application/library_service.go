@@ -5,7 +5,6 @@ package application
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/bfcamel/CamelClip/internal/core"
 	"io/fs"
 	"os"
@@ -22,6 +21,7 @@ type LibraryService struct {
 	probe            core.MediaProber
 	slots            chan struct{}
 	mu               sync.Mutex
+	catalogMu        sync.RWMutex // deletion waits for active probes and catalog writes
 	scanning         bool
 	report           core.ScanReport
 	cancel           context.CancelFunc
@@ -64,6 +64,8 @@ func (l *LibraryService) Refresh(ctx context.Context, id string) (core.Asset, er
 		return core.Asset{}, err
 	}
 	defer done()
+	l.catalogMu.RLock()
+	defer l.catalogMu.RUnlock()
 	old, e := l.repo.Asset(ctx, id)
 	if e != nil {
 		return old, e
@@ -73,9 +75,7 @@ func (l *LibraryService) Refresh(ctx context.Context, id string) (core.Asset, er
 		if os.IsNotExist(e) {
 			old.Status = "missing"
 			old.NeedsProbe = false
-			if _, saveErr := l.repo.PutAsset(ctx, old); saveErr != nil {
-				return old, saveErr
-			}
+			return l.repo.PutAsset(ctx, old)
 		}
 		return old, e
 	}
@@ -110,22 +110,13 @@ func (l *LibraryService) Import(ctx context.Context, path string) (core.Asset, e
 	if !mediaPath(path) {
 		return core.Asset{}, errors.New("unsupported media extension")
 	}
+	l.catalogMu.RLock()
+	defer l.catalogMu.RUnlock()
 	a, e := l.inspect(ctx, path)
 	if e != nil {
 		return a, e
 	}
-	if e = l.repo.AllowAsset(ctx, path); e != nil {
-		return a, e
-	}
 	return l.repo.PutAsset(ctx, a)
-}
-func (l *LibraryService) Forget(ctx context.Context, id string) error {
-	ctx, done, err := l.life.begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer done()
-	return l.repo.ForgetAsset(ctx, id)
 }
 func (l *LibraryService) DeleteFile(ctx context.Context, id string, confirmed bool) error {
 	ctx, done, err := l.life.begin(ctx)
@@ -136,26 +127,9 @@ func (l *LibraryService) DeleteFile(ctx context.Context, id string, confirmed bo
 	if !confirmed {
 		return errors.New("explicit file deletion confirmation required")
 	}
-	a, e := l.repo.Asset(ctx, id)
-	if e != nil {
-		return e
-	}
-	st, e := os.Lstat(a.Path)
-	if e != nil {
-		return e
-	}
-	if !st.Mode().IsRegular() || st.Size() != a.Size || !st.ModTime().Equal(a.Modified) {
-		return errors.New("file changed; refresh and confirm again")
-	}
-	if e = l.repo.CanDeleteAsset(ctx, id); e != nil {
-		return e
-	}
-	if e = os.Remove(a.Path); e != nil {
-		return fmt.Errorf("file was not deleted: %w", e)
-	}
-	a.Status = "missing"
-	_, e = l.repo.PutAsset(ctx, a)
-	return e
+	l.catalogMu.Lock()
+	defer l.catalogMu.Unlock()
+	return l.repo.DeleteAssetFile(ctx, id)
 }
 func (l *LibraryService) Scan(ctx context.Context, root string, recursive bool) (core.ScanReport, error) {
 	ctx, done, err := l.life.begin(ctx)
@@ -205,6 +179,8 @@ func (l *LibraryService) Scan(ctx context.Context, root string, recursive bool) 
 			report.Skipped++
 			return nil
 		}
+		l.catalogMu.RLock()
+		defer l.catalogMu.RUnlock()
 		seen = append(seen, path)
 		a, e := l.inspect(ctx, path)
 		if e != nil {
@@ -217,10 +193,6 @@ func (l *LibraryService) Scan(ctx context.Context, root string, recursive bool) 
 		stored, saveErr := l.repo.PutAsset(ctx, a)
 		e = saveErr
 		if e != nil {
-			if e.Error() == "file excluded from index" {
-				report.Skipped++
-				return nil
-			}
 			return e
 		}
 		if stored.Added.Before(started) {
@@ -233,6 +205,8 @@ func (l *LibraryService) Scan(ctx context.Context, root string, recursive bool) 
 	if e != nil {
 		return report, e
 	}
+	l.catalogMu.RLock()
+	defer l.catalogMu.RUnlock()
 	report.Missing, e = l.repo.MarkMissing(ctx, root, seen, recursive)
 	return report, e
 }

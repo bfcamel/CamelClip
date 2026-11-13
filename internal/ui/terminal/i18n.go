@@ -67,7 +67,7 @@ func requestedLanguage(args []string, fallback string) string {
 
 var english = map[string]string{
 	"Субтитры:": "Captions:", "Субтитры: s — поиск, r — интервал": "Captions: s search, r interval", "Поиск по субтитрам": "Search captions", "Индексы реплик FIRST:LAST (от нуля)": "Cue indices FIRST:LAST (zero based)", "Обложка сохранена": "Poster saved", "Субтитры: номер дорожки или poster для обложки": "Captions: enter track index or poster for the image",
-	"g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск h:субтитры":         "g:scan i:import u:S3 d:forget D:delete /:search h:captions",
+	"g:сканировать i:импорт u:S3 D:удалить /:поиск h:субтитры":                  "g:scan i:import u:S3 D:delete /:search h:captions",
 	"n:нарезать p:пауза/продолжить x:отмена r:повтор Enter:сведения h:субтитры": "n:clip p:pause/resume x:cancel r:retry Enter:details h:captions",
 
 	"Проверка нарезки": "Review clips", "Создать проверенный пакет нарезки?": "Create the reviewed clip batch?",
@@ -124,7 +124,7 @@ var english = map[string]string{
 	"Пароли не совпали. Введите новый мастер-пароль":                          "Passwords differ. Enter new master password",
 	"Хранилище разблокировано в этом сеансе. Enter — заблокировать и выйти.":  "Vault unlocked in this session. Enter: lock and exit.",
 	"1–4:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход":                    "1–4:views c:CPU/RAM Enter:details ?:help q:quit",
-	"g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск":                  "g:scan i:import u:S3 d:unindex D:delete /:search",
+	"g:сканировать i:импорт u:S3 D:удалить /:поиск":                           "g:scan i:import u:S3 D:delete /:search",
 	"r:повтор x:отмена z:очистить multipart":                                  "r:retry x:cancel z:clean multipart",
 	"n:новый e:изменить u:разблокировать t:проверить a:авто":                  "n:new e:edit u:unlock t:test a:auto",
 	"Одновременных S3-отправок (1–32)":                                        "Concurrent S3 uploads (1–32)",

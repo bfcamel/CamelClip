@@ -20,7 +20,6 @@ import (
 const catalogSchema = `
 CREATE TABLE IF NOT EXISTS assets(id TEXT PRIMARY KEY,path TEXT NOT NULL UNIQUE,search_text TEXT NOT NULL,kind TEXT NOT NULL,status TEXT NOT NULL,container TEXT NOT NULL,height INTEGER NOT NULL,added INTEGER NOT NULL,record TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS assets_status ON assets(status,kind,added);
-CREATE TABLE IF NOT EXISTS asset_exclusions(path TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS asset_sources(asset_id TEXT NOT NULL,job_id INTEGER NOT NULL,request TEXT NOT NULL,media TEXT NOT NULL,PRIMARY KEY(asset_id,job_id));
 CREATE TABLE IF NOT EXISTS s3_profiles(id TEXT PRIMARY KEY,name_fold TEXT NOT NULL UNIQUE,record TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS s3_profile_secrets(profile_id TEXT PRIMARY KEY REFERENCES s3_profiles(id) ON DELETE CASCADE,record BLOB NOT NULL);
@@ -43,10 +42,6 @@ func (r *Repository) Asset(ctx context.Context, id string) (core.Asset, error) {
 	return decodeRow[core.Asset](r.db.QueryRowContext(ctx, "SELECT record FROM assets WHERE id=?", id))
 }
 func putAssetTx(ctx context.Context, tx *sql.Tx, a core.Asset) (core.Asset, error) {
-	var excluded int
-	if e := tx.QueryRowContext(ctx, "SELECT 1 FROM asset_exclusions WHERE path=?", a.Path).Scan(&excluded); e == nil {
-		return core.Asset{}, errors.New("file excluded from index")
-	}
 	old, e := decodeRow[core.Asset](tx.QueryRowContext(ctx, "SELECT record FROM assets WHERE path=?", a.Path))
 	if e == nil {
 		a.ID = old.ID
@@ -157,31 +152,36 @@ func (r *Repository) Assets(ctx context.Context, q core.AssetQuery) (core.AssetP
 	}
 	return page, rows.Err()
 }
-func (r *Repository) ForgetAsset(ctx context.Context, id string) error {
-	if e := r.CanDeleteAsset(ctx, id); e != nil {
-		return e
-	}
-	tx, e := r.db.BeginTx(ctx, nil)
-	if e != nil {
-		return e
+func (r *Repository) DeleteAssetFile(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
 	}
 	defer tx.Rollback()
-	var path string
-	if e = tx.QueryRowContext(ctx, "SELECT path FROM assets WHERE id=?", id).Scan(&path); e != nil {
-		return e
+	// Reserve the row before checking dependencies. Rollback restores it if
+	// the file has changed or another operation still needs it.
+	a, err := decodeRow[core.Asset](tx.QueryRowContext(ctx, "DELETE FROM assets WHERE id=? RETURNING record", id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
 	}
-	var n int
-	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM s3_upload_jobs WHERE asset_id=? AND state NOT IN ('done','failed','canceled')", id).Scan(&n); e != nil {
-		return e
+	if err != nil {
+		return err
 	}
-	if n > 0 {
-		return errors.New("cancel pending uploads before removing asset")
+	if err = canDeleteAsset(ctx, tx, id); err != nil {
+		return err
 	}
-	if _, e = tx.ExecContext(ctx, "INSERT OR IGNORE INTO asset_exclusions(path) VALUES(?)", path); e != nil {
-		return e
+	if _, err = tx.ExecContext(ctx, "DELETE FROM asset_sources WHERE asset_id=?", id); err != nil {
+		return err
 	}
-	if _, e = tx.ExecContext(ctx, "DELETE FROM assets WHERE id=?", id); e != nil {
-		return e
+	st, err := os.Lstat(a.Path)
+	if err == nil {
+		if a.Status == "missing" || !st.Mode().IsRegular() || st.Size() != a.Size || !st.ModTime().Equal(a.Modified) {
+			return errors.New("file changed; refresh and confirm again")
+		}
+		err = os.Remove(a.Path)
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("file was not deleted: %w", err)
 	}
 	return tx.Commit()
 }
@@ -481,10 +481,6 @@ func reconcilePublishedTx(ctx context.Context, tx *sql.Tx, path string, title st
 	if e != nil && !errors.Is(e, sql.ErrNoRows) {
 		return e
 	}
-	var ignored int
-	if tx.QueryRowContext(ctx, "SELECT 1 FROM asset_exclusions WHERE path=?", path).Scan(&ignored) == nil {
-		return nil
-	}
 	st, e := os.Lstat(path)
 	if e != nil || !st.Mode().IsRegular() {
 		return nil
@@ -524,22 +520,22 @@ func reconcilePublishedTx(ctx context.Context, tx *sql.Tx, path string, title st
 	return nil
 }
 
-func (r *Repository) CanDeleteAsset(ctx context.Context, id string) error {
+func canDeleteAsset(ctx context.Context, tx *sql.Tx, id string) error {
 	var clips int
-	if e := r.db.QueryRowContext(ctx, `SELECT count(*) FROM clip_batches WHERE settled=0 AND json_extract(record,'$.batch.plan.request.source.asset_id')=?`, id).Scan(&clips); e != nil {
+	if e := tx.QueryRowContext(ctx, `SELECT count(*) FROM clip_batches WHERE settled=0 AND json_extract(record,'$.batch.plan.request.source.asset_id')=?`, id).Scan(&clips); e != nil {
 		return e
 	}
 	if clips > 0 {
 		return errors.New("cancel dependent clip batches before deleting their source")
 	}
-	if e := r.db.QueryRowContext(ctx, "SELECT count(*) FROM clip_deliveries WHERE asset_id=? AND state!='enqueued'", id).Scan(&clips); e != nil {
+	if e := tx.QueryRowContext(ctx, "SELECT count(*) FROM clip_deliveries WHERE asset_id=? AND state!='enqueued'", id).Scan(&clips); e != nil {
 		return e
 	}
 	if clips > 0 {
 		return errors.New("pending clip delivery still needs this asset")
 	}
 	var n int
-	if e := r.db.QueryRowContext(ctx, "SELECT count(*) FROM s3_upload_jobs WHERE asset_id=? AND state NOT IN ('done','failed','canceled')", id).Scan(&n); e != nil {
+	if e := tx.QueryRowContext(ctx, "SELECT count(*) FROM s3_upload_jobs WHERE asset_id=? AND state NOT IN ('done','failed','canceled')", id).Scan(&n); e != nil {
 		return e
 	}
 	if n > 0 {
@@ -586,9 +582,4 @@ func (r *Repository) PendingUploads(ctx context.Context, limit int, allowed []st
 		out = append(out, j)
 	}
 	return out, rows.Err()
-}
-
-func (r *Repository) AllowAsset(ctx context.Context, path string) error {
-	_, e := r.db.ExecContext(ctx, "DELETE FROM asset_exclusions WHERE path=?", path)
-	return e
 }

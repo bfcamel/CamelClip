@@ -419,8 +419,6 @@ func (u *panelUI) executeWorkspaceAction() {
 		for _, id := range ids {
 			var e error
 			switch action {
-			case "forget":
-				e = w.Library.Forget(u.ctx, id)
 			case "delete-file":
 				e = w.Library.DeleteFile(u.ctx, id, true)
 			case "enqueue":

@@ -374,11 +374,6 @@ func libraryCLI(ctx context.Context, w *application.Workspace, pos []string, f c
 			return e
 		}
 		return emitJSON(a)
-	case "remove":
-		if !f.yes {
-			return errors.New("index removal requires --yes; file is kept")
-		}
-		return w.Library.Forget(ctx, pos[1])
 	case "delete-file":
 		return w.Library.DeleteFile(ctx, pos[1], f.yes)
 	case "show", "open", "reveal":
