@@ -18,7 +18,7 @@ import (
 	"github.com/bfcamel/CamelClip/internal/diagnostics"
 )
 
-const version = "0.15.0"
+const version = "0.16.0"
 
 var buildCommit = "development"
 

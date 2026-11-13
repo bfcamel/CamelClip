@@ -2,7 +2,7 @@
 
 Clip by Link creates independently playable fragments from one video URL or an existing library asset. Domain rules and execution belong to the independent Core/application layer; GUI, TUI and CLI use the same persisted plans and commands.
 
-**Availability:** the precise-processing increment is available in source/main and the locally updated application. The published v0.14.0 installers do not include it. No release or installer was rebuilt for this change.
+**Availability:** the precise-processing increment is available in source/main and the locally updated application. Included in the 0.16.0 release installers.
 
 ## Supported workflow
 

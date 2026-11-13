@@ -7,12 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/bfcamel/CamelClip/internal/installer"
+	"github.com/bfcamel/CamelClip/internal/installer/tools"
 )
 
 func main() {
@@ -34,8 +34,12 @@ func run() error {
 	source := flags.String("source", "", "directory containing manifest.json and payload (default executable directory)")
 	configDir := flags.String("config-dir", "", "workspace config directory for the active-session check")
 	require := flags.Bool("require-dependencies", false, "stop if required media tools are unavailable")
+	depsOnly := flags.String("dependencies", "", "plan, check, or install runtime dependencies only")
 	if e := flags.Parse(os.Args[1:]); e != nil {
 		return e
+	}
+	if *depsOnly != "" {
+		return tools.Dependencies(*depsOnly)
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments")
@@ -150,18 +154,12 @@ func run() error {
 		if _, e = installer.Load(*source); e != nil {
 			return e
 		}
-		missing := []string{}
-		for _, name := range []string{"yt-dlp", "ffmpeg", "ffprobe", "deno"} {
-			if _, e := exec.LookPath(name); e != nil {
-				missing = append(missing, name)
-			}
+		mode := "plan"
+		if *require {
+			mode = "check"
 		}
-		if len(missing) > 0 {
-			fmt.Println("Missing tools:", strings.Join(missing, ", "))
-			fmt.Println("Install these with your system package manager. Deno is recommended for YouTube. Setup does not install third-party tools.")
-			if *require {
-				return fmt.Errorf("dependency check failed")
-			}
+		if e = tools.Dependencies(mode); e != nil {
+			return e
 		}
 	}
 	if *configDir == "" {
@@ -191,6 +189,11 @@ func run() error {
 		v, _ := in.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(v)) != "y" {
 			return fmt.Errorf("canceled; use --yes for unattended setup")
+		}
+	}
+	if len(add) > 0 && !*require {
+		if e = tools.Dependencies("install"); e != nil {
+			return e
 		}
 	}
 	if e = installer.Apply(layout, installer.Options{Source: *source, Components: add, Remove: del, Uninstall: *uninstall, ConfigDir: *configDir}); e != nil {

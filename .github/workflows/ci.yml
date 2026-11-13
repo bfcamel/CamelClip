@@ -133,10 +133,23 @@ jobs:
       - name: Verify native Linux component maintenance
         run: python3 scripts/test_installers.py
 
+  windows-bootstrap:
+    name: Windows bootstrap validation
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate Windows PowerShell syntax
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path cmd/camelclip-wsl-setup/setup.ps1), [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { throw ($errors -join [Environment]::NewLine) }
+
   required:
     name: Required
     if: always()
-    needs: [quality, test, installers, linux-installers]
+    needs: [quality, test, installers, linux-installers, windows-bootstrap]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

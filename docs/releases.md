@@ -11,7 +11,7 @@ Releases are built locally. GitHub hosts the source and downloadable assets; pub
 
 ## 2. Validate and build
 
-Requirements: Go 1.26+, Python 3, yt-dlp, FFmpeg/ffprobe and, for relevant media workflows, Deno. macOS builds need Swift and the macOS SDK.
+Requirements: Go 1.26+, Python 3, yt-dlp, FFmpeg/ffprobe and Deno. macOS builds need Swift and the macOS SDK.
 
 ```sh
 python3 scripts/check_public_content.py
@@ -28,7 +28,7 @@ Use read-only macOS choice validation for the host architecture:
 python3 scripts/test_installer_choices.py dist/installers/<version>/camelclip_setup_<version>_macos_<arch>.pkg
 ```
 
-The installer release has **six payloads**: macOS arm64/amd64 `.pkg` files and four macOS/Linux user-setup archives, plus `SHA256SUMS`. Only files for that version belong in its checksum inventory. Debug Distribution XML and intermediate payload binaries are not release assets.
+The installer release has **eight payloads**: macOS arm64/amd64 `.pkg` files and four macOS/Linux user-setup archives and two Windows WSL bootstrap executables, plus `SHA256SUMS`. Only files for that version belong in its checksum inventory. Debug Distribution XML and intermediate payload binaries are not release assets.
 
 The legacy terminal-only build remains available separately:
 
@@ -49,7 +49,7 @@ For public macOS distribution, sign inner executables/app and outer package with
 ## 4. Upload, verify and publish
 
 1. Create a draft release targeting the exact validated source SHA with a unique version tag. Mark 0.x and evaluation builds as prereleases.
-2. Upload six payloads and `SHA256SUMS`. Verify remote names, sizes and server SHA-256 digests against the local build.
+2. Upload eight payloads and `SHA256SUMS`. Verify remote names, sizes and server SHA-256 digests against the local build.
 3. Review the English description, platform instructions, source SHA, remaining acceptance gaps, dependency requirements and known limitations.
 4. Publish only after the required acceptance is complete. An explicitly authorized experimental preview may be published with outstanding checks clearly documented; never describe it as production-ready.
 5. Verify that the public tag points to the expected source commit and every download is available.

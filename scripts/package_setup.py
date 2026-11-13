@@ -74,11 +74,20 @@ def component_manifest(directory, system, arch, binaries, app=None, commit='deve
         add(tui,'desktop','com.bfcamel.CamelClip.TUI.desktop',b'[Desktop Entry]\nType=Application\nName=CamelClip Terminal\nExec="@BIN_DESKTOP@/camelclip-tui"\nTerminal=true\nCategories=AudioVideo;\n',template=True)
     cli = component('cli')
     add(cli,'bin','camelclip',f'#!/bin/sh\nexec @DATA_SHELL@/runtime/camelclip "$@"\n'.encode(),0o755,True)
+    # Include Homebrew's standard Linux prefix even for desktop launches.
+    if system == 'linux':
+        for component in result['components']:
+            for entry in component['files']:
+                if entry['area'] == 'bin':
+                    launcher = directory / entry['source']
+                    data = launcher.read_bytes().replace(b'#!/bin/sh\n', b'#!/bin/sh\nexport PATH="$PATH:/home/linuxbrew/.linuxbrew/bin"\n', 1)
+                    launcher.write_bytes(data)
+                    entry.update(size=len(data), sha256=digest(data))
     manifest = directory/'manifest.json'
     manifest.write_text(json.dumps(result,sort_keys=True,indent=2)+'\n')
     (directory/'setup.sh').write_text('#!/bin/sh\nset -eu\ndir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\nexec "$dir/camelclip-setup" --source "$dir" "$@"\n')
     (directory/'setup.sh').chmod(0o755)
-    (directory/'README.txt').write_text('CamelClip component setup\n\nRun ./setup.sh for the interactive menu.\nOr: ./setup.sh --components gui,tui,cli --yes\nInstall for this user without sudo; no compilation or Python required.\nThe Linux GUI opens in your browser.\n\nUpdate: ./setup.sh --components cli --yes (retains and updates other installed choices)\nManage: ~/.local/bin/camelclip-setup --status\nRemove: ~/.local/bin/camelclip-setup --remove gui --yes\nUninstall: ~/.local/bin/camelclip-setup --uninstall --yes\nSettings and downloaded files are retained.\n\nChecksums detect corruption, not publisher identity. Only use a trusted distribution.\nMissing yt-dlp, ffmpeg/ffprobe and Deno are reported, never installed silently.\n')
+    (directory/'README.txt').write_text('CamelClip component setup\n\nRun ./setup.sh for the interactive menu.\nOr: ./setup.sh --components gui,tui,cli --yes\nApplication files belong to this user. Dependency installation may require sudo.\nThe Linux GUI opens in your browser.\n\nUpdate: ./setup.sh --components cli --yes (retains and updates other installed choices)\nManage: ~/.local/bin/camelclip-setup --status\nRemove: ~/.local/bin/camelclip-setup --remove gui --yes\nUninstall: ~/.local/bin/camelclip-setup --uninstall --yes\nSettings and downloaded files are retained.\n\nChecksums detect corruption, not publisher identity. Only use a trusted distribution.\nSetup checks yt-dlp, ffmpeg, ffprobe and Deno and provisions missing tools after confirmation.\n')
     return result
 
 def archive(directory, destination, epoch):
@@ -138,18 +147,10 @@ exit 0
 ''')
             (scripts/'preinstall').chmod(0o755)
             if name=='manager':
-                (scripts/'postinstall').write_text('''#!/bin/sh
-set -eu
-report='/Library/Application Support/CamelClip/installation/dependencies.txt'
-: > "$report"
-PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-export PATH
-for tool in yt-dlp ffmpeg ffprobe deno; do
- if command -v "$tool" >/dev/null 2>&1; then echo "OK: $tool" >> "$report"; else echo "MISSING: $tool" >> "$report"; fi
-done
-cat "$report"
-exit 0
-''');(scripts/'postinstall').chmod(0o755)
+                hook = scripts/'pkg-dependencies.sh'
+                shutil.copy2(ROOT/'scripts/pkg-dependencies.sh',hook)
+                pre = scripts/'preinstall'
+                pre.write_text(pre.read_text().replace('exit 0', '/bin/sh "$scriptdir/pkg-dependencies.sh" "$scriptdir/preflight"'))
             args=['pkgbuild','--root',str(root),'--identifier',IDENTIFIER+'.'+name,'--version',VERSION,'--install-location','/','--scripts',str(scripts)]
             if name=='gui':
                 plist=tmp/'bundles.plist'
@@ -157,8 +158,8 @@ exit 0
                 args+=['--component-plist',str(plist)]
             args.append(str(packages/(name+'.pkg')))
             subprocess.run(args,check=True)
-        (resources/'welcome.html').write_text('''<html><body><h1>CamelClip</h1><p>Choose GUI, TUI and/or CLI.</p><p>GUI is the graphical application. TUI opens a terminal workspace. CLI installs shell commands. Terminal files are shared automatically.</p><p>Existing components left unchecked are kept, not removed. Use camelclip-setup for explicit removal.</p><p>Close CamelClip before installing. User settings and media are retained.</p><p>This development package is unsigned. It does not download dependencies or start services.</p></body></html>''')
-        (resources/'conclusion.html').write_text('''<html><body><h1>Installation complete</h1><p>GUI: /Applications/CamelClip.app<br>TUI: /Applications/CamelClip TUI.command or camelclip-tui<br>CLI: camelclip help</p><p>Dependency report: /Library/Application Support/CamelClip/installation/dependencies.txt</p><p>Install missing yt-dlp, ffmpeg/ffprobe and Deno before downloading. Setup never installs Homebrew or third-party tools.</p><p>Manage: camelclip-setup --status<br>Remove: sudo camelclip-setup --remove gui --yes<br>Uninstall: sudo camelclip-setup --uninstall --yes</p><p>Existing ~/.local/bin/camelclip may take precedence in your PATH. Review `command -v camelclip` if you used an older installer.</p></body></html>''')
+        (resources/'welcome.html').write_text('''<html><body><h1>CamelClip</h1><p>Choose GUI, TUI and/or CLI.</p><p>GUI is the graphical application. TUI opens a terminal workspace. CLI installs shell commands. Terminal files are shared automatically.</p><p>Existing components left unchecked are kept, not removed. Use camelclip-setup for explicit removal.</p><p>Close CamelClip before installing. User settings and media are retained.</p><p>This development package is unsigned. Continue to install missing yt-dlp, FFmpeg/ffprobe and Deno with Homebrew. If Homebrew is missing, setup installs it first. A Terminal window may request administrator authentication.</p></body></html>''')
+        (resources/'conclusion.html').write_text('''<html><body><h1>Installation complete</h1><p>GUI: /Applications/CamelClip.app<br>TUI: /Applications/CamelClip TUI.command or camelclip-tui<br>CLI: camelclip help</p><p>Setup verified yt-dlp, FFmpeg, ffprobe and Deno.</p><p>Manage: camelclip-setup --status<br>Remove: sudo camelclip-setup --remove gui --yes<br>Uninstall: sudo camelclip-setup --uninstall --yes</p><p>Existing ~/.local/bin/camelclip may take precedence in your PATH. Review `command -v camelclip` if you used an older installer.</p></body></html>''')
         (resources/'license.txt').write_bytes((ROOT/'LICENSE').read_bytes())
         dist=ET.Element('installer-gui-script',{'minSpecVersion':'2'})
         ET.SubElement(dist,'title').text='CamelClip '+VERSION
@@ -212,7 +213,11 @@ def main():
         if args.pkg:
             if system!='darwin': parser.error('--pkg requires --os darwin')
             mac_package(stage,manifest,arch,Path(str(directory)+'.pkg'))
-    artifacts=[p for p in OUT.glob(f'camelclip_setup_{VERSION}_*') if p.suffix=='.pkg' or p.name.endswith('.tar.gz')]
+    if system=='linux':
+        archive_sha=digest(Path(str(directory)+'.tar.gz').read_bytes())
+        target=OUT/f'camelclip_setup_{VERSION}_windows_{arch}.exe'
+        subprocess.run(['go','build','-trimpath','-ldflags',f'-s -w -X main.version={VERSION} -X main.digest={archive_sha}','-o',str(target),'./cmd/camelclip-wsl-setup'],cwd=ROOT,env={**os.environ,'GOOS':'windows','GOARCH':arch,'CGO_ENABLED':'0'},check=True)
+    artifacts=[p for p in OUT.glob(f'camelclip_setup_{VERSION}_*') if p.suffix in ('.pkg','.exe') or p.name.endswith('.tar.gz')]
     (OUT/'SHA256SUMS').write_text(''.join(digest(p.read_bytes())+'  '+p.name+'\n' for p in sorted(artifacts)))
     print('Packaged',directory.name)
 

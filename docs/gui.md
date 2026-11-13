@@ -12,7 +12,7 @@ open dist/CamelClip.app
 
 Close any running CamelClip TUI/GUI first. The existing exclusive database lock prevents a second owner; startup shows the error in a macOS alert. Startup details are retained in `~/Library/Logs/CamelClip/gui-startup.log`.
 
-The first run asks for language, output directory and download preferences. You can run offline diagnostics before saving. Existing TUI settings bypass setup. Dependencies (`yt-dlp`, `ffmpeg`, `ffprobe`, and Deno when needed by the source) must be installed. Finder launch includes Homebrew's `/opt/homebrew/bin` and `/usr/local/bin` in PATH.
+The first run asks for language, output directory and download preferences. You can run offline diagnostics before saving. Existing TUI settings bypass setup. Dependencies (`yt-dlp`, `ffmpeg`, `ffprobe`, and Deno) must be installed. Finder launch includes Homebrew's `/opt/homebrew/bin` and `/usr/local/bin` in PATH.
 
 Downloads contains the queue, playlists and clips. Library contains local files. Cloud storage contains uploads and S3 profiles. Settings includes diagnostics.
 
@@ -91,7 +91,7 @@ In **Settings → Appearance**, choose **System**, **Light** or **Dark**, then s
 
 The **Clips** workspace creates reviewed batches from a URL or library asset. Use **Create clips** in library details, enter manual ranges or inspect source chapters, then review the plan before admitting it. Batch/source progress and independent fragment actions use the same Core service as CLI/TUI. See [clip usage and current boundaries](clips.md).
 
-## Media companions (source/main)
+## Media companions
 
 [Posters and subtitles](companions.md) use an interface-independent application
 service, scoped content-addressed files and immutable caption snapshots. See the

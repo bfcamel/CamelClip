@@ -65,9 +65,6 @@ func Collect(ctx context.Context, version, commit, configPath string, s config.S
 	r := Report{Version: version, Commit: commit, OS: runtime.GOOS, Arch: runtime.GOARCH, Go: runtime.Version(), Profile: Profile{s.Mode, s.Codec, s.Container, s.Audio, s.Browser != ""}}
 	for _, name := range []string{"yt-dlp", "ffmpeg", "ffprobe", "deno"} {
 		status := "FAIL"
-		if name == "deno" {
-			status = "WARN"
-		}
 		path, err := exec.LookPath(name)
 		if err != nil {
 			r.add(name, status, "Executable is missing from PATH.", "Install "+name+" and run doctor again; see README for your OS.")
@@ -84,6 +81,13 @@ func Collect(ctx context.Context, version, commit, configPath string, s config.S
 		}
 		// The executable can print arbitrary local data. Retain only numeric versions.
 		v := versionPattern.FindString(strings.SplitN(string(out), "\n", 2)[0])
+		if name == "deno" {
+			var major, minor int
+			if n, _ := fmt.Sscanf(v, "%d.%d", &major, &minor); n != 2 || major < 2 || (major == 2 && minor < 3) {
+				r.add(name, "FAIL", "Deno 2.3 or newer is required.", "Update Deno and run doctor again.")
+				continue
+			}
+		}
 		if v == "" {
 			v = "available"
 		}

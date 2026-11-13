@@ -8,7 +8,7 @@
 
 Other Linux distributions may work with the standalone CGO-free binary, but need separate validation before being included in the release support matrix. A POSIX terminal and `stty` are needed for the panel interface; pipes and `TERM=dumb` use numbered menus. SSH/headless environments support downloading. Opening files from the library requires a graphical session and xdg-utils on native Linux. WSL uses Windows PowerShell and Explorer instead. Browser cookie access uses the Linux runtime; Windows browser profiles are not integrated.
 
-Required runtime tools: yt-dlp and FFmpeg/ffprobe, with the selected encoders. Deno and yt-dlp EJS components are recommended for YouTube. External sites and authentication can change independently of CamelClip; a successful doctor run does not guarantee access to a video.
+Required runtime tools: yt-dlp, FFmpeg/ffprobe with the selected encoders, and Deno. YouTube may also require yt-dlp EJS components. External sites and authentication can change independently of CamelClip; a successful doctor run does not guarantee access to a video.
 
 The supported user interface consists of documented CLI commands/exit codes, settings and queue migrations. Internal Go interfaces are implementation boundaries, not a versioned public SDK. Exit codes: 0 success, 1 runtime/download/diagnostic failure, 2 invalid CLI usage, 130 canceled. Reports may contain WARN/INFO entries with exit 0; FAIL entries produce exit 1.
 
