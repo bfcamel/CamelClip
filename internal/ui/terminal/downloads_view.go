@@ -224,7 +224,7 @@ func (u *panelUI) render() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+" 5: "+tr("Плейлисты")+"  c: CPU/RAM", cyan)
+	c.text(1, 0, w-2, u.navigationHeader(), cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), normal)

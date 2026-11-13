@@ -292,6 +292,10 @@ func (u *panelUI) nextClipField() {
 		})
 		return
 	}
+	if u.clipStep == 6 {
+		u.pickBrowser("clip-browser", values[u.clipStep])
+		return
+	}
 	u.modal = "clip-field"
 	u.title = tr(labels[u.clipStep])
 	u.input = values[u.clipStep]

@@ -39,6 +39,8 @@ type panelUI struct {
 	focus, fileIndex, jobIndex, logOffset             int
 	width, height                                     int
 	modal, title, input, mode                         string
+	addBrowser                                        string
+	askQuality                                        bool
 	choices                                           []choice
 	choiceIndex, target                               int
 	quit, dirty                                       bool
@@ -307,8 +309,10 @@ func (u *panelUI) key(key string) {
 			u.selectedID = items[u.jobIndex].id
 		}
 	case "a":
-		u.showChoices("add-mode", tr("Добавить"), []choice{{tr("Видео"), "video"}, {tr("Аудио"), "audio"}}, "video")
+		u.showChoices("add-mode", tr("Добавить"), []choice{{tr("Видео"), "video"}, {tr("Аудио"), "audio"}, {tr("Видео: выбрать качество после анализа"), "manual"}}, "video")
 	case "v":
+		u.addBrowser = u.o.Cookies
+		u.askQuality = false
 		u.mode = "video"
 		u.modal = "url"
 		u.title = tr("Вставьте одну или несколько ссылок через пробел")
@@ -386,11 +390,15 @@ func (u *panelUI) open(path string, reveal bool) {
 	}
 }
 func (u *panelUI) settings() {
-	items := []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}, {resourceTitle("downloads") + ": " + resourceValue(*u.o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*u.o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*u.o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*u.o, "job-rate"), "job-rate"}}
+	items := []choice{{tr("Папка сохранения") + ": " + u.o.Out, "folder"}, {tr("Язык") + ": " + u.o.Lang, "language"}, {tr("Качество") + ": " + u.o.Quality, "default-quality"}, {tr("Формат аудио") + ": " + u.o.Audio, "audio"}, {tr("Кодек видео") + ": " + codecLabel(videoCodec(*u.o)), "video-codec"}, {tr("Формат видео") + ": " + strings.ToUpper(videoContainer(*u.o)), "video-format"}, {tr("Браузер cookies") + ": " + u.o.Cookies, "browser"}, {tr("Лимиты и хранилище"), "limits"}}
+	u.showChoices("settings", tr("Настройки"), items, "")
+}
+func (u *panelUI) limitsMenu() {
+	items := []choice{{resourceTitle("downloads") + ": " + resourceValue(*u.o, "downloads"), "downloads"}, {resourceTitle("processing-limit") + ": " + resourceDisplay(*u.o, "processing-limit"), "processing-limit"}, {resourceTitle("global-rate") + ": " + resourceValue(*u.o, "global-rate"), "global-rate"}, {resourceTitle("job-rate") + ": " + resourceValue(*u.o, "job-rate"), "job-rate"}}
 	for _, key := range extraResourceKeys {
 		items = append(items, choice{resourceTitle(key) + ": " + resourceValue(*u.o, key), key})
 	}
-	u.showChoices("settings", tr("Настройки"), items, "")
+	u.showChoices("limits", tr("Лимиты и хранилище"), items, "")
 }
 func (u *panelUI) save(candidate options) bool {
 	if err := saveSettings(u.config, candidate); err != nil {
@@ -455,7 +463,12 @@ func (u *panelUI) modalKey(key string) {
 		}
 		return
 	}
-	if u.modal == "url" || u.modal == "folder" || u.modal == "browser" || u.modal == "search" || u.workspaceInput() || strings.HasPrefix(u.modal, "resource:") {
+	if u.modal == "url" || u.modal == "folder" || u.modal == "search" || u.workspaceInput() || strings.HasPrefix(u.modal, "resource:") {
+		if u.modal == "url" && key == "tab" {
+			u.parents = append(u.parents, u.frame())
+			u.pickBrowser("add-browser", u.addBrowser)
+			return
+		}
 		if strings.HasPrefix(key, "paste:") {
 			value := strings.TrimPrefix(key, "paste:")
 			value = strings.ReplaceAll(strings.ReplaceAll(value, "\r", " "), "\n", " ")
@@ -493,19 +506,6 @@ func (u *panelUI) modalKey(key string) {
 				}
 				return
 			}
-			if u.modal == "browser" {
-				value := strings.TrimSpace(u.input)
-				if value != "" && !validBrowser(value) {
-					u.log(tr("неподдерживаемый браузер"))
-					return
-				}
-				candidate := *u.o
-				candidate.Cookies = value
-				if u.save(candidate) {
-					u.back()
-				}
-				return
-			}
 			if u.modal == "folder" {
 				path, e := writableFolder(u.input, u.home)
 				if e != nil {
@@ -526,6 +526,8 @@ func (u *panelUI) modalKey(key string) {
 			}
 			o := *u.o
 			o.Mode = u.mode
+			o.Cookies = u.addBrowser
+			o.chooseQuality = u.askQuality && u.mode == "video"
 			o.Formats = false
 			if e := validateLinks(urls, o); e != nil {
 				u.log(e.Error())
@@ -568,7 +570,7 @@ func (u *panelUI) modalKey(key string) {
 			u.back()
 			return
 		}
-		if kind == "settings" {
+		if kind == "settings" || kind == "limits" {
 			u.parents = append(u.parents, u.frame())
 		}
 		u.modal = ""
@@ -589,8 +591,39 @@ func (u *panelUI) modalKey(key string) {
 					}
 				}
 			}
+		case "navigation":
+			switch value {
+			case "library":
+				u.switchSection(1)
+			case "settings":
+				u.settings()
+			case "downloads":
+				u.showChoices("section", tr("Загрузки"), []choice{{tr("Задания"), "1"}, {tr("Плейлисты"), "5"}, {tr("Фрагменты"), "6"}}, "1")
+			case "cloud":
+				u.showChoices("section", tr("Облако"), []choice{{"S3", "3"}, {tr("Профили"), "4"}}, "3")
+			}
+		case "section":
+			u.switchSection(int(value[0] - '1'))
+		case "settings-browser":
+			candidate := *u.o
+			candidate.Cookies = value
+			if u.save(candidate) {
+				u.back()
+			}
+		case "add-browser":
+			u.addBrowser = value
+			u.back()
+		case "clip-browser":
+			u.clipField(value)
+		case "playlist-browser":
+			u.playlistField(value)
 		case "add-mode":
+			u.addBrowser = u.o.Cookies
+			u.askQuality = value == "manual"
 			u.mode = value
+			if u.askQuality {
+				u.mode = "video"
+			}
 			u.modal = "url"
 			u.title = tr("Вставьте одну или несколько ссылок через пробел")
 			u.input = ""
@@ -598,13 +631,13 @@ func (u *panelUI) modalKey(key string) {
 			for _, j := range u.pool.jobs {
 				if j.id == u.target && j.state == "choose" {
 					u.pool.choose(j.id, value)
-					candidate := *u.o
-					candidate.Quality = value
-					u.save(candidate)
+
 				}
 			}
-		case "settings":
+		case "settings", "limits":
 			switch value {
+			case "limits":
+				u.limitsMenu()
 			case "downloads", "processing-limit", "global-rate", "job-rate", "uploads", "upload-parts", "retry-attempts", "staging-files", "staging-bytes", "min-free", "upload-rate":
 				u.modal = "resource:" + value
 				u.title = resourceTitle(value)
@@ -614,9 +647,7 @@ func (u *panelUI) modalKey(key string) {
 			case "video-format":
 				u.showChoices("video-format", tr("Формат видео"), videoContainerChoices(videoCodec(*u.o)), videoContainer(*u.o))
 			case "browser":
-				u.modal = "browser"
-				u.title = tr("Браузер cookies: firefox[:профиль], пусто — отключить")
-				u.input = u.o.Cookies
+				u.pickBrowser("settings-browser", u.o.Cookies)
 			case "folder":
 				u.modal = "folder"
 				u.title = tr("Папка сохранения")
@@ -773,6 +804,10 @@ func (u *panelUI) back() {
 	u.choices = parent.choices
 	u.choiceIndex = parent.index
 	u.target = parent.target
+	if parent.modal == "limits" {
+		u.limitsMenu()
+		u.choiceIndex = minInt(parent.index, len(u.choices)-1)
+	}
 	if parent.modal == "settings" {
 		u.settings()
 		u.choiceIndex = minInt(parent.index, len(u.choices)-1)

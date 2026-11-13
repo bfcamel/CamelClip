@@ -18,6 +18,9 @@ func TestSetupSavesExplicitChoicesAndRetriesChecks(t *testing.T) {
 	defer useLanguage(old, "en")
 	home := t.TempDir()
 	o := testOptions(home)
+	o.Cookies = "firefox:previous"
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
 	path := filepath.Join(home, "config/settings.json")
 	var out bytes.Buffer
 	input := "1\n" + filepath.Join(home, "videos") + "\n2\n2\n2\n1\n"
@@ -33,14 +36,14 @@ func TestSetupSavesExplicitChoicesAndRetriesChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 || o.Codec != "hevc" || o.Container != "mkv" || o.Cookies != "firefox" || o.Lang != "en" {
+	if calls != 2 || o.Codec != "hevc" || o.Container != "mkv" || o.Cookies != "firefox:previous" || o.Lang != "en" {
 		t.Fatal(o, calls)
 	}
 	restored := testOptions(home)
 	if err = loadSettings(path, &restored); err != nil {
 		t.Fatal(err)
 	}
-	if restored.Cookies != "firefox" || restored.Out != o.Out {
+	if restored.Cookies != "firefox:previous" || restored.Out != o.Out {
 		t.Fatal(restored)
 	}
 	if !strings.Contains(out.String(), "Retry checks") {

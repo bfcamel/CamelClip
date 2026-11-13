@@ -25,6 +25,7 @@ import (
 	"github.com/bfcamel/CamelClip/internal/application"
 	"github.com/bfcamel/CamelClip/internal/config"
 	"github.com/bfcamel/CamelClip/internal/core"
+	"github.com/bfcamel/CamelClip/internal/desktop/browsers"
 	"github.com/bfcamel/CamelClip/internal/diagnostics"
 )
 
@@ -43,7 +44,7 @@ type Server struct {
 	path       string
 	mu         sync.Mutex // serializes settings and mutations, never held by background workers
 	settings   config.Settings
-	browsers   browserCatalog
+	browsers   browsers.Catalog
 	firstRun   bool
 	token      string
 	host       string
@@ -67,7 +68,7 @@ func New(ctx context.Context, deps Dependencies, path string, defaults config.Se
 		return nil, err
 	}
 	_, statErr := os.Stat(path)
-	s := &Server{browsers: discoverBrowsers(ctx), workspace: w, repository: repo, path: path, settings: settings, firstRun: os.IsNotExist(statErr), token: hex.EncodeToString(token), host: host, quit: quit, openMedia: deps.OpenMedia}
+	s := &Server{browsers: browsers.Discover(ctx), workspace: w, repository: repo, path: path, settings: settings, firstRun: os.IsNotExist(statErr), token: hex.EncodeToString(token), host: host, quit: quit, openMedia: deps.OpenMedia}
 	if err = s.apply(settings); err != nil {
 		w.Close()
 		return nil, err

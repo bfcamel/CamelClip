@@ -96,6 +96,17 @@ func (u *panelUI) resourceLine() string {
 	}
 	return "CPU " + cpu + " | RAM " + ram
 }
+func (u *panelUI) switchSection(section int) {
+	u.section = section
+	u.page = 0
+	u.assetIndex = 0
+	u.search = ""
+	u.workspaceRefresh()
+}
+func (u *panelUI) navigationHeader() string {
+	labels := []string{"Задания", "Медиатека", "S3", "Профили", "Плейлисты", "Фрагменты"}
+	return "CamelClip " + version + "  ·  " + tr(labels[u.section]) + "  ·  m: " + tr("Разделы") + "  ·  c: CPU/RAM"
+}
 func (u *panelUI) workspaceKey(key string) bool {
 	if key == "h" && (u.section == 1 || u.section == 5) {
 		u.companionPrompt()
@@ -105,11 +116,11 @@ func (u *panelUI) workspaceKey(key string) bool {
 		return false
 	}
 	if key == "1" || key == "2" || key == "3" || key == "4" || key == "5" || key == "6" {
-		u.section = int(key[0] - '1')
-		u.page = 0
-		u.assetIndex = 0
-		u.search = ""
-		u.workspaceRefresh()
+		u.switchSection(int(key[0] - '1'))
+		return true
+	}
+	if key == "m" {
+		u.showChoices("navigation", tr("Разделы"), []choice{{tr("Загрузки"), "downloads"}, {tr("Медиатека"), "library"}, {tr("Облако"), "cloud"}, {tr("Настройки"), "settings"}}, "")
 		return true
 	}
 	if key == "c" {
@@ -172,7 +183,7 @@ func (u *panelUI) workspaceKey(key string) bool {
 	case "?":
 		u.modal = "help"
 		u.title = tr("Справка")
-		u.input = tr("1: задания · 2: медиатека · 3: S3-отправки · 4: профили\nc: CPU/RAM · PgUp/PgDn: страницы · Space/A: выделение\nМедиатека: / поиск · t фильтры · b сортировка · g сканирование · i импорт\nEnter: сведения · o: показать · f: открыть файл · v: обновить\nu: отправить · d: убрать из индекса · D: удалить файл\nS3: r повтор с начала · x отменить · z очистить multipart\nПрофили: n создать · e изменить · k заменить ключи · u разблокировать\nl заблокировать · m сменить пароль · R сбросить профили\nt проверить чтение · w проверить запись · a автоотправка · p включить/отключить")
+		u.input = tr("1: задания · 2: медиатека · 3: S3-отправки · 4: профили\nc: CPU/RAM · PgUp/PgDn: страницы · Space/A: выделение\nМедиатека: / поиск · t фильтры · b сортировка · g сканирование · i импорт\nEnter: сведения · o: показать · f: открыть файл · v: обновить\nu: отправить · D: удалить файл\nS3: r повтор с начала · x отменить · z очистить multipart\nПрофили: n создать · e изменить · k заменить ключи · u разблокировать\nl заблокировать · m сменить пароль · R сбросить профили\nt проверить чтение · w проверить запись · a автоотправка · p включить/отключить")
 		u.detailOffset = 0
 		return true
 	case "space", " ":
@@ -434,7 +445,7 @@ func (u *panelUI) renderWorkspace() {
 		return
 	}
 	c := newCanvas(w, h)
-	c.text(1, 0, w-2, "CAMELCLIP "+version+"  1: "+tr("Задания")+"  2: "+tr("Медиатека")+"  3: S3  4: "+tr("Профили")+" 5: "+tr("Плейлисты")+" 6: "+tr("Фрагменты"), cyan)
+	c.text(1, 0, w-2, u.navigationHeader(), cyan)
 	if w < 39 || h < 9 {
 		c.text(1, 2, w-2, tr("Увеличьте терминал: минимум 40 × 10."), normal)
 		c.text(1, 4, w-2, "q: "+tr("Выход"), dim)

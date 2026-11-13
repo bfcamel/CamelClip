@@ -72,3 +72,9 @@ TUI Settings expose the same total-budget and per-job controls. The application 
 [Posters and subtitles](companions.md) use an interface-independent application
 service, scoped content-addressed files and immutable caption snapshots. See the
 linked guide for commands, desktop/terminal workflows, limits and remaining stages.
+
+## Interactive terminal workspace
+
+Press **m** for Downloads (queue, playlists and clips), Library, Cloud (uploads and profiles), or Settings. Keys **1–6** still open individual views directly. **c** shows live CPU and memory. In Settings, resource limits are grouped under Limits and storage.
+
+Press **v** to paste links using the configured maximum height. To choose quality after inspection, use **a** and select that video mode explicitly. Press **Tab** in the link field to override browser cookies for this batch. The same detected-profile selector is used for setup, settings, clips and playlists. A saved disabled choice stays disabled on upgrade.

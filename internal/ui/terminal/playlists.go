@@ -235,6 +235,10 @@ func (u *panelUI) nextPlaylistField() {
 		u.background(func() error { _, e := u.pool.workspace.Playlists.Save(u.ctx, candidate); return e })
 		return
 	}
+	if u.playlistStep == 10 {
+		u.pickBrowser("playlist-browser", values[u.playlistStep])
+		return
+	}
 	u.modal = "playlist-field"
 	u.title = tr(labels[u.playlistStep])
 	u.input = values[u.playlistStep]
