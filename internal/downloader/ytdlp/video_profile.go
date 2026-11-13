@@ -6,6 +6,7 @@ package ytdlp
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -78,6 +79,9 @@ func verifyVideoProfile(ctx context.Context, path string, o options) error {
 	for _, stream := range info.Streams {
 		if stream.Type == "video" && !video {
 			video = true
+			if limit, err := strconv.Atoi(o.Quality); err == nil && (stream.Height <= 0 || stream.Height > limit) {
+				return fmt.Errorf("output height %d is outside the requested limit of %d", stream.Height, limit)
+			}
 			if stream.Codec != codec || stream.Pixel != "yuv420p" {
 				return fmt.Errorf("output does not match selected video codec %s", codec)
 			}

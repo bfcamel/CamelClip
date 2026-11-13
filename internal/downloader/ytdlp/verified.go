@@ -22,9 +22,10 @@ import (
 
 type probeResult struct {
 	Streams []struct {
-		Type  string `json:"codec_type"`
-		Codec string `json:"codec_name"`
-		Pixel string `json:"pix_fmt"`
+		Type   string `json:"codec_type"`
+		Codec  string `json:"codec_name"`
+		Pixel  string `json:"pix_fmt"`
+		Height int    `json:"height"`
 	} `json:"streams"`
 	Format struct {
 		Duration string `json:"duration"`
