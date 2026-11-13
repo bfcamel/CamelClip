@@ -44,6 +44,12 @@ The installer build places Linux GUI binaries in `dist/build/`; the user install
 
 The server listens only on a random IPv4 loopback port and uses a random per-process session token. API requests check the session token, Host and Origin. Nothing is hosted externally. `--no-open` prints the private local launch URL for debugging; do not share it. `CAMELCLIP_CONFIG_DIR` permits an isolated workspace, just as with TUI.
 
+### Browser cookies
+
+On first GUI setup, CamelClip suggests the system browser when it detects a supported local cookie store. Save the settings to use the suggestion, or choose **Do not use cookies**. Settings that were already saved, including an empty browser selection, keep their previous behavior. The selector also appears in Add links, playlists and clips. A selection made there applies to that request.
+
+Discovery checks file metadata at startup. It does not read cookie contents or install software. Explicit profiles are listed separately. When the system browser has multiple profiles, its browser-level option lets yt-dlp choose its profile. Access to cookies at download time still depends on OS permissions. Under WSL the list reflects Linux profiles and the Linux desktop browser setting.
+
 ## Windows via WSL 2
 
 Use a WSL 2 distribution with Windows interoperability enabled. Install Go (see [go.mod](../go.mod)), yt-dlp, FFmpeg/ffprobe and any needed site-specific tools inside the distribution. From the repository root in WSL, build the current application:

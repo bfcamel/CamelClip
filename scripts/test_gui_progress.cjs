@@ -40,3 +40,8 @@ assert.match(element.innerHTML,/&lt;script&gt;unsafe&lt;\/script&gt;/);
 assert.match(element.innerHTML,/data-id="real-asset"/);
 assert.doesNotMatch(element.innerHTML,/<script>/);
 console.log('Clip navigation, precise time display, escaping and per-asset actions passed.');
+
+vm.runInContext("state={settings:{cookies_browser:''},browsers:{suggested:'chrome',options:[{value:'chrome',label:'Chrome'}]}}",sandbox);
+assert.match(vm.runInContext('settingsFields(true)',sandbox),/value="chrome" selected/);
+assert.doesNotMatch(vm.runInContext('settingsFields(false)',sandbox),/value="chrome" selected/);
+assert.match(vm.runInContext("browserSelect('firefox:previous')",sandbox),/value="firefox:previous" selected/);
