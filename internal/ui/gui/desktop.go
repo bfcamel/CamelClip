@@ -12,12 +12,18 @@ import (
 	"strings"
 
 	"github.com/bfcamel/CamelClip/internal/config"
+	"github.com/bfcamel/CamelClip/internal/desktop/wsl"
 )
 
 func Defaults(home string) config.Settings {
 	return config.Defaults(filepath.Join(downloadsDirectory(home), "CamelClip"))
 }
 func downloadsDirectory(home string) string {
+	if wsl.Active() {
+		if dir := wsl.Downloads(); dir != "" {
+			return dir
+		}
+	}
 	if runtime.GOOS == "linux" {
 		dir := os.Getenv("XDG_CONFIG_HOME")
 		if dir == "" {
@@ -51,6 +57,9 @@ func OpenMedia(ctx context.Context, path string, reveal bool) error {
 			return fmt.Errorf("cannot reveal a video: path is not a regular file")
 		}
 	}
+	if wsl.Active() {
+		return wsl.OpenMedia(ctx, path, reveal)
+	}
 	if runtime.GOOS == "darwin" {
 		args := []string{path}
 		if reveal {
@@ -64,6 +73,9 @@ func OpenMedia(ctx context.Context, path string, reveal bool) error {
 	return exec.CommandContext(ctx, "xdg-open", path).Run()
 }
 func OpenBrowser(ctx context.Context, url string) error {
+	if wsl.Active() {
+		return wsl.OpenBrowser(ctx, url)
+	}
 	command := "xdg-open"
 	if runtime.GOOS == "darwin" {
 		command = "open"

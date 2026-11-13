@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added Windows browser, Explorer and Downloads integration for source builds running under WSL 2.
+- Grouped desktop navigation and made automatic capped video quality the default in Add links.
+- Added clip creation and media companion workflows.
+
 ## 0.14.0 — 2026-10-22 (preview)
 
 - Follow any number of persistent YouTube playlists with new-only or full initial synchronization, durable video identity, bounded scanning/admission and shared materializations.

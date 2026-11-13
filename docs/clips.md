@@ -21,7 +21,7 @@ The current worker handles batches and fragments sequentially, sharing download/
 
 ## GUI
 
-Open **Clips → Create clips**, or choose **Create clips** in a library file's details. Select **Source URL** or **Library asset**, then provide the URL or asset ID. Existing library details show the asset ID.
+Open **Downloads → Clips → Create clips**, or choose **Create clips** in a library file's details. Select **Source URL** or **Library asset**, then provide the URL or asset ID. Existing library details show the asset ID.
 
 Enter one interval per line:
 

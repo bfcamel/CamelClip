@@ -69,7 +69,7 @@ These are internal module APIs intended for frontends in this repository. They d
 
 ## Operating-system integration and diagnostics
 
-The terminal frontend selects `platform_darwin.go` or `platform_linux.go` at build time. They own desktop opening, preferred-language fallback, dependency hints and default Downloads locations. Linux reads XDG user-directory data without executing it. Shared Unix process-group cancellation and flock-based queue/staging locks are used on both supported systems. Windows needs additional implementations before it can be built.
+The terminal frontend selects `platform_darwin.go` or `platform_linux.go` at build time. They own desktop opening, preferred-language fallback, dependency hints and default Downloads locations. Native Linux reads XDG user-directory data without executing it. Under WSL, GUI and terminal frontends share the Windows desktop adapter in `internal/desktop/wsl`. It converts paths with wslpath and delegates opening and Downloads discovery to Windows PowerShell. Shared Unix process-group cancellation and flock-based queue/staging locks are used on both supported systems. Windows needs additional implementations before it can be built.
 
 `diagnostics` is independent of the frontend and produces a typed offline report. It probes tools, selected encoders, storage and read-only SQLite integrity, retaining only safe metadata. It never uses a downloader or browser cookies. The terminal renders this report as text or JSON; the GUI uses it directly.
 

@@ -46,7 +46,8 @@ After building all installer targets, `python3 scripts/test_installers.py` valid
 | --- | --- | --- |
 | macOS arm64 application/installer | Race suite, native CLI/user installs, archive tests and read-only package choice evaluation | System-wide installation on a clean system/account |
 | macOS Intel | Cross-build and artifact inspection | Native runtime and installer acceptance |
-| Linux arm64/amd64 | Cross-build, ELF/manifest checks and common installer unit tests | Native setup, browser/desktop integration and runtime acceptance |
+| Linux arm64/amd64 | Native x86-64 CI runtime and installer checks, ARM64 cross-build | ARM64 runtime and graphical desktop acceptance |
+| Windows via WSL 2 | Adapter tests with simulated Windows commands and Linux application builds | Real Windows browser launch, Unicode and redirected Downloads folders, Explorer selection and Quit |
 | Public distribution | Versioned artifacts and checked hashes | Apple signing and notarization |
 | S3 | Local API emulator | Production provider/account-specific acceptance |
 

@@ -20,7 +20,7 @@ Add links uses automatic quality selection by default. A numeric video height is
 
 Click the CPU/RAM button for each logical CPU. Download progress is separated into download, processing and verification. Select rows for bulk actions. Pending jobs may be paused; active processes can be canceled and retried. History removal keeps files; physical library deletion has a separate confirmation.
 
-S3 uses the existing locally encrypted vault. Initialize/unlock it in Profiles, add a destination and credentials, and review computed object keys from Library before submitting uploads. Custom endpoints require the existing conditional-write test. Credentials are never returned to the frontend after saving.
+S3 uses the existing locally encrypted vault. Initialize/unlock it in Cloud storage → Profiles, add a destination and credentials, and review computed object keys from Library before submitting uploads. Custom endpoints require the existing conditional-write test. Credentials are never returned to the frontend after saving.
 
 Use Quit to stop the application and save resumable work. Closing the native window also shuts down the workspace. Recovery follows the same rules as TUI. This build is local, unsigned and not notarized.
 
@@ -43,6 +43,21 @@ go build -o dist/build/camelclip-gui ./cmd/camelclip-gui
 The installer build places Linux GUI binaries in `dist/build/`; the user installer exposes `camelclip-gui` and uses the default browser. Keep the process running and choose Quit inside the UI when finished; closing a browser tab alone does not terminate the backend. File/folder paths can be entered manually; macOS's native host also provides system pickers.
 
 The server listens only on a random IPv4 loopback port and uses a random per-process session token. API requests check the session token, Host and Origin. Nothing is hosted externally. `--no-open` prints the private local launch URL for debugging; do not share it. `CAMELCLIP_CONFIG_DIR` permits an isolated workspace, just as with TUI.
+
+## Windows via WSL 2
+
+Use a WSL 2 distribution with Windows interoperability enabled. Install Go (see [go.mod](../go.mod)), yt-dlp, FFmpeg/ffprobe and any needed site-specific tools inside the distribution. From the repository root in WSL, build the current application:
+
+```sh
+mkdir -p ~/.local/bin
+go build -o ~/.local/bin/camelclip-gui ./cmd/camelclip-gui
+go build -o ~/.local/bin/camelclip ./cmd/camelclip
+~/.local/bin/camelclip-gui --browser
+```
+
+For subsequent launches, double-click [Start-WSL.cmd](../Start-WSL.cmd) from Windows or create a shortcut to it. It launches the default WSL distribution. For another distribution, run `wsl.exe -d Ubuntu --cd ~ --exec sh -c "exec ~/.local/bin/camelclip-gui --browser"` from Windows, substituting its registered name. Quit from the CamelClip menu before closing the launcher.
+
+The UI opens in the Windows default browser. New settings use the Windows Downloads known folder (including redirected Downloads) with a CamelClip subfolder when Windows returns a usable path. Otherwise CamelClip uses the Linux Downloads location. Existing output settings are retained. Enter paths in Linux form, for example `/mnt/c/Users/Alex/Videos`. Play opens the file with its Windows association and Reveal selects it in Explorer. Workspace settings, history and credentials belong to the Linux user of that distribution.
 
 ## Validation
 

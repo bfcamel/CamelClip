@@ -29,6 +29,8 @@ Use the next `.pkg` for system updates. The setup engine refuses direct user-sty
 
 These are local unsigned development packages. Public distribution still requires the app/executables and package to be signed with appropriate identities and notarized. Setting `INSTALLER_SIGN_ID` signs the outer package if the release builder has that identity; it does not sign/notarize the inner app automatically. Never disable Gatekeeper as part of installation.
 
+Windows users can build and launch the current Linux application inside [WSL 2](gui.md#windows-via-wsl-2). Existing preview archives predate this integration.
+
 ## Linux: interactive or unattended user setup
 
 Download/extract the matching `camelclip_setup_0.15.0_linux_amd64.tar.gz` or `camelclip_setup_0.15.0_linux_arm64.tar.gz`, enter the extracted directory and run:

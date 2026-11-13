@@ -26,7 +26,7 @@ Choose your operating system and architecture. Each installer lets you select **
 
 macOS user-scoped archives and [SHA256SUMS](https://github.com/bfcamel/CamelClip/releases/download/v0.14.0/SHA256SUMS) are available on the release page. Installer text and project documentation are English-only; the application supports English and Russian.
 
-**Preview status:** builds are unsigned and not notarized by Apple. Native Linux/Intel acceptance and system-wide macOS installation acceptance remain pending. See [platform support](docs/support.md) before use. Windows and a server edition are not available.
+**Preview status:** builds are unsigned and not notarized by Apple. Linux desktop and macOS Intel acceptance and system-wide macOS installation acceptance remain pending. See [platform support](docs/support.md) before use. Windows users can run the current source build through [WSL 2](docs/gui.md#windows-via-wsl-2). A native Windows installer and server edition are unavailable.
 
 ### macOS
 
