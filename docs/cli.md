@@ -29,10 +29,10 @@ These commands use a separate parser. Put `queue`, `library` or `storage` first.
 | Group | Actions |
 | --- | --- |
 | `queue` | `list`, `add URL...`, `priority ID low|normal|high`, `reorder ID up|down|first|last`, `pause`, `resume`, `retry`, `cancel`, `remove ID --yes` |
-| `library` | `list`, `search TEXT`, `scan [DIR] [--recursive]`, `import FILE`, `refresh ID`, `remove ID --yes`, `delete-file ID --yes`, `show`, `open`, `reveal` |
+| `library` | `list`, `search TEXT`, `scan [DIR] [--recursive]`, `import FILE`, `refresh ID`, `delete-file ID --yes`, `show`, `open`, `reveal` |
 | `storage` | `profiles`, `uploads`, `upload ASSET_ID --profile ID[,ID]`, `unlock`, `change-password`, `reset --yes` |
 
-Queue actions accept comma-separated job IDs. Bulk results include per-item errors; actions exit nonzero on partial failure. Automation should inspect the full result array. `queue add` only persists new work; open the TUI to execute it. `queue list` does not start downloads. `library remove` excludes an index entry without deleting its file; `delete-file` is a separate destructive action.
+Queue actions accept comma-separated job IDs. Bulk results include per-item errors; actions exit nonzero on partial failure. Automation should inspect the full result array. `queue add` only persists new work; open the TUI to execute it. `queue list` does not start downloads. `library refresh` reports a missing file as missing. Confirmed `delete-file` removes its library entry and deletes the local file if present.
 
 Library list/search flags include `--limit`, `--offset`, `--kind`, `--status`, `--container`, `--min-height`, `--sort`, `--since`, `--until`. `--json` is supported for relevant listing/detail/transfer commands; not every action emits JSON. Consult [S3 documentation](s3.md) for profile flags, private password descriptors, upload verification and confirmation requirements.
 

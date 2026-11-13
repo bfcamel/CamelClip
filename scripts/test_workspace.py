@@ -82,12 +82,18 @@ with tempfile.TemporaryDirectory(prefix='camelclip-workspace-') as directory:
         assert list(objects.values())==[source.read_bytes()]
         again=json.loads(run(['storage','upload',asset['id'],'--profile',profile,'--json'],[('--password-fd',password)]).stdout)
         assert again[0]['id']==uploaded[0]['id'], 'Duplicate upload job created'
-        run(['library','remove',asset['id'],'--yes'])
-        assert source.exists(), 'Index removal deleted file'
+        original=source.read_bytes()
+        source.unlink()
+        assert json.loads(run(['library','refresh',asset['id']]).stdout)['status']=='missing'
+        run(['library','delete-file',asset['id'],'--yes'])
+        assert json.loads(run(['library','list','--json']).stdout)['total']==0
+        source.write_bytes(original)
         run(['library','scan',str(root)])
-        assert json.loads(run(['library','list','--json']).stdout)['total']==0, 'Scan restored excluded asset'
-        run(['library','import',str(source)])
-        assert json.loads(run(['library','list','--json']).stdout)['total']==1
+        restored=json.loads(run(['library','list','--json']).stdout)
+        assert restored['total']==1
+        run(['library','delete-file',restored['items'][0]['id'],'--yes'])
+        assert not source.exists()
+        assert json.loads(run(['library','list','--json']).stdout)['total']==0
         dbpath=root/'config/queue.sqlite3'
         for file in dbpath.parent.glob('queue.sqlite3*'):
             data=file.read_bytes()
@@ -97,6 +103,6 @@ with tempfile.TemporaryDirectory(prefix='camelclip-workspace-') as directory:
         assert b'private-secret' not in config and b'127.0.0.1' not in config
         with sqlite3.connect(dbpath) as db:
             assert db.execute('pragma integrity_check').fetchone()[0]=='ok'
-        print('Workspace CLI, real media index, local S3, idempotence, exclusion/import and encrypted storage passed.')
+        print('Workspace CLI, real media index, local S3, idempotence, missing-file refresh and deletion and encrypted storage passed.')
     finally:
         server.shutdown();server.server_close()

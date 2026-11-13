@@ -82,22 +82,25 @@ func TestPublishedAssetsSurviveHistoryRemovalAndAutoUploadIsIdempotent(t *testin
 		t.Fatal("secret in public profile")
 	}
 }
-func TestAssetExclusionAndPendingUploadProtection(t *testing.T) {
+func TestDeleteMissingAssetAllowsRediscovery(t *testing.T) {
 	ctx := context.Background()
 	r, e := Open(ctx, t.TempDir())
 	if e != nil {
 		t.Fatal(e)
 	}
 	defer r.Close()
-	a, e := r.PutAsset(ctx, core.Asset{Path: "/tmp/camelclip-test.mp4", Title: "Test", Status: "available", Added: time.Now()})
+	a, e := r.PutAsset(ctx, core.Asset{Path: filepath.Join(t.TempDir(), "absent.mp4"), Title: "Test", Status: "available", Added: time.Now()})
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = r.ForgetAsset(ctx, a.ID); e != nil {
+	if e = r.DeleteAssetFile(ctx, a.ID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = r.PutAsset(ctx, a); e == nil {
-		t.Fatal("forgotten asset silently resurrected")
+	if _, e = r.Asset(ctx, a.ID); e == nil {
+		t.Fatal("missing entry retained")
+	}
+	if _, e = r.PutAsset(ctx, a); e != nil {
+		t.Fatal(e)
 	}
 }
 

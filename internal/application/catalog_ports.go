@@ -12,9 +12,7 @@ type AssetRepository interface {
 	Assets(context.Context, core.AssetQuery) (core.AssetPage, error)
 	Asset(context.Context, string) (core.Asset, error)
 	PutAsset(context.Context, core.Asset) (core.Asset, error)
-	AllowAsset(context.Context, string) error
-	ForgetAsset(context.Context, string) error
-	CanDeleteAsset(context.Context, string) error
+	DeleteAssetFile(context.Context, string) error
 	MarkMissing(context.Context, string, []string, bool) (int, error)
 }
 type ProfileRepository interface {

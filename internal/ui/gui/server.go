@@ -449,12 +449,6 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		result, err = ws.Library.Import(ctx, a.Path)
 	case "refresh":
 		result, err = ws.Library.Refresh(ctx, a.ID)
-	case "forget":
-		if !a.Confirm {
-			err = errors.New("confirmation required")
-		} else {
-			err = ws.Library.Forget(ctx, a.ID)
-		}
 	case "delete-file":
 		err = ws.Library.DeleteFile(ctx, a.ID, a.Confirm)
 	case "open", "reveal":
@@ -543,7 +537,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			err = errors.New("provide 1..500 asset IDs")
 			break
 		}
-		if (a.Value == "forget" || a.Value == "delete-file") && !a.Confirm {
+		if a.Value == "delete-file" && !a.Confirm {
 			err = errors.New("confirmation required")
 			break
 		}
@@ -551,8 +545,6 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		for _, id := range a.AssetIDs {
 			var e error
 			switch a.Value {
-			case "forget":
-				e = ws.Library.Forget(ctx, id)
 			case "delete-file":
 				e = ws.Library.DeleteFile(ctx, id, a.Confirm)
 			case "refresh":

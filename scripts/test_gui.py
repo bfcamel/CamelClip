@@ -120,6 +120,13 @@ with tempfile.TemporaryDirectory(prefix='camelclip-gui-smoke-') as tmp:
             assert not restored['firstRun'] and restored['locked'] and restored['hasVault']
             assert restored['profiles'][0]['id'] == profile_id
             assert request('library')['total'] == 1
+            Path(asset['path']).unlink()
+            for operation in ('refresh', 'delete-file'):
+                results = action('library-bulk', assetIds=[asset['id']], value=operation, confirm=True)
+                assert results == [{'id': asset['id']}], results
+                if operation == 'refresh':
+                    assert request('library')['items'][0]['status'] == 'missing'
+            assert request('library')['total'] == 0
             action('quit', confirm=True)
             process.wait(timeout=20)
             assert process.returncode == 0

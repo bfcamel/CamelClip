@@ -307,21 +307,17 @@ func (u *panelUI) libraryKey(key string) bool {
 		}
 	case "u":
 		u.beginUpload()
-	case "d", "D":
+	case "D":
 		if a != nil {
 			u.actionIDs = u.libraryIDs()
-			u.action = "forget"
-			title := fmt.Sprintf(tr("Убрать из индекса: %d? Файлы сохранятся."), len(u.actionIDs))
-			if key == "D" {
-				u.action = "delete-file"
-				size := int64(0)
-				for _, id := range u.actionIDs {
-					if item, e := w.Library.Get(u.ctx, id); e == nil {
-						size += item.Size
-					}
+			u.action = "delete-file"
+			size := int64(0)
+			for _, id := range u.actionIDs {
+				if item, e := w.Library.Get(u.ctx, id); e == nil {
+					size += item.Size
 				}
-				title = fmt.Sprintf(tr("Удалить с диска: %d файлов (%s)?"), len(u.actionIDs), fileSize(size))
 			}
+			title := fmt.Sprintf(tr("Удалить с диска: %d файлов (%s)?"), len(u.actionIDs), fileSize(size))
 			u.showChoices("workspace-confirm", title, []choice{{tr("Нет"), "no"}, {tr("Да"), "yes"}}, "no")
 		}
 	default:
@@ -508,7 +504,7 @@ func (u *panelUI) renderWorkspace() {
 		c.text(2, 5, w-4, tr("Нет записей"), dim)
 	}
 	c.text(1, h-2, w-2, tr("1–6:экраны c:CPU/RAM Enter:сведения ?:помощь q:выход"), cyan)
-	footer := tr("g:сканировать i:импорт u:S3 d:убрать D:удалить /:поиск h:субтитры")
+	footer := tr("g:сканировать i:импорт u:S3 D:удалить /:поиск h:субтитры")
 	if u.section == 2 {
 		footer = tr("r:повтор x:отмена z:очистить multipart")
 	}
