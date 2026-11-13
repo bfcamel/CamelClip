@@ -45,3 +45,16 @@ vm.runInContext("state={settings:{cookies_browser:''},browsers:{suggested:'chrom
 assert.match(vm.runInContext('settingsFields(true)',sandbox),/value="chrome" selected/);
 assert.doesNotMatch(vm.runInContext('settingsFields(false)',sandbox),/value="chrome" selected/);
 assert.match(vm.runInContext("browserSelect('firefox:previous')",sandbox),/value="firefox:previous" selected/);
+
+const resourcePanel={innerHTML:''};
+let resourceDialogOpen=true;
+sandbox.document.querySelector=selector=>selector==='#modal[open] #resource-metrics' && resourceDialogOpen?resourcePanel:null;
+vm.runInContext('refreshResourceDialog({CPU:12,Cores:[11,13],RAMUsed:2048})',sandbox);
+assert.match(resourcePanel.innerHTML,/12\.0%/);
+vm.runInContext('refreshResourceDialog({CPU:34,Cores:[32,36],RAMUsed:4096})',sandbox);
+assert.match(resourcePanel.innerHTML,/34\.0%/);
+assert.match(resourcePanel.innerHTML,/36\.0%/);
+assert.match(resourcePanel.innerHTML,/4\.0 KiB/);
+resourceDialogOpen=false;
+vm.runInContext('refreshResourceDialog({CPU:78})',sandbox);
+assert.doesNotMatch(resourcePanel.innerHTML,/78\.0%/);
